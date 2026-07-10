@@ -1,0 +1,6 @@
+- giallo: #f5c86e
+- rosa: #e5977a
+- ottanio: #5ba59f
+- marrone: #8e514e
+
+mm 11x22x7

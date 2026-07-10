@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Age of Comics: The Golden Years</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ======================= TITLE ======================= -->
+  <section id="screen-title" class="screen active">
+    <div class="title-wrap">
+      <img id="title-art" src="assets/title.png" alt="Age of Comics">
+      <div class="title-text">
+        <h1>AGE OF COMICS</h1>
+        <h2>THE GOLDEN YEARS</h2>
+        <p class="title-sub">A publishing tycoon yarn set in Manhattan, 1938&ndash;1954</p>
+        <button id="btn-new-game" class="btn btn-big">START THE PRESSES</button>
+        <button id="btn-how" class="btn">HOW TO PLAY</button>
+        <p class="credits">Based on the board game by S&oacute;nia Gon&ccedil;alves &amp; Giacomo Cimini &middot; Artwork by Laura Guglielmo<br>Videogame reinterpretation in glorious 16-bit</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= SETUP ======================= -->
+  <section id="screen-setup" class="screen">
+    <div class="setup-bg"></div>
+    <div class="setup-panel">
+      <h2 class="setup-masthead">&#9733; THE DAILY SPINNER &#9733;<br><span>WANTED: PUBLISHER WITH NERVES OF STEEL</span></h2>
+      <div id="setup-colors" class="pub-grid"></div>
+      <div class="setup-options">
+        <div class="setup-row">
+          <label>RIVALS</label>
+          <div class="choice-group" id="setup-rivals">
+            <button class="choice" data-v="1">1</button>
+            <button class="choice active" data-v="2">2</button>
+            <button class="choice" data-v="3">3</button>
+          </div>
+        </div>
+        <div class="setup-row">
+          <label>DIFFICULTY</label>
+          <div class="choice-group" id="setup-difficulty">
+            <button class="choice" data-v="easy">CUB REPORTER</button>
+            <button class="choice active" data-v="normal">EDITOR</button>
+            <button class="choice" data-v="hard">MOGUL</button>
+          </div>
+        </div>
+        <div class="setup-row">
+          <label>RIP-OFFS</label>
+          <div class="choice-group" id="setup-ripoffs">
+            <button class="choice active" data-v="on">SHAMELESS</button>
+            <button class="choice" data-v="off">ETHICAL</button>
+          </div>
+        </div>
+      </div>
+      <div class="setup-rivals-preview" id="setup-preview"></div>
+      <div class="setup-buttons">
+        <button id="btn-back-title" class="btn">BACK</button>
+        <button id="btn-start" class="btn btn-big">OPEN FOR BUSINESS</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======================= GAME ======================= -->
+  <section id="screen-game" class="screen">
+    <header id="topbar">
+      <div id="top-logo">AGE OF COMICS</div>
+      <div id="calendar"></div>
+      <div id="hud-resources"></div>
+      <div id="turn-order"></div>
+      <div id="top-buttons">
+        <button id="btn-undo" class="btn btn-small" title="Rewind to the start of your turn">&#8630; UNDO</button>
+        <button id="btn-chart" class="btn btn-small">MAP</button>
+        <button id="btn-help" class="btn btn-small">?</button>
+        <button id="btn-sound" class="btn btn-small">&#9835;</button>
+      </div>
+    </header>
+
+    <main id="cityhub">
+      <div id="locations"></div>
+      <aside id="sidebar">
+        <div id="chart-panel"></div>
+      </aside>
+    </main>
+
+    <footer id="hud">
+      <div id="hud-left">
+        <div id="hud-mat"></div>
+      </div>
+      <div id="hud-hand"></div>
+      <div id="hud-log">
+        <div id="dialogue"></div>
+      </div>
+    </footer>
+  </section>
+
+  <!-- modals & fx -->
+  <div id="modal-root"></div>
+  <div id="toast-root"></div>
+  <div id="zoom-root"></div>
+  <div id="big-banner"><div class="bb-main"></div><div class="bb-sub"></div></div>
+  <div id="ai-status"></div>
+</div>
+
+<script src="assets/atlas.js"></script>
+<script src="js/data.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/ai.js"></script>
+<script src="js/sfx.js"></script>
+<script src="js/loc-art.js"></script>
+<script src="js/ui-core.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/ui-map.js"></script>
+<script src="js/ui-scenes.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
