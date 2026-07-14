@@ -109,8 +109,6 @@ class Engine {
         vpTokens: 0,
         agentNode: "X", agentMoved: false,
         printedCount: 0,
-        increasedThisRound: {},  // chartIdx_kind -> true (one increment per creative per round)
-        trainedThisRound: false,
       });
     });
 
@@ -220,7 +218,13 @@ class Engine {
     s.players.forEach((p) => p.hyped.forEach((h) => { h.tokens += 1; this.emit("hype", { player: p.id, cardId: h.cardId, tokens: h.tokens }); }));
 
     // I.4 increase-value phase (players in turn order may pay to upgrade creatives)
-    s.players.forEach((p) => { p.increasedThisRound = {}; p.trainedThisRound = false; });
+    // learn-vs-train eligibility is decided from BEGINNING-of-round values
+    // (V27 p.10), so freeze them before anything mutates during the phase
+    s.chart.forEach((c) => {
+      delete c.inc_writer;
+      delete c.inc_artist;
+      c.incBase = { writer: c.creatives.writer.curValue, artist: c.creatives.artist.curValue };
+    });
     s.phase = "increase";
     s.turnIdx = 0;
     this.emit("roundStart", { round: s.round });
@@ -233,15 +237,20 @@ class Engine {
     const opts = [];
     this.state.chart.filter((c) => c.owner === pid).forEach((comic) => {
       const w = comic.creatives.writer, a = comic.creatives.artist;
-      const pair = [["writer", w, a], ["artist", a, w]];
-      for (const [kind, cr, mate] of pair) {
-        if (comic["inc_" + kind]) continue; // already this round
+      // eligibility mode comes from beginning-of-round values, NOT the values
+      // already mutated this phase: two equal specialists must both be able
+      // to train even after the first one has trained (V27 p.10)
+      const base = comic.incBase || { writer: w.curValue, artist: a.curValue };
+      const pair = [["writer", w, a, "artist"], ["artist", a, w, "writer"]];
+      for (const [kind, cr, mate, mateKind] of pair) {
+        if (comic["inc_" + kind]) continue; // one increment per creative per round
         const spec = cr.genre === comic.genre, mateSpec = mate.genre === comic.genre;
         if (!spec || cr.curValue >= 3) continue;
         const nv = cr.curValue + 1;
-        if (mateSpec && cr.curValue < mate.curValue) {
-          // training a teammate this round blocks learning until next round
-          if (p.money >= 1 && comic.lastTrainRound !== this.state.round)
+        if (mateSpec && base[kind] < base[mateKind]) {
+          // learn: capped at the teammate's value, and a teammate trained
+          // THIS round can't be learned from until next round
+          if (p.money >= 1 && comic.lastTrainRound !== this.state.round && nv <= mate.curValue)
             opts.push({ chartIdx: comic.idx, kind, mode: "learn", cost: 1, newValue: nv });
         } else {
           const cost = nv; // train: pay the new value ($2 to reach 2, $3 to reach 3)

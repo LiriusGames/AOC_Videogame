@@ -773,7 +773,7 @@ function animateEvent(ev) {
       return 900;
     }
     case "calendar":
-      say(null, `The calendar page turns: <b>${ev.genres.map((g) => GENRE_INFO[g].name).join(" & ")}</b> orders flip face-up across Manhattan.`);
+      say(null, `A new publishing cycle begins: <b>${ev.genres.map((g) => GENRE_INFO[g].name).join(" & ")}</b> orders flip face-up across Manhattan.`);
       return 300;
     case "hire": {
       const names = ev.cards.map((c) => CARD_BY_ID[c].name).join(" & ");

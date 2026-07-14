@@ -260,6 +260,131 @@ test("orders auto-fulfill from a qualifying print", () => {
   eq(c.fans, 1 + (comic.bonus === "fan" ? 1 : 0) + 1 + t.fans, "original + bonus + mastery + order fans");
 });
 
+// -------------------------------------------- increase-value phase (V27 p.10)
+// a romance comic printed with the given creatives, advanced to round 2's
+// increase phase (beginning-of-round eligibility frozen in comic.incBase)
+function increaseGame(seed, wId, aId) {
+  const e = freshGame(seed);
+  const pid = e.currentPlayerId();
+  ok(printOriginal(e, pid, "orig_25", wId, aId));
+  e.endRound();
+  const p = e.player(pid);
+  p.money = 20;
+  return { e, pid, p, comic: e.state.chart[0] };
+}
+
+test("increase: non-specialists never improve", () => {
+  const { e, pid } = increaseGame(81, "writer_scifi_2", "artist_crime_2");
+  eq(e.increaseOptions(pid).length, 0, "no options for non-specialists");
+});
+
+test("increase: solo specialist trains 1→2 ($2) then 2→3 ($3), once per round", () => {
+  const { e, pid, p, comic } = increaseGame(82, "writer_romance_1", "artist_crime_2");
+  let opts = e.increaseOptions(pid);
+  eq(opts.length, 1, "only the specialist can improve");
+  eq(opts[0].mode, "train"); eq(opts[0].cost, 2); eq(opts[0].newValue, 2);
+  e.applyIncrease(pid, opts[0]);
+  eq(p.money, 18, "$2 paid to reach value 2");
+  eq(comic.creatives.writer.curValue, 2);
+  eq(comic.value, 4, "comic value recalculated immediately");
+  eq(e.increaseOptions(pid).length, 0, "one increment per creative per round");
+  e.endRound();
+  p.money = 20;
+  opts = e.increaseOptions(pid);
+  eq(opts.length, 1, "eligible again next round (per-round flags reset)");
+  eq(opts[0].cost, 3, "$3 to reach value 3");
+  e.applyIncrease(pid, opts[0]);
+  eq(comic.creatives.writer.curValue, 3);
+  e.endRound();
+  eq(e.increaseOptions(pid).length, 0, "value 3 is the maximum");
+});
+
+test("increase: learning costs $1 and never exceeds the teammate", () => {
+  const { e, pid, p, comic } = increaseGame(83, "writer_romance_1", "artist_romance_3");
+  let opts = e.increaseOptions(pid);
+  eq(opts.length, 1, "teammate at max: only the lower one moves");
+  eq(opts[0].mode, "learn"); eq(opts[0].cost, 1); eq(opts[0].kind, "writer");
+  e.applyIncrease(pid, opts[0]);
+  eq(p.money, 19, "$1 paid");
+  eq(comic.creatives.writer.curValue, 2);
+  eq(e.increaseOptions(pid).length, 0, "1 increment per round while learning too");
+  e.endRound();
+  p.money = 20;
+  opts = e.increaseOptions(pid);
+  eq(opts.length, 1); eq(opts[0].mode, "learn"); eq(opts[0].newValue, 3);
+  e.applyIncrease(pid, opts[0]);
+  e.endRound();
+  eq(e.increaseOptions(pid).length, 0, "both at 3: nothing left to improve");
+});
+
+test("increase: two equal specialists may BOTH train in one round", () => {
+  const { e, pid, p, comic } = increaseGame(84, "writer_romance_2", "artist_romance_2B");
+  let opts = e.increaseOptions(pid);
+  eq(opts.length, 2, "both equal specialists offered training");
+  ok(opts.every((o) => o.mode === "train" && o.cost === 3), "both train at $3");
+  e.applyIncrease(pid, opts[0]);
+  // regression: eligibility is frozen at round start — the second one must
+  // still TRAIN, not become a blocked "learner" behind the mutated values
+  opts = e.increaseOptions(pid);
+  eq(opts.length, 1, "second specialist still has an option after the first trains");
+  eq(opts[0].mode, "train", "still training, not learning");
+  eq(opts[0].cost, 3);
+  e.applyIncrease(pid, opts[0]);
+  eq(p.money, 14, "$6 total for both 2→3");
+  eq(comic.value, 6);
+});
+
+test("increase: two value-1 specialists both reach 2 for $4 total", () => {
+  const { e, pid, p, comic } = increaseGame(85, "writer_romance_1", "artist_romance_1");
+  const opts = e.increaseOptions(pid);
+  eq(opts.length, 2);
+  ok(opts.every((o) => o.mode === "train" && o.cost === 2), "both train at $2");
+  e.applyIncrease(pid, opts[0]);
+  e.applyIncrease(pid, e.increaseOptions(pid)[0]);
+  eq(p.money, 16, "$4 total");
+  eq(comic.value, 4);
+});
+
+test("increase: training first blocks the partner's learning that round", () => {
+  const { e, pid, p } = increaseGame(86, "writer_romance_1", "artist_romance_2");
+  const train = e.increaseOptions(pid).find((o) => o.mode === "train" && o.kind === "artist");
+  ok(train, "the stronger specialist may train even with unequal values");
+  eq(train.cost, 3);
+  e.applyIncrease(pid, train);
+  eq(e.increaseOptions(pid).length, 0, "partner may not learn from the fresh training");
+  e.endRound();
+  p.money = 20;
+  const opts = e.increaseOptions(pid);
+  eq(opts.length, 1, "next round the lower one may learn again");
+  eq(opts[0].mode, "learn"); eq(opts[0].kind, "writer");
+});
+
+test("increase: learn first, then train the stronger partner, same round", () => {
+  const { e, pid, p, comic } = increaseGame(87, "writer_romance_1", "artist_romance_2");
+  const learn = e.increaseOptions(pid).find((o) => o.mode === "learn");
+  ok(learn, "lower specialist offered learning");
+  eq(learn.kind, "writer"); eq(learn.cost, 1);
+  e.applyIncrease(pid, learn);
+  eq(comic.creatives.writer.curValue, 2);
+  // V27 note: "you may also train the first creative again in that same round"
+  const opts = e.increaseOptions(pid);
+  eq(opts.length, 1); eq(opts[0].mode, "train"); eq(opts[0].kind, "artist"); eq(opts[0].cost, 3);
+  e.applyIncrease(pid, opts[0]);
+  eq(comic.value, 5);
+  eq(p.money, 16, "$1 learn + $3 train");
+});
+
+test("increase: value recalc fulfils a waiting order immediately", () => {
+  const { e, pid, p, comic } = increaseGame(88, "writer_romance_2", "artist_romance_2B");
+  const t = e.state.mapSlots.find((t) => t.genre === "romance" && t.minVal === 5 && t.takenBy === null);
+  ok(t, "a value-5 romance order exists");
+  t.takenBy = pid; t.faceUp = true; p.orders.push(t.id);
+  const fans0 = comic.fans;
+  e.applyIncrease(pid, e.increaseOptions(pid)[0]); // value 4 → 5
+  ok(t.fulfilled, "order fulfilled the moment the value qualified");
+  eq(comic.fans, fans0 + t.fans, "order fans granted");
+});
+
 // -------------------------------------------------------------- hand limit
 test("hand limit forces a discard decision", () => {
   const e = freshGame(51);

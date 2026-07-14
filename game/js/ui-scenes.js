@@ -889,7 +889,7 @@ const Scenes = (() => {
       m.appendChild(el("h2", "", "&#9733; RE-ASSIGN CREATIVES"));
       m.appendChild(specialArt("reassign", 150)).style.alignSelf = "center";
       m.appendChild(el("div", "modal-sub",
-        "Put someone from your hand onto a printed book. <b>Genre match (gold) = specialized</b>: +1 fan and can train each morning. " +
+        "Put someone from your hand onto a printed book. <b>Genre match (gold) = specialized</b>: +1 fan and can increase in value at the beginning of each round. " +
         "Pay (or pocket) the value difference. Up to one writer swap and one artist swap."));
       const rows = el("div");
       m.appendChild(rows);
@@ -1157,7 +1157,7 @@ const Scenes = (() => {
   function increaseModal() {
     const e = E(), p = P(me());
     openModal((m) => {
-      m.appendChild(el("h2", "", "MORNING TRAINING"));
+      m.appendChild(el("h2", "", "CREATIVE DEVELOPMENT"));
       m.appendChild(el("div", "modal-sub",
         "Specialized creatives on printed books can grow: <b>learn</b> from a stronger specialized teammate ($1) or <b>train</b> (pay the new value). One step per creative per round. Higher team value = higher book value for orders."));
       const list = el("div");
@@ -1294,7 +1294,7 @@ const Scenes = (() => {
 &#9998; <b>Print Floor</b> — print: comic + writer + artist, pay team value in $, plus 2 matching ideas (originals). Rip-offs skip ideas but start fanless. First editor prints TWO.<br>
 &#9998; <b>Accounting</b> — cash. Earlier desks pay more.<br>
 &#9998; <b>Manhattan Map</b> — move your agent, flip &amp; collect sales orders. Orders auto-fulfill when you own a matching comic (genre + value) and grant fans. Unfulfilled orders cost VP at the end!</p>
-<p><b>Specialized creatives</b> (matching the comic's genre) add +1 fan each at print and can grow in value each morning.</p>
+<p><b>Specialized creatives</b> (matching the comic's genre) add +1 fan each at print and can grow in value at the beginning of each publishing cycle.</p>
 <p><b>Mastery</b>: first to print a genre (or overtake majority with at least one original) gets +1 fan on every book of that genre and 2 VP.</p>
 <p><b>Specials</b>: printing your 2nd/3rd/4th book unlocks cube specials that ride on main actions. 5th book: +1 VP per original. 6th+: +2 VP each.</p>
 <p><b>End of round</b>: chart rank pays VP (3/2/1), every comic earns $ by its fans, then every comic loses 1 fan. Turn order reverses rank.</p>`));
