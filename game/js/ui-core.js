@@ -165,6 +165,8 @@ let modalOpener = null;
 function openModal(build, opts = {}) {
   const root = document.getElementById("modal-root");
   modalOpener = document.activeElement;
+  // a dialog takes the stage: any banner still playing yields to it
+  document.getElementById("big-banner").classList.remove("show");
   root.innerHTML = "";
   root.classList.add("active");
   const m = el("div", "modal");
@@ -553,6 +555,16 @@ function renderChart() {
   const panel = document.getElementById("chart-panel");
   panel.innerHTML = "<h3>&#9733; THE COMIC BOOK CHART &#9733;</h3>";
   const order = s.players.map((p) => p.id).sort((a, b) => e.bestComicFans(b) - e.bestComicFans(a));
+  // compact summary chip (laptop widths, where the sidebar becomes a drawer)
+  const mini = document.getElementById("chart-mini");
+  if (mini) {
+    const leader = P(order[0]);
+    const meRank = order.indexOf(UI.humanId) + 1;
+    const sfx = ["", "st", "nd", "rd", "th"][Math.min(meRank, 4)];
+    mini.innerHTML = `&#9733; CHART &middot; 1st ${esc(leader.pubName)}${leader.human ? " (YOU)" : ` &middot; you ${meRank}${sfx}`}`;
+    mini.setAttribute("aria-label",
+      `Open the comic book chart. ${leader.pubName} leads${leader.human ? " (you)" : `, you are ${meRank}${sfx}`}.`);
+  }
 
   const track = el("div", "track");
   track.style.gridTemplateColumns = `30px repeat(${s.players.length}, 1fr)`;

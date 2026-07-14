@@ -350,6 +350,15 @@ const Main = (() => {
         else Scenes.open(dbg[1]);
       }, 500);
     }
+    // laptop widths: the chart chip opens the sidebar drawer (or, for the
+    // layout comparison, a chart modal via ?chart=modal)
+    document.getElementById("chart-mini").onclick = () => {
+      SFX.play("click");
+      if (/chart=modal/.test(location.search)) return Scenes.viewChartModal();
+      const sb = document.getElementById("sidebar");
+      const open = sb.classList.toggle("open");
+      document.getElementById("chart-mini").setAttribute("aria-expanded", String(open));
+    };
     document.getElementById("btn-undo").onclick = () => { SFX.play("click"); doUndo(); };
     document.getElementById("btn-help").onclick = () => { SFX.play("click"); Scenes.helpModal(); };
     document.getElementById("btn-chart").onclick = () => { SFX.play("click"); Scenes.viewMap(); };
