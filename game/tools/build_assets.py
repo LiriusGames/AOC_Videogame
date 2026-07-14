@@ -41,6 +41,12 @@ class Sheet:
         rows = (len(self.sprites) + self.cols - 1) // self.cols
         canvas = Image.new("RGBA", (self.cols * self.cw, rows * self.ch), (0, 0, 0, 0))
         for i, (key, img) in enumerate(self.sprites):
+            # a sprite may never escape its cell: oversized ones would
+            # overlap neighbours and/or clip at the sheet edge (this
+            # corrupted the faces sheet once — 44px bosses in 28px cells)
+            if img.width > self.cw or img.height > self.ch:
+                print(f"  WARN {self.name}/{key}: {img.width}x{img.height} cropped to cell {self.cw}x{self.ch}")
+                img = img.crop((0, 0, min(img.width, self.cw), min(img.height, self.ch)))
             x = (i % self.cols) * self.cw
             y = (i // self.cols) * self.ch
             # center inside cell
@@ -272,7 +278,10 @@ for kind, sub in (("writer", r"#05_CARDS\#AOCTGY20B_Writers\Writers Front"),
             card = Image.open(os.path.join(ASSETS, sub, f"{prefix} {CRE_FOLDER[g]} {suffix}.png"))
             face = card.crop((26, 840, 148, 962))  # caricature circle, bottom-left
             faces.add(f"face_{kind}_{g}_{suffix}", retro(face, 26, 14))
-# publisher bosses, cropped from the box-art office scene
+atlas.update(faces.save())
+# publisher bosses, cropped from the box-art office scene. BOTH boss sizes
+# live on their own sheet: the 28px faces cells cannot hold 44px portraits
+# (adding them there once corrupted the last creative row).
 box_src = Image.open(os.path.join(ASSETS, r"#10_BOX\AOC squared image.jpg"))
 BOSSES = {
     "yellow": (520, 820, 690, 990),    # Goldie Marsh — at the drafting table
@@ -280,20 +289,17 @@ BOSSES = {
     "teal":   (1545, 705, 1705, 865),  # Vivian Cole — with the fresh issues
     "brown":  (75, 645, 245, 815),     # Mortimer Quill — man of mystery
 }
-for color, crop_box in BOSSES.items():
-    faces.add(f"boss_{color}", retro(box_src.crop(crop_box), 44, 22))
-atlas.update(faces.save())
-# hi-res versions for the setup screen cards (44px reads as mush at card size);
-# 96px sprites need their own sheet — the faces cells are far too small
-bosses_big = Sheet("bosses", 100, 104, 4)
 BOSSBIG = {
     "yellow": (530, 825, 680, 975),
     "salmon": (1025, 845, 1175, 995),
     "teal":   (1555, 700, 1700, 845),
     "brown":  (85, 645, 240, 800),
 }
+bosses_big = Sheet("bosses", 100, 104, 4)
 for color, crop_box in BOSSBIG.items():
     bosses_big.add(f"bossbig_{color}", retro(box_src.crop(crop_box), 96, 32))
+for color, crop_box in BOSSES.items():
+    bosses_big.add(f"boss_{color}", retro(box_src.crop(crop_box), 44, 22))
 atlas.update(bosses_big.save())
 
 # ----------------------------------------------------------------- title art

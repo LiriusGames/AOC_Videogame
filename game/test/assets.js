@@ -31,13 +31,29 @@ for (const key of Object.keys(ATLAS)) {
   const dim = sheets[e.sheet];
   if (!dim) { fail(`sprite ${key}: sheet ${e.sheet}.png missing`); continue; }
   if (!(e.w > 0 && e.h > 0)) fail(`sprite ${key}: empty rect`);
-  // the generator lets a few rects bleed slightly past the edge (canvas
-  // clamps source rects, so up to 8px of bleed is harmless); more is a bug
-  const TOL = 8;
-  if (e.x < -TOL || e.y < -TOL || e.x + e.w > dim.w + TOL || e.y + e.h > dim.h + TOL)
+  // strict: the generator clamps sprites to their cells, so any rect
+  // outside its sheet is a real bug (this once clipped boss portraits)
+  if (e.x < 0 || e.y < 0 || e.x + e.w > dim.w || e.y + e.h > dim.h)
     fail(`sprite ${key}: rect ${e.x},${e.y} ${e.w}x${e.h} outside ${e.sheet}.png (${dim.w}x${dim.h})`);
 }
 console.log(`  ok  ${Object.keys(ATLAS).length} atlas rects within their sheets`);
+
+// no two sprites may overlap on a sheet (this once corrupted faces.png)
+{
+  const bySheet = {};
+  for (const key of Object.keys(ATLAS)) (bySheet[ATLAS[key].sheet] = bySheet[ATLAS[key].sheet] || []).push(key);
+  let overlaps = 0;
+  for (const keys of Object.values(bySheet))
+    for (let i = 0; i < keys.length; i++)
+      for (let j = i + 1; j < keys.length; j++) {
+        const a = ATLAS[keys[i]], b = ATLAS[keys[j]];
+        if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) {
+          overlaps++;
+          fail(`sprites overlap: ${keys[i]} and ${keys[j]} on ${a.sheet}`);
+        }
+      }
+  if (!overlaps) console.log(`  ok  no sprite rects overlap on any sheet`);
+}
 
 // ----------------------------------------------- data-derived sprite names
 const need = new Set();
