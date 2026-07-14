@@ -315,14 +315,42 @@ function attachZoom(elem, spriteName, caption) {
 }
 
 // ------------------------------------------------------- turn/round banners
+// ------------------------------------------------------------- hero lane
+// Central "hero" presentations (banners, celebrations) show one at a time
+// and never over an open dialog; a hero that would appear over a dialog is
+// summarized in the log instead of being presented late.
+const REDUCED_MOTION = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+function modalIsOpen() {
+  return document.getElementById("modal-root").classList.contains("active");
+}
+let heroUntil = 0;
+function heroSlot(dur) {
+  const now = performance.now();
+  const wait = Math.max(0, heroUntil - now);
+  heroUntil = now + wait + dur;
+  return wait;
+}
+function heroToLog(main, sub) {
+  say(null, `<b>${main}</b>${sub ? " — " + String(sub).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() : ""}`);
+}
+
 function showBanner(main, sub = "") {
-  const b = document.getElementById("big-banner");
-  b.querySelector(".bb-main").innerHTML = main;
-  b.querySelector(".bb-sub").innerHTML = sub;
-  b.classList.remove("show");
-  void b.offsetWidth; // restart animation
-  b.classList.add("show");
   announce(main + ". " + sub);
+  if (modalIsOpen()) return heroToLog(main, sub);
+  const show = () => {
+    if (modalIsOpen()) return heroToLog(main, sub); // went stale while queued
+    const b = document.getElementById("big-banner");
+    b.querySelector(".bb-main").innerHTML = main;
+    b.querySelector(".bb-sub").innerHTML = sub;
+    b.classList.remove("show");
+    void b.offsetWidth; // restart animation
+    b.classList.add("show");
+    // reduced motion disables the CSS animation that normally hides it
+    if (REDUCED_MOTION()) setTimeout(() => b.classList.remove("show"), 1400);
+  };
+  const wait = heroSlot(1650);
+  if (wait) setTimeout(show, wait);
+  else show();
 }
 function setAIStatus(pid) {
   const st = document.getElementById("ai-status");

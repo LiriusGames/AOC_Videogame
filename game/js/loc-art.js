@@ -1704,8 +1704,10 @@ const LocArt = (() => {
     }
   }
   function start(cv, painter) {
-    live.set(cv, painter);
     draw(cv, painter);
+    // reduced motion: one calm frame per room, no ticker
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    live.set(cv, painter);
     if (!timer) timer = setInterval(tick, 240);
   }
   function tick() {

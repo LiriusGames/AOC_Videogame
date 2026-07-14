@@ -119,6 +119,21 @@ async function axeScan(page, label) {
         !!m.getAttribute("aria-labelledby");
     }), "dialog has role, aria-modal, and an accessible name");
 
+    // hero lane: banners/celebrations never render over an open dialog
+    const heroGate = await page.evaluate(() => {
+      showBanner("TEST HERO", "must not cover the dialog");
+      FX.celebrate({ title: "TEST CELEBRATE", dur: 400 });
+      return {
+        // .show can linger from a pre-dialog banner; what matters is that the
+        // suppressed hero's content never reached the banner element
+        banner: document.querySelector("#big-banner .bb-main").textContent.includes("TEST HERO"),
+        celebrate: !!document.querySelector(".fx-celebrate"),
+        logged: document.getElementById("dialogue").textContent.includes("TEST HERO"),
+      };
+    });
+    check(!heroGate.banner && !heroGate.celebrate, "hero presentations never appear over a dialog");
+    check(heroGate.logged, "suppressed hero is summarized in the log instead");
+
     // ------------------------------------ keyboard: pick a founding genre
     check(await tabUntil(() => document.activeElement.classList.contains("pick-card")),
       "keyboard: tab reaches a genre card");
@@ -146,6 +161,18 @@ async function axeScan(page, label) {
       closeModal();
       Main.advance();
     });
+
+    // hero lane: one presentation at a time (second hero waits its turn)
+    const lane = await page.evaluate(() => {
+      heroUntil = 0; // release the lane (a YOUR TURN banner may hold it)
+      showBanner("LANE TEST", "first hero");
+      FX.celebrate({ title: "SECOND HERO", dur: 400 });
+      return {
+        banner: document.querySelector("#big-banner .bb-main").textContent.includes("LANE TEST"),
+        celebrateNow: !!document.querySelector(".fx-celebrate"),
+      };
+    });
+    check(lane.banner && !lane.celebrateNow, "hero lane shows one presentation at a time");
 
     // --------------------------- keyboard: take a royalties action
     await page.waitForFunction(() =>

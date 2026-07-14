@@ -652,3 +652,11 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 .eg-career b { display: block; font-family: "PressStart"; font-size: 13px; color: #8a2f26; margin: 5px 0 2px; }
 .eg-career i { display: block; font-size: 14px; opacity: .8; }
 .eg-toggle { text-align: center; margin-top: 8px; }
+
+/* ------------------------------------------------------- reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  #ai-status .dots::after { content: "..." !important; }
+  .pulse { outline-color: var(--gold); }
+  .magnified { transform: none; }
+}
