@@ -157,6 +157,75 @@ function check(cond, name) {
       check(!(await visible("#btn-continue")), `${name} treated as no save`);
     }
 
+    // ----------------- 8. print -> mastery -> decision presentation order
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: "networkidle0" });
+    await page.$eval("#btn-new-game", (b) => b.click());
+    await page.$eval("#btn-start", (b) => b.click());
+    await page.waitForFunction(() => typeof UI !== "undefined" && !!UI.engine);
+    await page.evaluate(() => {
+      const e = UI.engine;
+      let g = 0;
+      while (g++ < 200 && e.state.phase !== "actions") {
+        const s = e.state;
+        if (s.pending) AI.resolveOwnPendings(e, s.pending.playerId);
+        else if (s.awaitingSpecial) AI.settle(e, s.awaitingSpecial.player);
+        else {
+          const pid = s.turnOrder[s.turnIdx];
+          if (pid === undefined) { e.advanceIncrease(); continue; }
+          AI.doStartingPicks(e, pid);
+          AI.doIncrease(e, pid);
+          e.advanceIncrease();
+        }
+      }
+      closeModal();
+      Main.advance();
+    });
+    await page.waitForFunction(() => UI.engine.currentPlayerId() === UI.humanId && !UI.busy, { timeout: 20000 });
+    // observe hero surfaces + dialogs while a mastery-winning print plays out
+    await page.evaluate(() => {
+      window.__obs = { print: 0, mastery: 0, overlap: false, modalOverHero: false, modalAt: 0, t0: performance.now() };
+      window.__obsIv = setInterval(() => {
+        const o = window.__obs, t = performance.now() - o.t0;
+        const cels = [...document.querySelectorAll(".fx-celebrate")];
+        if (cels.length > 1) o.overlap = true;
+        for (const c of cels) {
+          if (/HOT OFF THE PRESS/.test(c.textContent) && !o.print) o.print = t;
+          if (/MASTERY/.test(c.textContent) && !o.mastery) o.mastery = t;
+        }
+        const modal = document.getElementById("modal-root").classList.contains("active");
+        if (modal && !o.modalAt) o.modalAt = t;
+        if (modal && cels.length) o.modalOverHero = true;
+      }, 60);
+    });
+    await page.evaluate(() => {
+      const e = UI.engine, s = e.state, pid = UI.humanId, p = e.player(pid);
+      const give = (...ids) => {
+        for (const id of ids) {
+          for (const k of ["writers", "artists", "comics"])
+            for (const arr of [s.decks[k], s.discards[k], s.display[k]]) {
+              const i = arr.indexOf(id);
+              if (i >= 0) arr.splice(i, 1);
+            }
+          p.hand.push(id);
+        }
+      };
+      give("orig_25", "writer_scifi_2", "artist_crime_2");
+      p.money = 10;
+      p.ideas.romance = 2;
+      p.printedCount = 1; // this print is the 2nd -> a cube decision follows
+      e.actPrint(pid, { books: [{ type: "original", comic: "orig_25", writer: "writer_scifi_2", artist: "artist_crime_2" }] });
+      Main.afterHumanMove();
+    });
+    await page.waitForFunction(() => document.getElementById("modal-root").classList.contains("active"), { timeout: 15000 });
+    await new Promise((r) => setTimeout(r, 200));
+    const obs = await page.evaluate(() => { clearInterval(window.__obsIv); return window.__obs; });
+    check(obs.print > 0, "print presentation appeared");
+    check(obs.mastery > 0, "mastery presentation appeared");
+    check(obs.print < obs.mastery, "print appears before mastery");
+    check(!obs.overlap, "hero presentations never overlap");
+    check(!obs.modalOverHero && obs.modalAt > obs.mastery, "cube decision dialog opens only after both presentations");
+
     check(jsErrors.length === 0, "no JS errors during the whole run" + (jsErrors.length ? ": " + jsErrors[0] : ""));
   } finally {
     await browser.close();

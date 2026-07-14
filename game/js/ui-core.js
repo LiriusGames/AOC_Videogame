@@ -332,6 +332,10 @@ function heroSlot(dur) {
   heroUntil = now + wait + dur;
   return wait;
 }
+// time until the hero lane is clear — decision dialogs wait for this
+function heroRemaining() {
+  return Math.max(0, heroUntil - performance.now());
+}
 function heroToLog(main, sub) {
   say(null, `<b>${main}</b>${sub ? " — " + String(sub).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() : ""}`);
 }

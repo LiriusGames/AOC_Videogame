@@ -191,15 +191,22 @@ const Main = (() => {
       return;
     }
 
-    // decisions first
+    // decisions first — but a human decision dialog never opens over a
+    // playing hero presentation (print/mastery/round banners finish first)
     if (s.pending) {
-      if (isHuman(s.pending.playerId)) { UI.busy = false; Scenes.pendingModal(); }
-      else { AI.resolveOwnPendings(e, s.pending.playerId); queueAdvance(Math.max(250, delay)); }
+      if (isHuman(s.pending.playerId)) {
+        if (heroRemaining() > 0) { queueAdvance(heroRemaining() + 80); return; }
+        UI.busy = false;
+        Scenes.pendingModal();
+      } else { AI.resolveOwnPendings(e, s.pending.playerId); queueAdvance(Math.max(250, delay)); }
       return;
     }
     if (s.awaitingSpecial) {
-      if (isHuman(s.awaitingSpecial.player)) { UI.busy = false; Scenes.specialModal(s.awaitingSpecial.special); }
-      else { AI.settle(e, s.awaitingSpecial.player); queueAdvance(Math.max(250, delay)); }
+      if (isHuman(s.awaitingSpecial.player)) {
+        if (heroRemaining() > 0) { queueAdvance(heroRemaining() + 80); return; }
+        UI.busy = false;
+        Scenes.specialModal(s.awaitingSpecial.special);
+      } else { AI.settle(e, s.awaitingSpecial.player); queueAdvance(Math.max(250, delay)); }
       return;
     }
     // resume an open human sales run (e.g. after an order-choice interrupted it)

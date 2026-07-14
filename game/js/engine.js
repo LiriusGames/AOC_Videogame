@@ -571,13 +571,13 @@ class Engine {
     p.printedCount++;
     p.mat.push(entry.idx);
 
-    // mastery
-    this.checkMastery(pid, entry);
-
+    // narrative order: the print debuts first, THEN mastery is awarded
+    // (its +1 fan arrives as a visible "fans"/"mastery" event pair)
     this.emit("print", {
       player: pid, chartIdx: entry.idx, title: entry.title, genre: entry.genre,
       isRipoff: entry.isRipoff, fans: entry.fans, value: entry.value, sprite: entry.sprite,
     });
+    this.checkMastery(pid, entry);
 
     // order auto-fulfillment
     this.checkOrderFulfillment(pid);
