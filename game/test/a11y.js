@@ -57,6 +57,9 @@ async function axeScan(page, label) {
   });
   try {
     const page = await browser.newPage();
+    // gate: any control the sweep finds without an accessible name fails CI
+    const unnamed = [];
+    page.on("console", (msg) => { if (msg.text().startsWith("a11y:")) unnamed.push(msg.text()); });
     const active = () => page.evaluate(() => {
       const a = document.activeElement;
       return { id: a.id, cls: a.className, inModal: !!a.closest("#modal-root") };
@@ -177,13 +180,24 @@ async function axeScan(page, label) {
     await page.keyboard.press("Enter");
     await page.waitForFunction(() => !!document.querySelector(".sales-panel"));
     check(true, "sales panel renders");
+    // the blocked destination must be DISCOVERABLE by keyboard, not merely
+    // marked: tab onto it, read its description, and get the reason announced
+    check(await tabUntil(() => (document.activeElement.dataset || {}).pkey === "dest-" + MAP.X_LINKS[0]),
+      "keyboard: the occupied corner is still focusable");
     const occ = await page.evaluate(() => {
-      const b = document.querySelector(`.sales-panel [data-pkey="dest-${MAP.X_LINKS[0]}"]`);
-      return b && { disabled: b.disabled, label: b.getAttribute("aria-label") };
+      const b = document.activeElement;
+      const why = document.getElementById(b.getAttribute("aria-describedby"));
+      return { ariaDisabled: b.getAttribute("aria-disabled"), why: why && why.textContent };
     });
-    check(occ && occ.disabled && /fee/.test(occ.label), "occupied corner disabled with the fee reason");
+    check(occ.ariaDisabled === "true" && /fee/.test(occ.why || ""),
+      "aria-disabled with the fee reason wired via aria-describedby");
+    await page.keyboard.press("Enter");
+    check(await page.evaluate(() => /fee/.test(document.getElementById("aria-status").textContent)),
+      "activating it announces the reason in the live region");
+    check(await page.evaluate(() => UI.engine.player(UI.humanId).agentNode === "X"),
+      "and the agent did not move");
     check(await tabUntil(() => /^dest-/.test((document.activeElement.dataset || {}).pkey || "") &&
-      !document.activeElement.disabled), "keyboard: reach a legal destination");
+      document.activeElement.getAttribute("aria-disabled") !== "true"), "keyboard: reach a legal destination");
     const nodeBefore = await page.evaluate(() => UI.engine.player(UI.humanId).agentNode);
     await page.keyboard.press("Enter");
     check(await page.evaluate((nb) => UI.engine.player(UI.humanId).agentNode !== nb, nodeBefore),
@@ -218,6 +232,9 @@ async function axeScan(page, label) {
     check(true, "sales run ends from the keyboard");
     check(await page.evaluate(() => document.activeElement !== document.body),
       "focus restored somewhere useful after the dialog closes");
+
+    if (unnamed.length) console.error("      " + unnamed.slice(0, 5).join("\n      "));
+    check(unnamed.length === 0, "no interactive element lacked an accessible name during the run");
   } finally {
     await browser.close();
     server.kill();

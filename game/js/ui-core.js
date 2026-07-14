@@ -59,8 +59,10 @@ function bossSprite(pid) { return "boss_" + P(pid).color; }
 
 // components ----------------------------------------------------------------
 const BONUS_CHIP = {
-  fan:    ["+1 FAN", "#d94f43", "#fff", "Launches with an extra fan"],
-  ideas:  ["2 IDEAS", "#5ba59f", "#fff", "Grants 2 idea tokens of any genre when printed"],
+  // chip backgrounds are darkened variants of the palette so the 8px
+  // labels clear WCAG AA against them
+  fan:    ["+1 FAN", "#c0392b", "#fff", "Launches with an extra fan"],
+  ideas:  ["2 IDEAS", "#33716c", "#fff", "Grants 2 idea tokens of any genre when printed"],
   ticket: ["TICKET", "#c9a26b", "#221d16", "Grants a super-transport ticket when printed"],
   money:  ["+$4", "#f5c86e", "#221d16", "Pays $4 when printed"],
 };
@@ -258,14 +260,17 @@ function toast(msg, big = false) {
 }
 
 // ----------------------------------------------------------------- dialogue
+// speaker-name colors: publisher hues darkened to clear AA on the paper log
+// (PUBLISHERS[].dark is tuned for art tinting, not small text)
+const BOSS_TEXT = { yellow: "#6f541c", salmon: "#8c4630", teal: "#2f6862", brown: "#5d302e" };
 function say(pid, text, cls = "") {
   const box = document.getElementById("dialogue");
   const line = el("div", "dlg-line " + (pid === UI.humanId ? "me" : "") + cls);
-  if (pid === null) line.innerHTML = `<span class="who" style="color:#666">NEWSREEL:</span> ${text}`;
+  if (pid === null) line.innerHTML = `<span class="who" style="color:#5c5346">NEWSREEL:</span> ${text}`;
   else {
     const p = P(pid);
     line.innerHTML = `<span class="dlg-face">${sprHTML(bossSprite(pid), 0.5)}</span>` +
-      `<span class="who" style="color:${PUBLISHERS[p.color].dark}">${esc(p.name).toUpperCase()}:</span> ${text}`;
+      `<span class="who" style="color:${BOSS_TEXT[p.color] || PUBLISHERS[p.color].dark}">${esc(p.name).toUpperCase()}:</span> ${text}`;
   }
   box.appendChild(line);
   box.scrollTop = box.scrollHeight;

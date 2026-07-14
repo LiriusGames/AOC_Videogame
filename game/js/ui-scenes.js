@@ -552,9 +552,15 @@ const Scenes = (() => {
           b.dataset.pkey = key;
           b.setAttribute("aria-label", opts.desc || label);
           if (opts.disabledReason) {
-            b.disabled = true;
+            // stays focusable so keyboard users can reach the explanation:
+            // aria-disabled + described-by reason + activation blocked in code
+            b.setAttribute("aria-disabled", "true");
             b.title = opts.disabledReason;
-            b.setAttribute("aria-label", `${opts.desc || label} (unavailable: ${opts.disabledReason})`);
+            const r = el("span", "sr-only", "Unavailable: " + opts.disabledReason);
+            r.id = "sp-why-" + key;
+            b.appendChild(r);
+            b.setAttribute("aria-describedby", r.id);
+            b.onclick = () => failed(`Unavailable: ${opts.disabledReason}.`);
           } else if (opts.fn) b.onclick = () => { SFX.play("click"); opts.fn(); };
           return b;
         };
@@ -641,9 +647,10 @@ const Scenes = (() => {
         // predictable focus after every rerender: same control, else its
         // group, else the first live button in the panel
         if (prevKey) {
-          const target = panel.querySelector(`[data-pkey="${prevKey}"]:not([disabled])`) ||
-            panel.querySelector(`[data-pkey^="${prevKey.split("-")[0]}"]:not([disabled])`) ||
-            panel.querySelector("button:not([disabled])");
+          const live = ':not([aria-disabled="true"])';
+          const target = panel.querySelector(`[data-pkey="${prevKey}"]${live}`) ||
+            panel.querySelector(`[data-pkey^="${prevKey.split("-")[0]}"]${live}`) ||
+            panel.querySelector("button" + live);
           if (target) target.focus();
         }
       }
