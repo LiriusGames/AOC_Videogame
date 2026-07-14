@@ -545,6 +545,61 @@ function check(cond, name) {
       return gs.every((g) => !!document.querySelector(`#desk-awards .award-socket[data-genre="${g}"].won .spr`));
     }, [g1, g2, g3]), "all three tokens remain on the shelf after a re-render");
 
+    // --------- 13. cube relocation uses the shared special-choice visuals
+    await quiesce();
+    await page.evaluate(() => {
+      const e = UI.engine, p = e.player(UI.humanId);
+      p.cubeSpecials = ["hype", "marketing"];
+      e.pushPending(UI.humanId, "relocateCube", {});
+      Main.advance();
+    });
+    await page.waitForFunction(() => document.getElementById("modal-root").classList.contains("active") &&
+      document.querySelectorAll("#modal-root .special-pick").length > 0, { timeout: 15000 });
+    const rel = await page.evaluate(() => {
+      const grp = (label) => [...document.querySelectorAll('#modal-root [role="group"]')]
+        .find((g) => g.getAttribute("aria-label") === label);
+      const complete = (row) => [...row.querySelectorAll(".special-pick")].every((c) =>
+        c.querySelector("canvas.special-art") && /after /.test(c.textContent) &&
+        (c.getAttribute("aria-label") || "").includes("triggers after"));
+      const fromRow = grp("Move which cube"), toRow = grp("To which special");
+      return {
+        fromN: fromRow ? fromRow.querySelectorAll(".special-pick").length : 0,
+        toN: toRow ? toRow.querySelectorAll(".special-pick").length : 0,
+        fromOk: fromRow && complete(fromRow), toOk: toRow && complete(toRow),
+        notes: fromRow ? fromRow.querySelectorAll(".sp-note").length : 0,
+      };
+    });
+    check(rel.fromN === 2 && rel.toN === 4, "relocation offers both cubes and all four other specials");
+    check(rel.fromOk && rel.toOk, "every choice shows artwork, trigger action, and effect description");
+    check(rel.notes === 2, "current cubes are marked as YOUR CUBE HERE");
+    await page.evaluate(() => {
+      [...document.querySelectorAll('#modal-root [role="group"]')]
+        .find((g) => g.getAttribute("aria-label") === "Move which cube")
+        .querySelector('.special-pick[data-sp="hype"]').click();
+    });
+    check(await page.evaluate(() => {
+      const c = document.querySelector('#modal-root .special-pick[data-sp="hype"]');
+      return c.classList.contains("selected") && c.getAttribute("aria-pressed") === "true";
+    }), "selecting a cube marks it visibly and via aria-pressed");
+    const dest = await page.evaluate(() => {
+      const row = [...document.querySelectorAll('#modal-root [role="group"]')]
+        .find((g) => g.getAttribute("aria-label") === "To which special");
+      const c = row.querySelector(".special-pick");
+      c.click();
+      return c.dataset.sp;
+    });
+    await page.$eval("#rc-ok", (b) => b.click());
+    await page.waitForFunction(() => !document.getElementById("modal-root").classList.contains("active"));
+    check(await page.evaluate((d) => {
+      const p = UI.engine.player(UI.humanId);
+      return p.cubeSpecials.includes(d) && !p.cubeSpecials.includes("hype");
+    }, dest), "moving the cube updates engine state");
+    check(await page.evaluate((d) => {
+      const badge = document.querySelector(`#locations .loc[data-action="${SPECIALS[d].after}"] .special-badge`);
+      return !!badge && badge.textContent.includes(SPECIALS[d].name);
+    }, dest), "the location room shows the relocated special badge");
+    await confirmIfShown();
+
     // direct file:// open: the friendly guard, not a half-loaded game
     const fpage = await browser.newPage();
     await fpage.goto("file:///" + path.join(__dirname, "..", "index.html").replace(/\\/g, "/"),

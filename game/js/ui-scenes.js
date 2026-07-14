@@ -46,6 +46,24 @@ const Scenes = (() => {
     LocArt.attachSpecial(cv, key);
     return cv;
   }
+  // one shared card for choosing a special action — used by BOTH the initial
+  // cube placement and the 5th-book relocation, so the two can never drift
+  function specialCard(sp, opts = {}) {
+    const info = SPECIALS[sp];
+    const d = el("div", "pick-card special-pick");
+    d.dataset.sp = sp;
+    d.style.maxWidth = (opts.w || 230) + "px";
+    d.appendChild(specialArt(sp, opts.art || 200));
+    d.appendChild(el("div", "pc-label",
+      `<b style="font-family:PressStart;font-size:9px">${info.name}</b><br>` +
+      `<i>after ${ACTION_INFO[info.after].verb}</i><br>${info.desc}` +
+      (opts.note ? `<br><b class="sp-note">&#9632; ${opts.note}</b>` : "")));
+    d.setAttribute("aria-label",
+      `${info.name}: triggers after ${ACTION_INFO[info.after].verb}. ${String(info.desc).replace(/<[^>]*>/g, "")}` +
+      (opts.note ? ` (${opts.note})` : ""));
+    d.setAttribute("aria-pressed", "false");
+    return d;
+  }
 
   // ------------------------------------------------------------------- HIRE
   function hireScene() {
@@ -811,14 +829,10 @@ const Scenes = (() => {
       m.appendChild(el("div", "modal-sub",
         `Your <b>${["", "", "2nd", "3rd", "4th"][P(me()).printedCount]}</b> book is out! Place a cube on a special action. From now on it triggers every time you take the matching main action.`));
       const row = el("div", "card-row");
+      row.setAttribute("role", "group");
+      row.setAttribute("aria-label", "Choose a special action");
       for (const sp of pd.data.options) {
-        const info = SPECIALS[sp];
-        const d = el("div", "pick-card");
-        d.style.maxWidth = "230px";
-        d.appendChild(specialArt(sp, 200));
-        d.appendChild(el("div", "pc-label",
-          `<b style="font-family:PressStart;font-size:9px">${info.name}</b><br>` +
-          `<i>after ${ACTION_INFO[info.after].verb}</i><br>${info.desc}`));
+        const d = specialCard(sp);
         d.onclick = () => {
           SFX.play("click");
           closeModal();
@@ -838,20 +852,24 @@ const Scenes = (() => {
       m.appendChild(el("h2", "", "5TH BOOK! REORGANIZE?"));
       m.appendChild(el("div", "modal-sub", "You may move one special-action cube to a different special. (Also: every original now scores +1 VP at the end.)"));
       m.appendChild(el("h3", "", "MOVE WHICH CUBE"));
-      const fr = el("div", "choice-group");
+      const fr = el("div", "card-row");
+      fr.setAttribute("role", "group");
+      fr.setAttribute("aria-label", "Move which cube");
       for (const sp of p.cubeSpecials) {
-        const b = el("button", "choice", SPECIALS[sp].name);
-        b.onclick = () => { from = sp; fr.querySelectorAll(".choice").forEach((x) => x.classList.remove("active")); b.classList.add("active"); refresh(); };
-        fr.appendChild(b);
+        const d = specialCard(sp, { w: 176, art: 132, note: "YOUR CUBE HERE" });
+        d.onclick = () => { SFX.play("click"); from = sp; selectOne(fr, d); refresh(); };
+        fr.appendChild(d);
       }
       m.appendChild(fr);
       m.appendChild(el("h3", "", "TO WHICH SPECIAL"));
-      const toRow = el("div", "choice-group");
+      const toRow = el("div", "card-row");
+      toRow.setAttribute("role", "group");
+      toRow.setAttribute("aria-label", "To which special");
       for (const sp of Object.keys(SPECIALS)) {
         if (p.cubeSpecials.includes(sp)) continue;
-        const b = el("button", "choice", SPECIALS[sp].name + " (after " + ACTION_INFO[SPECIALS[sp].after].verb + ")");
-        b.onclick = () => { to = sp; toRow.querySelectorAll(".choice").forEach((x) => x.classList.remove("active")); b.classList.add("active"); refresh(); };
-        toRow.appendChild(b);
+        const d = specialCard(sp, { w: 176, art: 132 });
+        d.onclick = () => { SFX.play("click"); to = sp; selectOne(toRow, d); refresh(); };
+        toRow.appendChild(d);
       }
       m.appendChild(toRow);
       modalButtons(m, [
@@ -863,7 +881,7 @@ const Scenes = (() => {
           } },
       ]);
       function refresh() { m.querySelector("#rc-ok").disabled = !(from && to); }
-    });
+    }, { width: "980px" });
   }
 
   // ================================================================ SPECIALS

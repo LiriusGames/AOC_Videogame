@@ -695,6 +695,10 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
   transition: all .75s cubic-bezier(.5, -0.2, .7, .4);
 }
 .special-art { border: 3px solid var(--ink); image-rendering: pixelated; background: #1d2233; }
+.special-pick { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.special-pick .pc-label { max-width: 100%; }
+.special-pick .sp-note { color: #8a2f22; font-size: 13px; letter-spacing: 1px; }
+.special-pick.selected { outline: 3px solid var(--red); }
 
 /* re-assign: visual swap lines (book · current → candidates) */
 .swap-line {
