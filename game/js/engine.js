@@ -710,22 +710,25 @@ class Engine {
   salesMove(pid, toNode, useTicket = false) {
     const s = this.state, ses = s.salesSession, p = this.player(pid);
     if (!ses || ses.player !== pid) return false;
+    const cabFare = !useTicket && !ses.freeWalk ? 2 : 0;
     if (useTicket) {
       if (p.tickets <= 0) return false;
-      p.tickets--;
     } else {
       if (!this.agentAdjacent(pid).includes(toNode)) return false;
-      if (ses.freeWalk) ses.freeWalk = false;
-      else {
-        if (p.money < 2) return false;
-        p.money -= 2;
-        this.emit("cab", { player: pid });
-      }
+      if (p.money < cabFare) return false;
+    }
+    // occupancy fee owed if flipping/collecting here or ending here;
+    // can't enter a rival's corner without being able to pay it
+    const occupant = s.players.find((q) => q.id !== pid && q.agentNode === toNode && q.agentMoved);
+    if (occupant && p.money - cabFare < 2) return false;
+    if (useTicket) p.tickets--;
+    else if (ses.freeWalk) ses.freeWalk = false;
+    else {
+      p.money -= 2;
+      this.emit("cab", { player: pid });
     }
     p.agentNode = toNode;
     p.agentMoved = true;
-    // occupancy fee owed if flipping/collecting here or ending here
-    const occupant = s.players.find((q) => q.id !== pid && q.agentNode === toNode && q.agentMoved);
     ses.unpaidNode = occupant ? occupant.id : null;
     ses.feePaid = false;
     this.emit("agentMove", { player: pid, node: toNode, ticket: useTicket });
@@ -774,7 +777,7 @@ class Engine {
   salesEnd(pid) {
     const s = this.state;
     if (!s.salesSession || s.salesSession.player !== pid) return false;
-    this.payOccupancy(pid); // fee owed if ending on occupied node (best effort)
+    if (!this.payOccupancy(pid)) return false; // must settle the fee to end here
     s.salesSession = null;
     this.emit("salesEnd", { player: pid });
     this.afterAction(pid, "sales");

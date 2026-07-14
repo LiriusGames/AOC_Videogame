@@ -442,8 +442,8 @@ const Scenes = (() => {
             toast(ticketMode ? "Ticket armed: click anywhere on the map" : "Ticket disarmed");
           } },
         { label: "END SALES RUN", cls: "btn-danger", fn: () => {
+            if (!e.salesEnd(me())) return failed("You owe $2 for this corner — you can't end here.");
             closeModal();
-            e.salesEnd(me());
             Main.afterHumanMove();
           } },
       ]);
@@ -456,8 +456,9 @@ const Scenes = (() => {
           const from = P(me()).agentNode;
           if (h.node === from) return;
           if (ticketMode && P(me()).tickets > 0) {
+            if (!e.salesMove(me(), h.node, true))
+              return failed("You can't afford the $2 fee on that rival's corner.");
             MapView.queueMove(me(), from, h.node, "ticket");
-            e.salesMove(me(), h.node, true);
             ticketMode = false;
             m.querySelector("#btn-ticket").classList.remove("btn-go");
           } else {
@@ -470,7 +471,10 @@ const Scenes = (() => {
             let cur = from;
             for (const step of path) {
               const mode = ses.freeWalk ? "walk" : "cab";
-              if (!e.salesMove(me(), step)) break;
+              if (!e.salesMove(me(), step)) {
+                failed("You can't afford the $2 fee on a rival's corner along that route.");
+                break;
+              }
               MapView.queueMove(me(), cur, step, mode);
               cur = step;
             }

@@ -42,9 +42,18 @@ function checkInvariants(e) {
   }
 }
 
-function runGame(seed, nPlayers, verbose = false) {
+function runGame(seed, nPlayers, opts = {}) {
   const players = PLAYER_COLORS.slice(0, nPlayers).map((color) => ({ color, human: false }));
-  const e = new Engine({ players, seed, useRipoffs: true, difficulty: "hard" });
+  const e = new Engine({ players, seed, useRipoffs: opts.useRipoffs !== false, difficulty: opts.difficulty || "hard" });
+  // occupancy-fee invariant: a sales run may never end with an unpayable fee owed
+  const origEnd = e.salesEnd.bind(e);
+  e.salesEnd = (pid) => {
+    const ses = e.state.salesSession;
+    const owedBroke = ses && ses.unpaidNode != null && !ses.feePaid && e.player(pid).money < 2;
+    const ok = origEnd(pid);
+    assert(!(ok && owedBroke), "sales run ended with unpayable occupancy fee", e);
+    return ok;
+  };
   let guard = 0;
   while (!e.state.gameOver && guard++ < 4000) {
     const s = e.state;
@@ -70,6 +79,8 @@ function runGame(seed, nPlayers, verbose = false) {
 }
 
 // ------------------------------------------------------------------- run
+// main batch: hard + ripoffs (the reported stats), then a smaller matrix
+// across every difficulty / ripoff setting so all rule paths stay checked.
 let games = 0, wins = {}, totals = [], printed = [], actionsUsed = {};
 ACTIONS.forEach((a) => (actionsUsed[a] = 0));
 const t0 = Date.now();
@@ -89,3 +100,17 @@ console.log(`score avg ${avg(totals)} min ${Math.min(...totals)} max ${Math.max(
 console.log(`printed avg ${avg(printed)} max ${Math.max(...printed)}`);
 console.log("wins by persona:", wins);
 console.log("action usage (last-round spaces):", actionsUsed);
+
+let matrixGames = 0;
+const tm = Date.now();
+for (const difficulty of ["easy", "normal", "hard"]) {
+  for (const useRipoffs of [true, false]) {
+    if (difficulty === "hard" && useRipoffs) continue; // covered above
+    for (const n of [2, 3, 4])
+      for (let i = 0; i < 12; i++) {
+        runGame(9000 + n * 100 + i, n, { difficulty, useRipoffs });
+        matrixGames++;
+      }
+  }
+}
+console.log(`OK: ${matrixGames} matrix games (easy/normal/hard x ripoffs on/off) in ${Date.now() - tm}ms`);
