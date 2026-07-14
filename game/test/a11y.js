@@ -157,6 +157,67 @@ async function axeScan(page, label) {
       const r = document.getElementById("aria-status");
       return !!r && r.getAttribute("aria-live") === "polite";
     }), "live status region present");
+
+    // ---------------------- keyboard-only sales run via the DOM map panel
+    await page.waitForFunction(() => UI.engine.currentPlayerId() === UI.humanId &&
+      !UI.busy && !UI.engine.state.pending && !UI.engine.state.awaitingSpecial, { timeout: 30000 });
+    // stage an occupancy restriction: rival parked on an adjacent corner, we are broke
+    await page.evaluate(() => {
+      const e = UI.engine, rival = e.state.players.find((q) => q.id !== UI.humanId);
+      rival.agentNode = MAP.X_LINKS[0];
+      rival.agentMoved = true;
+      e.player(UI.humanId).money = 0;
+      renderAll();
+    });
+    await page.evaluate(() => document.querySelector('#locations .loc[data-action="sales"]').focus());
+    await page.keyboard.press("Enter");
+    await page.waitForFunction(() => !!document.querySelector("#modal-root .modal"));
+    check(await tabUntil(() => /START THE RUN/.test(document.activeElement.textContent || "")),
+      "keyboard: reach START THE RUN in the scout dialog");
+    await page.keyboard.press("Enter");
+    await page.waitForFunction(() => !!document.querySelector(".sales-panel"));
+    check(true, "sales panel renders");
+    const occ = await page.evaluate(() => {
+      const b = document.querySelector(`.sales-panel [data-pkey="dest-${MAP.X_LINKS[0]}"]`);
+      return b && { disabled: b.disabled, label: b.getAttribute("aria-label") };
+    });
+    check(occ && occ.disabled && /fee/.test(occ.label), "occupied corner disabled with the fee reason");
+    check(await tabUntil(() => /^dest-/.test((document.activeElement.dataset || {}).pkey || "") &&
+      !document.activeElement.disabled), "keyboard: reach a legal destination");
+    const nodeBefore = await page.evaluate(() => UI.engine.player(UI.humanId).agentNode);
+    await page.keyboard.press("Enter");
+    check(await page.evaluate((nb) => UI.engine.player(UI.humanId).agentNode !== nb, nodeBefore),
+      "keyboard: Enter moves the agent");
+    check(await page.evaluate(() => !!document.activeElement.closest(".sales-panel")),
+      "focus preserved in the panel after the rerender");
+    // flip or collect if the corner offers one
+    const canAct = await page.evaluate(() => {
+      const b = document.querySelector('.sales-panel [data-pkey^="flip-"]:not([disabled]),' +
+        ' .sales-panel [data-pkey^="collect-"]:not([disabled])');
+      if (!b) return false;
+      b.focus();
+      return true;
+    });
+    if (canAct) {
+      const acts = await page.evaluate(() => {
+        const ses = UI.engine.state.salesSession;
+        return ses.flipsLeft + ses.collectsLeft;
+      });
+      await page.keyboard.press("Enter");
+      check(await page.evaluate((n) => {
+        const ses = UI.engine.state.salesSession;
+        return !ses || ses.flipsLeft + ses.collectsLeft < n;
+      }, acts), "keyboard: flip/collect consumed an action");
+    }
+    if (await page.evaluate(() => !!document.querySelector("#modal-root .modal"))) {
+      check(await tabUntil(() => /END SALES RUN/.test(document.activeElement.textContent || "")),
+        "keyboard: reach END SALES RUN");
+      await page.keyboard.press("Enter");
+    }
+    await page.waitForFunction(() => !document.querySelector("#modal-root .modal"), { timeout: 10000 });
+    check(true, "sales run ends from the keyboard");
+    check(await page.evaluate(() => document.activeElement !== document.body),
+      "focus restored somewhere useful after the dialog closes");
   } finally {
     await browser.close();
     server.kill();

@@ -707,20 +707,30 @@ class Engine {
       MAP.X_LINKS.forEach((n) => { if (n !== p.agentNode && !adj.includes(n)) adj.push(n); });
     return adj;
   }
-  salesMove(pid, toNode, useTicket = false) {
+  // legality/cost query for a sales move — single source of the movement
+  // rules, used by salesMove itself and by any UI that lists destinations
+  salesMoveCheck(pid, toNode, useTicket = false) {
     const s = this.state, ses = s.salesSession, p = this.player(pid);
-    if (!ses || ses.player !== pid) return false;
+    if (!ses || ses.player !== pid) return { ok: false, reason: "no sales run in progress" };
     const cabFare = !useTicket && !ses.freeWalk ? 2 : 0;
+    const occupant = s.players.find((q) => q.id !== pid && q.agentNode === toNode && q.agentMoved);
+    const occupied = occupant !== undefined;
     if (useTicket) {
-      if (p.tickets <= 0) return false;
+      if (p.tickets <= 0) return { ok: false, cabFare, occupied, reason: "no tickets left" };
     } else {
-      if (!this.agentAdjacent(pid).includes(toNode)) return false;
-      if (p.money < cabFare) return false;
+      if (!this.agentAdjacent(pid).includes(toNode)) return { ok: false, cabFare, occupied, reason: "not adjacent" };
+      if (p.money < cabFare) return { ok: false, cabFare, occupied, reason: "can't afford the $2 cab" };
     }
     // occupancy fee owed if flipping/collecting here or ending here;
     // can't enter a rival's corner without being able to pay it
+    if (occupied && p.money - cabFare < 2)
+      return { ok: false, cabFare, occupied, reason: "can't afford the rival's $2 fee" };
+    return { ok: true, cabFare, occupied };
+  }
+  salesMove(pid, toNode, useTicket = false) {
+    const s = this.state, ses = s.salesSession, p = this.player(pid);
+    if (!this.salesMoveCheck(pid, toNode, useTicket).ok) return false;
     const occupant = s.players.find((q) => q.id !== pid && q.agentNode === toNode && q.agentMoved);
-    if (occupant && p.money - cabFare < 2) return false;
     if (useTicket) p.tickets--;
     else if (ses.freeWalk) ses.freeWalk = false;
     else {

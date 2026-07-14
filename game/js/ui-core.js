@@ -115,6 +115,9 @@ function a11ySweep(root) {
     if (!d.getAttribute("aria-label")) {
       const txt = (d.textContent || "").replace(/\s+/g, " ").trim();
       if (txt) d.setAttribute("aria-label", txt.slice(0, 90));
+      // the sweep is a safety net: new controls should get an intentional
+      // accessible name at their creation site, not inherit raw text
+      else console.warn("a11y: interactive element with no accessible name", d);
     }
   });
   root.querySelectorAll(".dimmed, .disabled").forEach((d) => d.setAttribute("aria-disabled", "true"));
@@ -205,7 +208,17 @@ function closeModal() {
   root.onclick = null;
   root.onkeydown = null;
   root.innerHTML = "";
-  if (modalOpener && document.contains(modalOpener) && modalOpener.focus) modalOpener.focus();
+  // restore focus to the opener; screens re-render, so fall back to its
+  // re-created twin (same label), then to the location grid
+  if (modalOpener && modalOpener.focus) {
+    if (document.contains(modalOpener)) modalOpener.focus();
+    else {
+      const label = modalOpener.getAttribute && modalOpener.getAttribute("aria-label");
+      const twin = (label && document.querySelector(`[aria-label="${CSS.escape(label)}"]`)) ||
+        document.querySelector('#locations [role="button"]');
+      if (twin) twin.focus();
+    }
+  }
   modalOpener = null;
 }
 function modalButtons(m, buttons) {
@@ -443,6 +456,7 @@ function offerStrip(action) {
 function renderLocations() {
   const e = UI.engine, s = e.state;
   const wrap = document.getElementById("locations");
+  const focusedAction = wrap.contains(document.activeElement) ? document.activeElement.dataset.action : null;
   wrap.innerHTML = "";
   const myTurn = s.phase === "actions" && e.currentPlayerId() === UI.humanId && !UI.busy && !s.pending && !s.awaitingSpecial;
   for (const action of ACTIONS) {
@@ -483,6 +497,7 @@ function renderLocations() {
     loc.title = info.desc + (reason ? `\nUnavailable: ${reason}.` : "");
     loc.setAttribute("role", "button");
     loc.tabIndex = 0;
+    loc.dataset.action = action;
     loc.setAttribute("aria-label", `${info.name} — ${info.verb}` + (reason ? ` (unavailable: ${reason})` : ""));
     if (!canGo) loc.setAttribute("aria-disabled", "true");
     loc.onclick = () => {
@@ -491,6 +506,10 @@ function renderLocations() {
       Scenes.open(action);
     };
     wrap.appendChild(loc);
+  }
+  if (focusedAction) {
+    const t = wrap.querySelector(`[data-action="${focusedAction}"]`);
+    if (t) t.focus();
   }
 }
 

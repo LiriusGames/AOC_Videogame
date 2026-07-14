@@ -399,6 +399,26 @@ test("undo: restore replays to an identical state", () => {
   eq(JSON.stringify(e.state), h1, "identical state after replay");
 });
 
+test("salesMoveCheck reports costs and reasons without mutating", () => {
+  const e = freshGame(45);
+  const pid = e.currentPlayerId(), other = e.state.players.find((q) => q.id !== pid).id;
+  e.player(other).agentNode = MAP.X_LINKS[0];
+  e.player(other).agentMoved = true;
+  ok(e.actSalesStart(pid));
+  const p = e.player(pid);
+  p.money = 0;
+  let chk = e.salesMoveCheck(pid, MAP.X_LINKS[0]);
+  ok(!chk.ok && chk.occupied && /fee/.test(chk.reason), "broke + occupied: fee reason");
+  chk = e.salesMoveCheck(pid, MAP.X_LINKS[1]);
+  ok(chk.ok && chk.cabFare === 0, "free walk to an empty corner");
+  ok(e.salesMove(pid, MAP.X_LINKS[1]));
+  chk = e.salesMoveCheck(pid, MAP.X_LINKS[2]);
+  ok(!chk.ok && /cab/.test(chk.reason), "broke: cab reason after the free step");
+  chk = e.salesMoveCheck(pid, 23, true);
+  ok(!chk.ok && /ticket/.test(chk.reason), "no tickets reason");
+  eq(p.money, 0, "checks never mutate");
+});
+
 test("save/resume: JSON round-trip preserves determinism", () => {
   const cfg = { players: [{ color: "yellow", human: false }, { color: "salmon", human: false }], seed: 888, useRipoffs: true };
   const run = (e, steps) => {

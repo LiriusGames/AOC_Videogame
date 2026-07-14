@@ -436,8 +436,12 @@ const Scenes = (() => {
       cv.style.width = "min(680px, calc(68vh / var(--z, 1)))";
       cv.style.alignSelf = "center";
       m.appendChild(cv);
+      cv.setAttribute("aria-hidden", "true"); // the panel below mirrors the map for keyboard/SR users
       m.appendChild(el("div", "modal-sub", "Click a <b>circle</b> to move (first step free, then $2/block by cab). " +
         "Click a <b>tile</b> next to your agent to flip / collect it. Landing on a rival's corner costs $2."));
+      const panel = el("div", "sales-panel");
+      panel.setAttribute("aria-label", "Sales run controls");
+      m.appendChild(panel);
       modalButtons(m, [
         { label: "USE TICKET", id: "btn-ticket", fn: (btn) => {
             if (P(me()).tickets <= 0) return;
@@ -516,9 +520,141 @@ const Scenes = (() => {
           `<span><b>CASH</b> $${p.money}</span> <span><b>TICKETS</b> ${p.tickets}</span>`;
         const tbtn = m.querySelector("#btn-ticket");
         if (tbtn) tbtn.disabled = p.tickets <= 0;
+        renderPanel();
+      }
+      function afterPanelAction() {
+        flushEvents();
+        refreshHud();
+        MapView.draw();
+        renderHUD();
+        if (s.pending && s.pending.playerId === me()) {
+          closeModal();
+          Main.advance();
+        }
+      }
+      // DOM twin of the canvas map: everything a sales run can do, as real
+      // buttons, derived from the engine's own legality checks
+      function renderPanel() {
+        const ses = s.salesSession;
+        if (!ses) return;
+        const p = P(me());
+        const a = document.activeElement;
+        const prevKey = a && a.dataset ? a.dataset.pkey : null;
+        panel.innerHTML = "";
+        const feeOwed = ses.unpaidNode != null && !ses.feePaid;
+        panel.appendChild(el("div", "sp-status",
+          `You are at <b>${cornerName(p.agentNode)}</b> &middot; $${p.money} &middot; ` +
+          `${p.tickets} ticket${p.tickets === 1 ? "" : "s"} &middot; next step ${ses.freeWalk ? "free" : "$2 cab"}` +
+          (feeOwed ? " &middot; <b>owes a $2 fee at this corner</b>" : "")));
+
+        const mkBtn = (label, key, opts = {}) => {
+          const b = el("button", "btn btn-small", label);
+          b.dataset.pkey = key;
+          b.setAttribute("aria-label", opts.desc || label);
+          if (opts.disabledReason) {
+            b.disabled = true;
+            b.title = opts.disabledReason;
+            b.setAttribute("aria-label", `${opts.desc || label} (unavailable: ${opts.disabledReason})`);
+          } else if (opts.fn) b.onclick = () => { SFX.play("click"); opts.fn(); };
+          return b;
+        };
+
+        // walk/cab destinations
+        const dests = el("div", "sp-row");
+        dests.appendChild(el("span", "sp-lab", "GO TO"));
+        for (const nd of e.agentAdjacent(me())) {
+          if (nd === "X") continue;
+          const chk = e.salesMoveCheck(me(), nd);
+          const desc = `Move to ${cornerName(nd)} — ${chk.cabFare ? "$2 cab" : "free step"}` +
+            (chk.occupied ? ", a rival's corner: $2 fee to act or stop there" : "");
+          dests.appendChild(mkBtn(
+            `${cornerName(nd).replace("corner ", "")}${chk.occupied ? " &#9873;" : ""} (${chk.cabFare ? "$2" : "free"})`,
+            "dest-" + nd, {
+              desc,
+              disabledReason: chk.ok ? null : chk.reason,
+              fn: () => {
+                const mode = ses.freeWalk ? "walk" : "cab";
+                const from = p.agentNode;
+                if (e.salesMove(me(), nd)) MapView.queueMove(me(), from, nd, mode);
+                afterPanelAction();
+              },
+            }));
+        }
+        panel.appendChild(dests);
+
+        // ticket teleport: native select + ride
+        if (p.tickets > 0) {
+          const trow = el("div", "sp-row");
+          trow.appendChild(el("span", "sp-lab", "TICKET"));
+          const sel = el("select");
+          sel.dataset.pkey = "ticket-sel";
+          sel.setAttribute("aria-label", "Ticket destination");
+          for (const nd of MAP.nodes) {
+            if (nd.id === p.agentNode) continue;
+            const o = el("option", "", cornerName(nd.id));
+            o.value = nd.id;
+            sel.appendChild(o);
+          }
+          trow.appendChild(sel);
+          trow.appendChild(mkBtn("RIDE", "ticket-go", {
+            desc: "Use a super-transport ticket to ride to the selected corner",
+            fn: () => {
+              const nd = +sel.value;
+              const chk = e.salesMoveCheck(me(), nd, true);
+              if (!chk.ok) return failed(`Can't ride there: ${chk.reason}.`);
+              const from = p.agentNode;
+              if (e.salesMove(me(), nd, true)) MapView.queueMove(me(), from, nd, "ticket");
+              afterPanelAction();
+            },
+          }));
+          panel.appendChild(trow);
+        }
+
+        // orders at the current corner
+        const here = el("div", "sp-row");
+        here.appendChild(el("span", "sp-lab", "HERE"));
+        const tiles = e.slotsAtAgent(me());
+        if (!tiles.length)
+          here.appendChild(el("span", "sp-none",
+            p.agentNode === "X" ? "no newsstands at the station" : "no free orders at this corner"));
+        const feeBlock = feeOwed && p.money < 2 ? "owes the $2 fee and can't pay it" : null;
+        const feeNote = feeOwed ? " (pays the $2 fee first)" : "";
+        for (const t of tiles) {
+          const name = t.faceUp
+            ? `${fmtGenre(t.genre)} order — needs value ${t.minVal}, worth ${t.fans} fan${t.fans > 1 ? "s" : ""}`
+            : "a face-down order";
+          if (!t.faceUp && ses.flipsLeft > 0)
+            here.appendChild(mkBtn("FLIP ?", "flip-" + t.id, {
+              desc: `Flip ${name} at ${cornerName(p.agentNode)}${feeNote}`,
+              disabledReason: feeBlock,
+              fn: () => { if (!e.salesFlip(me(), t.id)) failed("Can't flip that."); afterPanelAction(); },
+            }));
+          if (ses.collectsLeft > 0)
+            here.appendChild(mkBtn(t.faceUp ? `COLLECT ${fmtGenre(t.genre)} ${t.minVal}+/${t.fans}` : "COLLECT ? (blind)", "collect-" + t.id, {
+              desc: `Collect ${name}${feeNote}`,
+              disabledReason: feeBlock,
+              fn: () => { if (!e.salesCollect(me(), t.id)) failed("Can't collect that."); afterPanelAction(); },
+            }));
+        }
+        panel.appendChild(here);
+
+        // predictable focus after every rerender: same control, else its
+        // group, else the first live button in the panel
+        if (prevKey) {
+          const target = panel.querySelector(`[data-pkey="${prevKey}"]:not([disabled])`) ||
+            panel.querySelector(`[data-pkey^="${prevKey.split("-")[0]}"]:not([disabled])`) ||
+            panel.querySelector("button:not([disabled])");
+          if (target) target.focus();
+        }
       }
     }, { width: "720px" });
     }
+  }
+
+  function cornerName(n) {
+    if (n === "X") return "Central Station";
+    const nd = MAP.nodes[n];
+    return `corner ${"ABCD"[nd.c]}${nd.r + 1}`;
   }
 
   // view-only map
