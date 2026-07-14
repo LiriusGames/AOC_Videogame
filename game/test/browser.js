@@ -215,11 +215,18 @@ function check(cond, name) {
           p.hand.push(id);
         }
       };
-      give("orig_25", "writer_scifi_2", "artist_crime_2");
-      p.money = 10;
-      p.ideas.romance = 2;
+      // the print must WIN mastery: pick a genre no one has printed yet
+      // (random seeds can otherwise hand the genre to a rival first)
+      const cd = COMICS.find((c) => s.mastery[c.genre] === undefined &&
+        !s.chart.some((k) => k.genre === c.genre)) ||
+        COMICS.find((c) => s.mastery[c.genre] === undefined) || CARD_BY_ID["orig_25"];
+      const wid = s.decks.writers.concat(s.display.writers).find((id) => CARD_BY_ID[id].genre !== cd.genre);
+      const aid = s.decks.artists.concat(s.display.artists).find((id) => CARD_BY_ID[id].genre !== cd.genre);
+      give(cd.id, wid, aid);
+      p.money = 12;
+      p.ideas[cd.genre] = 2;
       p.printedCount = 1; // this print is the 2nd -> a cube decision follows
-      e.actPrint(pid, { books: [{ type: "original", comic: "orig_25", writer: "writer_scifi_2", artist: "artist_crime_2" }] });
+      e.actPrint(pid, { books: [{ type: "original", comic: cd.id, writer: wid, artist: aid }] });
       Main.afterHumanMove();
     });
     await page.waitForFunction(() => document.getElementById("modal-root").classList.contains("active"), { timeout: 15000 });
@@ -346,6 +353,77 @@ function check(cond, name) {
     await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
     await page.$eval("#btn-review-confirm", (b) => b.click());
     check(true, "UI-driven sales run completes through review");
+
+    // -------------------- 11. publisher desk unification + newsroom overflow
+    check(await page.evaluate(() => !document.querySelector("#topbar #hud-resources") &&
+      !!document.querySelector("#hud #hud-resources") &&
+      !!document.querySelector("#hud #desk-orders") && !!document.querySelector("#hud #desk-awards")),
+      "personal resources/orders/awards live in the bottom desk, not the top bar");
+    check(await page.evaluate(() => !/\$\d/.test(document.getElementById("topbar").textContent)),
+      "top bar carries no personal cash figure");
+    check(await page.evaluate(() =>
+      document.querySelectorAll("#desk-awards .award-socket").length === GENRES.length),
+      "awards shelf shows one persistent socket per genre");
+    for (const vp of [{ width: 1600, height: 900 }, { width: 1024, height: 768 }]) {
+      await page.setViewport(vp);
+      for (const n of [0, 4, 5, 6, 8]) {
+        const r = await page.evaluate(async (n) => {
+          // the viewport just changed: let fitUI's resize handling settle so
+          // zoom/size compensation is coherent before anything is measured
+          dispatchEvent(new Event("resize"));
+          await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+          const e = UI.engine;
+          if (!window.__deskSnap) window.__deskSnap = e.snapshot();
+          else { e.restore(window.__deskSnap); UI.eventCursor = e.events.length; }
+          const s = e.state; // restore() swaps the state object — bind after
+          s.chart = s.chart.filter((c) => c.owner !== UI.humanId);
+          COMICS.slice(0, n).forEach((cd) => {
+            s.chart.push({ idx: 0, owner: UI.humanId, title: cd.title, genre: cd.genre,
+              cardId: cd.id, isRipoff: false, fans: 3, value: 4, bettercolor: false,
+              everOnChart: true, masteryFanApplied: false,
+              creatives: {
+                writer: { id: "writer_" + cd.genre + "_2", genre: cd.genre, baseValue: 2, curValue: 2, name: "Test Writer" },
+                artist: { id: "artist_" + cd.genre + "_2", genre: cd.genre, baseValue: 2, curValue: 2, name: "Test Artist" },
+              } });
+          });
+          s.chart.forEach((c, i) => (c.idx = i));
+          renderAll();
+          await new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(res)));
+          const mat = document.getElementById("hud-mat");
+          const matR = mat.getBoundingClientRect();
+          const handR = document.getElementById("hud-hand").getBoundingClientRect();
+          const items = [...document.querySelectorAll("#hud-mat .press-item")];
+          let reachable = 0, valuesOk = 0, overlapHand = 0;
+          const detail = [];
+          for (const it of items) {
+            it.scrollIntoView({ block: "nearest", inline: "nearest" });
+            const b = it.getBoundingClientRect();
+            if (b.left >= matR.left - 1 && b.right <= matR.right + 1) reachable++;
+            if (b.right > handR.left + 1 && b.left < handR.right) overlapHand++;
+            detail.push([Math.round(b.left), Math.round(b.right)]);
+            const c = s.chart[+it.dataset.chartIdx];
+            const plate = it.querySelector(".val-plate");
+            if (plate && plate.textContent === "VALUE " + c.value) valuesOk++;
+          }
+          const nav = document.getElementById("mat-nav");
+          nav.hidden = mat.scrollWidth <= mat.clientWidth + 4; // sync recompute
+          return { count: items.length, reachable, valuesOk, overlapHand,
+            scrollable: mat.scrollWidth > mat.clientWidth + 4, navShown: !nav.hidden,
+            detail, matR: [Math.round(matR.left), Math.round(matR.right)],
+            handL: Math.round(handR.left) };
+        }, n);
+        const tag = `${vp.width}x${vp.height}, ${n} comics`;
+        if (r.reachable !== n || r.overlapHand)
+          console.error(`      geometry: mat=${r.matR} handLeft=${r.handL} items=${JSON.stringify(r.detail)}`);
+        check(r.count === n, `${tag}: newsroom renders all of them`);
+        check(r.reachable === n, `${tag}: every comic can be brought fully into view`);
+        check(r.valuesOk === n, `${tag}: every VALUE plate matches engine state`);
+        check(r.overlapHand === 0, `${tag}: none hides under the ON YOUR DESK column`);
+        check(!r.scrollable || r.navShown, `${tag}: scroll affordance visible when it scrolls`);
+      }
+    }
+    await page.evaluate(() => { UI.engine.restore(window.__deskSnap); UI.eventCursor = UI.engine.events.length; renderAll(); });
+    await page.setViewport({ width: 800, height: 600 });
 
     // direct file:// open: the friendly guard, not a half-loaded game
     const fpage = await browser.newPage();

@@ -85,7 +85,6 @@ if (location.protocol === "file:") {
     <header id="topbar">
       <div id="top-logo">AGE OF COMICS</div>
       <div id="calendar"></div>
-      <div id="hud-resources"></div>
       <div id="turn-order"></div>
       <div id="top-buttons">
         <button id="btn-undo" class="btn btn-small" title="Rewind to the start of your turn">&#8630; UNDO</button>
@@ -104,14 +103,36 @@ if (location.protocol === "file:") {
     </main>
 
     <footer id="hud">
-      <div id="hud-left" tabindex="0" aria-label="Your printed comics">
-        <div id="hud-mat"></div>
+      <!-- one persistent home for ALL personal state: the Publisher Desk -->
+      <div id="desk-status" tabindex="0" aria-label="Your publisher desk: resources, orders and awards">
+        <div class="mat-plate desk-plate">&#9733; PUBLISHER DESK &#9733;</div>
+        <div id="hud-resources" role="group" aria-label="Your resources"></div>
+        <div class="desk-label">SALES ORDERS</div>
+        <div id="desk-orders" role="group" aria-label="Your sales orders"></div>
+        <div class="desk-label">AWARDS SHELF</div>
+        <div id="desk-awards" role="group" aria-label="Your mastery awards shelf"></div>
+      </div>
+      <div id="hud-left">
+        <div id="hud-mat" tabindex="0" aria-label="Your printed comics"></div>
+        <div id="mat-nav" hidden>
+          <button id="mat-prev" aria-label="Scroll printed comics left">&#9664;</button>
+          <button id="mat-next" aria-label="Scroll printed comics right">&#9654;</button>
+        </div>
       </div>
       <div id="hud-hand" tabindex="0" aria-label="Your hand"></div>
-      <div id="hud-log">
-        <div id="dialogue" tabindex="0" aria-label="Game log"></div>
-      </div>
+      <button id="wire-strip" aria-controls="wire-panel" aria-expanded="false">
+        <span class="ws-label">LATEST</span><span class="ws-text" id="wire-latest"></span><span class="ws-more">FULL LOG &#9656;</span>
+      </button>
     </footer>
+
+    <!-- the full event history opens as a bottom sheet over the city -->
+    <div id="wire-panel" role="dialog" aria-label="Full game log" hidden>
+      <div class="wp-head">
+        <span class="wp-title">GAME LOG</span>
+        <button id="wire-close" class="btn btn-small">CLOSE</button>
+      </div>
+      <div id="dialogue" tabindex="0" aria-label="Game log"></div>
+    </div>
   </section>
 
   <!-- post-action review: inspect the result, then undo or continue -->

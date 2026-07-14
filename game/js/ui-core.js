@@ -277,6 +277,10 @@ function say(pid, text, cls = "") {
   box.appendChild(line);
   box.scrollTop = box.scrollHeight;
   while (box.children.length > 60) box.firstChild.remove();
+  // the latest line also runs across the strip at the bottom of the desk
+  const strip = document.getElementById("wire-latest");
+  if (strip) strip.innerHTML =
+    (pid === null ? "" : `<b>${esc(P(pid).name.split(" ")[0].toUpperCase())}:</b> `) + text;
 }
 function quip(pid, key, extra = {}) {
   const p = P(pid);
@@ -650,35 +654,29 @@ function renderChart() {
 function renderHUD() {
   const e = UI.engine, s = e.state;
   const p = P(UI.humanId);
-  // resources
+  // publisher desk: stable resource sockets (dim at zero, never vanishing —
+  // a persistent home the eye can always return to)
   const res = document.getElementById("hud-resources");
   res.innerHTML = "";
-  const money = el("span", "res");
-  money.appendChild(spr("coin_1", 0.9));
-  money.innerHTML += ` <b>$${p.money}</b>`;
-  res.appendChild(money);
-  const eds = el("span", "res");
-  eds.appendChild(spr("meeple_" + p.color, 1));
-  eds.innerHTML += ` <b>x${p.editorsLeft}</b>`;
-  eds.title = "Editors left this round";
-  res.appendChild(eds);
-  GENRES.forEach((g) => {
-    if (p.ideas[g] > 0) {
-      const r = el("span", "res");
-      r.appendChild(spr("idea_" + g, 0.75));
-      r.innerHTML += `<b>${p.ideas[g]}</b>`;
-      r.title = GENRE_INFO[g].name + " ideas";
-      res.appendChild(r);
-    }
-  });
-  if (p.tickets > 0) {
-    const r = el("span", "res");
-    r.appendChild(spr("ticket", 0.6));
-    r.innerHTML += `<b>${p.tickets}</b>`;
-    r.title = "Super-transport tickets";
-    res.appendChild(r);
-  }
+  const chip = (parent, sprite, scale, html, title, dim = false) => {
+    const r = el("span", "res" + (dim ? " dim" : ""));
+    r.appendChild(spr(sprite, scale));
+    r.innerHTML += html;
+    if (title) r.title = title;
+    parent.appendChild(r);
+    return r;
+  };
+  chip(res, "coin_1", 0.9, ` <b>$${p.money}</b>`, "Cash");
+  chip(res, "meeple_" + p.color, 1, ` <b>x${p.editorsLeft}</b>`, "Editors left this round");
+  chip(res, "vp_1", 0.65, ` <b>${p.vpTokens}</b>`, "Victory point tokens", p.vpTokens === 0);
+  chip(res, "ticket", 0.6, `<b>${p.tickets}</b>`, "Super-transport tickets", p.tickets === 0);
+  GENRES.forEach((g) =>
+    chip(res, "idea_" + g, 0.75, `<b>${p.ideas[g]}</b>`, GENRE_INFO[g].name + " ideas", p.ideas[g] === 0));
+
   // collected orders: shown openly so you always know what you must deliver
+  const ord = document.getElementById("desk-orders");
+  ord.innerHTML = "";
+  if (!p.orders.length) ord.innerHTML = "<i>no orders collected yet</i>";
   for (const oid of p.orders) {
     const o = s.mapSlots[oid];
     const r = el("span", "res");
@@ -690,21 +688,46 @@ function renderHUD() {
     r.title = o.fulfilled
       ? `${GENRE_INFO[o.genre].name} order delivered (+${o.fans} fans)`
       : `${GENRE_INFO[o.genre].name} order: delivers by itself once you own a ${GENRE_INFO[o.genre].name} book of value ${o.minVal}+ (then +${o.fans} fans). Undelivered = -${o.fans} VP at the end!`;
-    res.appendChild(r);
+    ord.appendChild(r);
   }
+
+  // awards shelf: one persistent socket per genre — mastery tokens land
+  // here and STAY visible (this is also the fly-to destination)
+  const aw = document.getElementById("desk-awards");
+  aw.innerHTML = "";
+  GENRES.forEach((g) => {
+    const holder = s.mastery[g];
+    const sock = el("span", "award-socket" + (holder === UI.humanId ? " won" : ""));
+    sock.dataset.genre = g;
+    if (holder === UI.humanId) {
+      sock.appendChild(spr("mastery_" + g, 0.55));
+      sock.title = GENRE_INFO[g].name + " Mastery: +1 fan per book of the genre, 2 VP";
+    } else {
+      sock.innerHTML = `<span style="opacity:.5">${genreDot(g)}</span>`;
+      sock.title = GENRE_INFO[g].name + " Mastery — " +
+        (holder === undefined || holder === null ? "unclaimed" : `held by ${P(holder).pubName}`);
+    }
+    aw.appendChild(sock);
+  });
 
   // newsroom: every printed comic with the team working on it
   const mat = document.getElementById("hud-mat");
   mat.innerHTML = "<div class='mat-plate'>&#9733; THE NEWSROOM &#9733;</div>";
   s.chart.filter((c) => c.owner === UI.humanId).forEach((c) => {
     const d = el("div", "press-item" + (c.isRipoff ? " ripoff" : ""));
+    d.dataset.chartIdx = c.idx;
+    d.setAttribute("role", "group");
+    d.setAttribute("aria-label", `${c.title}${c.isRipoff ? " (rip-off)" : ""}: value ${c.value}, ${c.fans} fans`);
     if (c.idx === UI.lastPrintIdx) d.appendChild(el("div", "new-tag", "NEW!"));
     const cover = el("div", "pi-cover");
     cover.appendChild(spr(comicSprite(c), 0.66));
     cover.appendChild(el("div", "fans-badge", `${c.fans}&#9829;`));
-    cover.appendChild(el("div", "val-badge", "v" + c.value));
     cover.appendChild(el("div", "pi-genre", genreDot(c.genre)));
     d.appendChild(cover);
+    // the current total value, unmistakable and always up to date
+    const vp = el("div", "val-plate", "VALUE " + c.value);
+    vp.dataset.val = c.value;
+    d.appendChild(vp);
     const team = el("div", "pi-team");
     for (const kind of ["writer", "artist"]) {
       const cr = c.creatives[kind];
@@ -726,7 +749,8 @@ function renderHUD() {
   });
   const nP = p.printedCount;
   const nxt = nP < 1 ? "" : nP >= 6 ? "" : ["", "2nd unlocks specials", "3rd: Better Colors", "4th: Marketing/Editor", "5th: move a cube +VP", "6th+: +2 VP each"][nP] || "";
-  if (nxt) mat.appendChild(el("span", "", `<i style="font-size:14px;color:#9aa">&larr; ${nxt}</i>`));
+  if (nxt) mat.appendChild(el("span", "", `<i style="font-size:14px;color:#9aa;flex-shrink:0">&larr; ${nxt}</i>`));
+  updateMatNav();
 
   // hand: comics as covers, creatives as people
   const hand = document.getElementById("hud-hand");
@@ -750,6 +774,14 @@ function renderHUD() {
     hand.appendChild(hc);
   }
   if (!entries.length) hand.innerHTML = "<i style='color:#9aa'>your desk is empty</i>";
+}
+
+// the newsroom shelf can outgrow its column: show the nudge buttons whenever
+// it actually scrolls (the rail is styled visible too — never a hidden one)
+function updateMatNav() {
+  const mat = document.getElementById("hud-mat"), nav = document.getElementById("mat-nav");
+  if (!mat || !nav) return;
+  requestAnimationFrame(() => { nav.hidden = mat.scrollWidth <= mat.clientWidth + 4; });
 }
 
 // ======================================================== EVENT ANIMATION

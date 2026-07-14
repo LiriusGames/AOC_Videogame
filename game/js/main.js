@@ -420,6 +420,28 @@ const Main = (() => {
       if (ev.key === "Escape" && !modalIsOpen() &&
           document.getElementById("sidebar").classList.contains("open")) setDrawer(false);
     });
+    // the event-feed strip opens the full log as a bottom sheet
+    const wirePanel = document.getElementById("wire-panel");
+    const setWire = (open) => {
+      wirePanel.hidden = !open;
+      document.getElementById("wire-strip").setAttribute("aria-expanded", String(open));
+      if (open) {
+        const dlg = document.getElementById("dialogue");
+        dlg.scrollTop = dlg.scrollHeight;
+        document.getElementById("wire-close").focus();
+      } else document.getElementById("wire-strip").focus();
+    };
+    document.getElementById("wire-strip").onclick = () => { SFX.play("paper"); setWire(wirePanel.hidden); };
+    document.getElementById("wire-close").onclick = () => setWire(false);
+    document.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape" && !modalIsOpen() && !wirePanel.hidden) setWire(false);
+    });
+    // newsroom shelf nudge buttons (mouse users; the rail itself is visible)
+    const matScroll = (dir) => document.getElementById("hud-mat")
+      .scrollBy({ left: dir * 180, behavior: REDUCED_MOTION() ? "auto" : "smooth" });
+    document.getElementById("mat-prev").onclick = () => matScroll(-1);
+    document.getElementById("mat-next").onclick = () => matScroll(1);
+    addEventListener("resize", updateMatNav);
     document.getElementById("btn-undo").onclick = () => { SFX.play("click"); doUndo(); };
     document.getElementById("btn-review-undo").onclick = () => { SFX.play("click"); doUndo(); };
     document.getElementById("btn-review-confirm").onclick = () => { SFX.play("click"); confirmReview(); };
