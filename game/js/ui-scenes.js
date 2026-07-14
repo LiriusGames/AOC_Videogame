@@ -664,19 +664,6 @@ const Scenes = (() => {
     return `corner ${"ABCD"[nd.c]}${nd.r + 1}`;
   }
 
-  // chart in a dialog (the alternative laptop-width treatment, ?chart=modal)
-  function viewChartModal() {
-    openModal((m) => {
-      m.appendChild(el("h2", "", "&#9733; THE COMIC BOOK CHART &#9733;"));
-      const wrap = el("div", "chart-modal-wrap");
-      wrap.innerHTML = document.getElementById("chart-panel").innerHTML;
-      const h3 = wrap.querySelector("h3");
-      if (h3) h3.remove(); // the dialog already has the heading
-      m.appendChild(wrap);
-      modalButtons(m, [{ label: "CLOSE", fn: () => closeModal() }]);
-    }, { width: "440px", onDismiss: () => {} });
-  }
-
   // view-only map
   function viewMap() {
     openModal((m) => {
@@ -1315,5 +1302,5 @@ const Scenes = (() => {
     }, { width: "800px" });
   }
 
-  return { open, salesScene, viewMap, viewChartModal, pendingModal, specialModal, startingPicksModal, increaseModal, endgameModal, helpModal };
+  return { open, salesScene, viewMap, pendingModal, specialModal, startingPicksModal, increaseModal, endgameModal, helpModal };
 })();
