@@ -7,6 +7,22 @@
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
+<script>
+// Opening index.html straight from the filesystem half-loads and dies with an
+// opaque "Script error" — browsers restrict file:// pages. The supported
+// launch is PLAY.bat, which serves the game at http://localhost:8477/.
+if (location.protocol === "file:") {
+  window.__fileGuard = true;
+  addEventListener("DOMContentLoaded", function () {
+    document.getElementById("app").innerHTML =
+      '<div class="file-guard" role="alert">' +
+      '<h1>&#9733; STOP THE PRESSES &#9733;</h1>' +
+      '<p>This edition can&rsquo;t run straight off the filing cabinet &mdash; browsers restrict pages opened from a <code>file://</code> address.</p>' +
+      '<p><b>Double-click <code>PLAY.bat</code></b> in the game folder, then open <a href="http://localhost:8477/">http://localhost:8477/</a>.</p>' +
+      '</div>';
+  });
+}
+</script>
 <div id="app">
 
   <!-- ======================= TITLE ======================= -->

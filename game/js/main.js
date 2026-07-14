@@ -366,6 +366,7 @@ const Main = (() => {
 
   // ------------------------------------------------------------------ boot
   function boot() {
+    if (window.__fileGuard) return; // file:// launch: the inline guard notice explains PLAY.bat
     fitUI();
     addEventListener("resize", fitUI);
     // visible error trap (also helps bug reports)

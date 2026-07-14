@@ -501,7 +501,6 @@ const Scenes = (() => {
         }
         flushEvents();
         refreshHud();
-        MapView.draw();
         renderHUD();
         // a collect may trigger a decision (which comic gets the fans)
         if (s.pending && s.pending.playerId === me()) {
@@ -525,7 +524,6 @@ const Scenes = (() => {
       function afterPanelAction() {
         flushEvents();
         refreshHud();
-        MapView.draw();
         renderHUD();
         if (s.pending && s.pending.playerId === me()) {
           closeModal();

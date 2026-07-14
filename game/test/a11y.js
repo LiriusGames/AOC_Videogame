@@ -57,6 +57,10 @@ async function axeScan(page, label) {
   });
   try {
     const page = await browser.newPage();
+    // gate: uncaught page errors fail the run (the sales-panel actions once
+    // threw MapView.draw-is-not-a-function without any test noticing)
+    const jsErrors = [];
+    page.on("pageerror", (err) => jsErrors.push(String(err)));
     // gate: any control the sweep finds without an accessible name fails CI
     const unnamed = [];
     page.on("console", (msg) => { if (msg.text().startsWith("a11y:")) unnamed.push(msg.text()); });
@@ -270,6 +274,8 @@ async function axeScan(page, label) {
 
     if (unnamed.length) console.error("      " + unnamed.slice(0, 5).join("\n      "));
     check(unnamed.length === 0, "no interactive element lacked an accessible name during the run");
+    if (jsErrors.length) console.error("      " + jsErrors.slice(0, 5).join("\n      "));
+    check(jsErrors.length === 0, "no uncaught page errors during the keyboard run");
   } finally {
     await browser.close();
     server.kill();

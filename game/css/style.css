@@ -697,3 +697,14 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 }
 #review-bar[hidden] { display: none; }
 #review-bar .rb-text { font-family: "PressStart"; font-size: 9px; }
+
+/* ------------------------------------------------- file:// launch guard */
+.file-guard {
+  max-width: 620px; margin: 12vh auto 0; padding: 28px 34px;
+  background: var(--paper); color: var(--ink);
+  border: 5px solid var(--ink); box-shadow: 8px 8px 0 rgba(0, 0, 0, .45);
+  text-align: center; font-size: 17px; line-height: 1.5;
+}
+.file-guard h1 { font-size: 22px; letter-spacing: 3px; border-bottom: 4px double var(--ink); padding-bottom: 10px; margin-bottom: 14px; }
+.file-guard code { background: var(--paper-dark); padding: 1px 6px; border: 2px solid var(--ink); font-size: 15px; }
+.file-guard a { color: var(--ink); font-weight: bold; }

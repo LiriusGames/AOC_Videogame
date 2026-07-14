@@ -289,6 +289,77 @@ function check(cond, name) {
     check(true, "completed sales run reaches review");
     await page.$eval("#btn-review-confirm", (b) => b.click());
 
+    // ------------- 10. real sales interactions (canvas + DOM panel), file://
+    // regression: every canvas/panel sales action once called the
+    // nonexistent MapView.draw(), aborting the handler mid-way
+    await page.waitForFunction(() => UI.engine.currentPlayerId() === UI.humanId && !UI.busy &&
+      !!UI.undoSnap && !UI.engine.state.pending && !UI.engine.state.awaitingSpecial &&
+      !document.querySelector("#modal-root .modal"), { timeout: 30000 });
+    const errsBefore = jsErrors.length;
+    await page.evaluate(() => {
+      const e = UI.engine, p = e.player(UI.humanId);
+      p.money = 20;
+      p.editorsLeft = Math.max(1, p.editorsLeft);
+      p.agentMoved = false;
+      e.state.actionSpaces.sales = []; // deterministic: a sales slot is open
+      renderAll();
+    });
+    await page.$eval('#locations .loc[data-action="sales"]', (b) => b.click());
+    await page.waitForFunction(() => !!document.querySelector("#modal-root .modal"));
+    await page.evaluate(() => {
+      const b = [...document.querySelectorAll("#modal-root button")].find((x) => /START THE RUN/.test(x.textContent || ""));
+      b.click();
+    });
+    await page.waitForFunction(() => !!document.querySelector(".sales-panel") && !!UI.engine.state.salesSession);
+    const cvMove = await page.evaluate(() => {
+      // a real canvas interaction: synthesize a click through the map's own
+      // hit test at a legal destination node
+      const cv = document.getElementById("map-canvas");
+      const target = UI.engine.agentAdjacent(UI.humanId).find((n) => n !== "X");
+      const pos = MapView.nodePos(target);
+      const r = cv.getBoundingClientRect();
+      cv.dispatchEvent(new MouseEvent("click", {
+        clientX: r.left + pos.x * (r.width / MapView.CW),
+        clientY: r.top + pos.y * (r.height / MapView.CH),
+        bubbles: true,
+      }));
+      return { target, at: UI.engine.player(UI.humanId).agentNode };
+    });
+    check(cvMove.at === cvMove.target, "canvas click moves the agent");
+    check(jsErrors.length === errsBefore, "no page error from the canvas interaction");
+    const panelMove = await page.evaluate(() => {
+      const b = document.querySelector('.sales-panel [data-pkey^="dest-"]:not([aria-disabled="true"])');
+      if (!b) return null;
+      const before = UI.engine.player(UI.humanId).agentNode;
+      b.click();
+      return { before, after: UI.engine.player(UI.humanId).agentNode,
+        hud: (document.querySelector(".map-hud") || {}).textContent || "" };
+    });
+    check(panelMove && panelMove.after !== panelMove.before, "DOM panel destination moves the agent");
+    check(panelMove && /CASH/.test(panelMove.hud), "post-action HUD refresh completed (code after the old crash point ran)");
+    check(jsErrors.length === errsBefore, "no page error from the DOM panel interaction");
+    await page.evaluate(() => {
+      const b = [...document.querySelectorAll("#modal-root button")].find((x) => /END SALES RUN/.test(x.textContent || ""));
+      b.click();
+    });
+    await page.waitForFunction(() => !document.querySelector("#modal-root .modal"), { timeout: 10000 });
+    await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
+    await page.$eval("#btn-review-confirm", (b) => b.click());
+    check(true, "UI-driven sales run completes through review");
+
+    // direct file:// open: the friendly guard, not a half-loaded game
+    const fpage = await browser.newPage();
+    await fpage.goto("file:///" + path.join(__dirname, "..", "index.html").replace(/\\/g, "/"),
+      { waitUntil: "domcontentloaded" });
+    await new Promise((r) => setTimeout(r, 400));
+    check(await fpage.evaluate(() => {
+      const g = document.querySelector(".file-guard");
+      return !!g && /PLAY\.bat/.test(g.textContent) && !document.getElementById("err-banner");
+    }), "file:// open shows the PLAY.bat guard and no red error banner");
+    check(await fpage.evaluate(() => !document.getElementById("btn-new-game")),
+      "the game does not half-boot under file://");
+    await fpage.close();
+
     check(jsErrors.length === 0, "no JS errors during the whole run" + (jsErrors.length ? ": " + jsErrors[0] : ""));
   } finally {
     await browser.close();
