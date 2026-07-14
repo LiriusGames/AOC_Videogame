@@ -8,10 +8,13 @@
 const AI = (() => {
 
   const PERSONA_W = {
-    chart:   { fans: 1.35, money: 0.8, ripoff: 1.0, spec: 1.0, orders: 1.15 },
+    // tuned against test/balance.js — keep personalities, close the gaps:
+    // specialists also grant fans, so the chart-chaser values them; the
+    // money man deploys capital efficiently instead of hoarding it
+    chart:   { fans: 1.35, money: 0.95, ripoff: 0.85, spec: 1.25, orders: 1.25 },
     ripoff:  { fans: 1.0,  money: 1.0, ripoff: 1.6, spec: 0.8, orders: 1.0 },
-    quality: { fans: 1.0,  money: 0.9, ripoff: 0.45, spec: 1.6, orders: 1.0 },
-    money:   { fans: 0.9,  money: 1.5, ripoff: 1.0, spec: 1.0, orders: 1.1 },
+    quality: { fans: 1.0,  money: 0.9, ripoff: 0.45, spec: 1.35, orders: 1.0 },
+    money:   { fans: 1.0,  money: 1.25, ripoff: 0.85, spec: 1.1, orders: 1.1 },
   };
   function W(engine, pid) {
     return PERSONA_W[engine.player(pid).persona] || PERSONA_W.chart;
@@ -101,7 +104,8 @@ const AI = (() => {
               engine.genreCount(pid, genre) + 1 > engine.genreCount(holder, genre) &&
               engine.playerHasOriginal(pid, genre)) masteryLure = 4;
           let score = fans * 2.0 * wgt.fans * wgt.ripoff + masteryLure
-            + orderBonus(engine, pid, genre, cost) * 2 * wgt.orders - cost * 0.3;
+            + orderBonus(engine, pid, genre, cost) * 2 * wgt.orders - cost * 0.3
+            - 1.5; // rips score no origVP/mastery at the end — opportunity cost
           if (fans === 0) score -= 3; // off-chart books earn nothing
           plans.push({
             type: "ripoff", target: t.idx, writer: w, artist: a, genre, cost,
@@ -170,7 +174,9 @@ const AI = (() => {
     if (engine.nextSlot("royalties") >= 0) {
       const amt = ROYALTIES_SLOTS[engine.nextSlot("royalties")];
       const broke = bestWish ? bestWish.needMoney : 0;
-      let score = amt * 0.9 * wgt.money + (broke > 0 && broke <= amt ? 4 : 0) + (p.money < 3 ? 3 : 0);
+      // cash converts to VP at only $4 each — once flush, stop stacking it
+      const rich = p.money >= 12 ? 0.6 : 1;
+      let score = amt * 0.9 * wgt.money * rich + (broke > 0 && broke <= amt ? 4 : 0) + (p.money < 3 ? 3 : 0);
       cand.push({ action: "royalties", score: score + rnd() });
     }
 
@@ -501,7 +507,7 @@ const AI = (() => {
   function cubePreference(engine, pid) {
     const persona = engine.player(pid).persona;
     switch (persona) {
-      case "chart":   return ["ideasconv", "hype", "marketing", "extraeditor", "bettercolor", "reassign"];
+      case "chart":   return ["ideasconv", "extraeditor", "marketing", "hype", "bettercolor", "reassign"];
       case "ripoff":  return ["extraeditor", "marketing", "ideasconv", "bettercolor", "hype", "reassign"];
       case "quality": return ["hype", "bettercolor", "reassign", "ideasconv", "marketing", "extraeditor"];
       case "money":   return ["marketing", "bettercolor", "extraeditor", "ideasconv", "hype", "reassign"];
