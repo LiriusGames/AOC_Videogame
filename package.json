@@ -1,0 +1,13 @@
+{
+  "name": "aoc-videogame",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Age of Comics: The Golden Years — 16-bit web videogame. Runtime has zero dependencies; puppeteer-core is used only by the browser smoke test (it drives an already-installed Edge/Chrome, no download).",
+  "scripts": {
+    "test": "node game/test/assets.js && node game/test/rules.js && node game/test/sim.js",
+    "test:browser": "node game/test/browser.js"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^23.0.0"
+  }
+}

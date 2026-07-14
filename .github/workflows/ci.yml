@@ -26,11 +26,19 @@ jobs:
             node --check "$f"
           done
 
+      - name: Asset integrity (atlas rects, sprite coverage, file refs)
+        run: node game/test/assets.js
+
       - name: Rule regression tests
         run: node game/test/rules.js
 
       - name: Simulation matrix (360 AI games, invariants checked)
         run: node game/test/sim.js
+
+      - name: Browser smoke test (save/resume in headless Chrome)
+        run: |
+          npm ci
+          node game/test/browser.js
 
       - name: serve.js smoke test
         run: |
