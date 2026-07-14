@@ -4,7 +4,14 @@
 <meta charset="utf-8">
 <title>Age of Comics: The Golden Years</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+// UI V2 is an isolated art-direction lab. The normal URL remains the stable
+// shipped interface; add ?ui=v2 to exercise the publisher-desk redesign.
+if (new URLSearchParams(location.search).get("ui") === "v2")
+  document.documentElement.classList.add("ui-v2");
+</script>
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/v2.css">
 </head>
 <body>
 <script>
@@ -96,6 +103,7 @@ if (location.protocol === "file:") {
 
     <main id="cityhub">
       <div id="locations"></div>
+      <section id="action-stage" aria-label="Selected action comic"></section>
       <aside id="sidebar" tabindex="0" aria-label="The comic book chart">
         <div id="chart-panel"></div>
       </aside>
@@ -105,12 +113,17 @@ if (location.protocol === "file:") {
     <footer id="hud">
       <!-- one persistent home for ALL personal state: the Publisher Desk -->
       <div id="desk-status" tabindex="0" aria-label="Your publisher desk: resources, orders and awards">
-        <div class="mat-plate desk-plate">&#9733; PUBLISHER DESK &#9733;</div>
-        <div id="hud-resources" role="group" aria-label="Your resources"></div>
-        <div class="desk-label">SALES ORDERS</div>
-        <div id="desk-orders" role="group" aria-label="Your sales orders"></div>
-        <div class="desk-label">AWARDS SHELF</div>
-        <div id="desk-awards" role="group" aria-label="Your mastery awards shelf"></div>
+        <div id="desk-vitals">
+          <div class="mat-plate desk-plate">&#9733; PUBLISHER DESK &#9733;</div>
+          <div id="desk-publisher-mark" aria-hidden="true"></div>
+          <div id="hud-resources" role="group" aria-label="Your resources"></div>
+        </div>
+        <div id="desk-ledger">
+          <div class="desk-label">SALES ORDERS</div>
+          <div id="desk-orders" role="group" aria-label="Your sales orders"></div>
+          <div class="desk-label">AWARDS SHELF</div>
+          <div id="desk-awards" role="group" aria-label="Your mastery awards shelf"></div>
+        </div>
       </div>
       <div id="hud-left">
         <div id="hud-mat" tabindex="0" aria-label="Your printed comics"></div>
@@ -168,6 +181,7 @@ if (location.protocol === "file:") {
 <script src="js/fx.js"></script>
 <script src="js/ui-map.js"></script>
 <script src="js/ui-scenes.js"></script>
+<script src="js/ui-v2.js"></script>
 <script src="js/save.js"></script>
 <script src="js/main.js"></script>
 </body>

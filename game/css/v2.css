@@ -1,0 +1,228 @@
+/* ========================================================================
+   AGE OF COMICS — UI V2 art-direction lab (?ui=v2)
+   Stable V1 selectors are never changed here; every rule is opt-in.
+   ======================================================================== */
+
+#action-stage { display: none; }
+
+html.ui-v2 #screen-game.active {
+  grid-template-rows: 52px minmax(0, 1fr) 286px;
+}
+html.ui-v2 #topbar { gap: 13px; padding: 0 10px; border-bottom-color: var(--gold); }
+html.ui-v2 #top-logo::after {
+  content: " UI LAB"; margin-left: 8px; color: #d9c9aa; font-size: 7px;
+  border: 1px solid #8c7550; padding: 3px 4px; text-shadow: none;
+}
+
+/* ------------------------------- compact action comics + selected spread */
+html.ui-v2 #cityhub {
+  display: grid; grid-template-columns: 270px minmax(0, 1fr); overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 8%, rgba(255,226,158,.1), transparent 34%),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.018) 0 2px, transparent 2px 46px),
+    linear-gradient(180deg, #422b19, #25170f);
+}
+html.ui-v2 #locations {
+  display: grid; grid-template-columns: 1fr; grid-template-rows: repeat(6, minmax(0, 1fr));
+  gap: 5px; padding: 10px 7px 10px 10px; min-height: 0; overflow: hidden;
+  background: linear-gradient(90deg, #171823, #25202a);
+  border-right: 4px solid var(--ink);
+}
+html.ui-v2 .loc.v2-action-card {
+  min-height: 0; width: 100%; display: grid; grid-template-columns: 104px minmax(0, 1fr);
+  align-items: stretch; padding: 0; border: 3px solid var(--ink); overflow: hidden;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--ac) 27%, #151722), #efe2c6 55%);
+  color: var(--ink); box-shadow: 0 3px 0 rgba(0,0,0,.48); filter: none;
+  cursor: pointer; text-align: left; appearance: none;
+}
+html.ui-v2 .loc.v2-action-card:hover,
+html.ui-v2 .loc.v2-action-card:focus-visible { outline: 3px solid var(--gold); outline-offset: -1px; }
+html.ui-v2 .loc.v2-action-card.selected {
+  border-color: var(--gold); transform: translateX(5px); z-index: 2;
+  box-shadow: -5px 0 0 var(--ac), 0 4px 0 rgba(0,0,0,.55);
+}
+html.ui-v2 .loc.v2-action-card.is-blocked { opacity: .58; }
+html.ui-v2 .loc.v2-action-card.selected.is-blocked { opacity: .78; }
+html.ui-v2 .v2-action-art {
+  width: 104px; height: 100%; object-fit: fill; align-self: stretch;
+  image-rendering: pixelated; background: color-mix(in srgb, var(--ac) 35%, #1a1820);
+  border-right: 3px solid var(--ink);
+}
+html.ui-v2 .v2-action-copy {
+  min-width: 0; display: grid; grid-template-rows: auto auto 1fr; align-content: center;
+  gap: 3px; padding: 6px 7px;
+}
+html.ui-v2 .v2-action-name {
+  font-family: "PressStart"; font-size: 10px; color: color-mix(in srgb, var(--ac) 68%, #25180f);
+  line-height: 1.25; white-space: nowrap;
+}
+html.ui-v2 .v2-action-benefit { font-size: 16px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.ui-v2 .v2-rail-special {
+  position: absolute; top: 3px; right: 4px; color: var(--ink); background: var(--gold);
+  border: 2px solid var(--ink); padding: 1px 3px; font-size: 13px;
+}
+html.ui-v2 .v2-slot-row { display: flex; gap: 5px; align-items: center; }
+html.ui-v2 .v2-slot-row.compact { gap: 3px; align-self: end; }
+html.ui-v2 .v2-slot-pip {
+  width: 25px; height: 25px; display: inline-flex; align-items: center; justify-content: center;
+  border: 2px solid var(--ink); background: rgba(255,251,237,.84); line-height: 0;
+}
+html.ui-v2 .v2-slot-row.compact .v2-slot-pip { width: 15px; height: 15px; border-width: 1px; }
+
+html.ui-v2 #action-stage {
+  display: flex; min-width: 0; min-height: 0; align-items: center; justify-content: center;
+  padding: 12px 18px 14px 14px; overflow: hidden;
+}
+html.ui-v2 .v2-action-book {
+  width: min(1050px, 100%); height: min(500px, 100%); min-height: 300px;
+  display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(360px, .92fr);
+  color: var(--ink); filter: drop-shadow(0 10px 0 rgba(0,0,0,.38));
+}
+html.ui-v2 .v2-book-page {
+  position: relative; min-width: 0; min-height: 0; overflow: hidden;
+  background:
+    repeating-linear-gradient(0deg, rgba(96,70,38,.025) 0 1px, transparent 1px 5px),
+    #efe4ca;
+  border: 4px solid var(--ink); padding: 16px 18px;
+}
+html.ui-v2 .v2-book-visual { border-right-width: 2px; border-radius: 12px 0 0 8px; display: flex; flex-direction: column; }
+html.ui-v2 .v2-book-detail { border-left-width: 2px; border-radius: 0 12px 8px 0; display: flex; flex-direction: column; gap: 8px; }
+html.ui-v2 .v2-book-page::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  box-shadow: inset 0 0 26px rgba(70,46,24,.16);
+}
+html.ui-v2 .v2-book-kicker { font-family: "PressStart"; font-size: 7px; color: #826842; letter-spacing: 2px; }
+html.ui-v2 .v2-book-page h2 {
+  margin: 5px 0 8px; font-family: "PressStart"; font-size: clamp(15px, 1.45vw, 23px);
+  color: color-mix(in srgb, var(--ac) 72%, #25180f); border-bottom: 3px double #9f8962; padding-bottom: 7px;
+}
+html.ui-v2 .v2-stage-art {
+  display: block; width: 100%; flex: 1; min-height: 120px; image-rendering: pixelated;
+  object-fit: contain; background:
+    radial-gradient(circle at 50% 34%, color-mix(in srgb, var(--ac) 22%, #f5ead1), #cbb997);
+  border: 3px solid var(--ink); box-shadow: 4px 5px 0 rgba(0,0,0,.23);
+}
+html.ui-v2 .v2-stage-art.loc-scene { object-fit: cover; }
+html.ui-v2 .v2-book-caption { margin: 8px 4px 0; font-size: 18px; line-height: 1.1; }
+html.ui-v2 .v2-rule {
+  display: grid; grid-template-columns: 105px 1fr; gap: 8px; align-items: center;
+  border: 2px solid #8f7955; background: rgba(255,255,255,.28); padding: 7px 9px; font-size: 20px;
+}
+html.ui-v2 .v2-rule span, html.ui-v2 .v2-stage-block h3 {
+  font-family: "PressStart"; font-size: 7px; letter-spacing: 1px; margin: 0; color: #725c3d;
+}
+html.ui-v2 .v2-stage-block { display: grid; grid-template-columns: 105px 1fr; gap: 8px; align-items: center; padding: 3px 9px; }
+html.ui-v2 .v2-stage-offer.loc-offer {
+  position: relative; inset: auto; min-height: 54px; flex: 1; overflow: auto;
+  background: #d9c9a7; color: var(--ink); border: 2px solid #8f7955; padding: 7px;
+}
+html.ui-v2 .v2-stage-offer.loc-offer .spr { background: var(--paper); }
+html.ui-v2 .v2-stage-special {
+  border: 2px solid var(--ink); background: var(--gold); padding: 5px 8px; font-size: 17px; line-height: 1.1;
+}
+html.ui-v2 .v2-stage-special span { font-size: 15px; }
+html.ui-v2 .v2-action-status {
+  font-family: "PressStart"; font-size: 7px; padding: 6px 8px; border-left: 5px solid;
+}
+html.ui-v2 .v2-action-status.ready { background: #dce5c4; border-color: #5d8c49; color: #315226; }
+html.ui-v2 .v2-action-status.blocked { background: #ead2c5; border-color: #b6483e; color: #762e29; }
+html.ui-v2 .v2-take-action { align-self: stretch; min-height: 42px; font-size: 10px; }
+html.ui-v2 .v2-take-action[aria-disabled="true"] { filter: grayscale(1); opacity: .55; cursor: not-allowed; }
+
+/* The chart is always secondary in V2: a drawer, never a permanent column. */
+html.ui-v2 #sidebar {
+  position: fixed; top: 58px; right: 0; bottom: 294px; width: 364px; z-index: 40;
+  transform: translateX(103%); transition: transform .18s;
+  background: var(--bg2); border: 4px solid var(--ink); border-right: none;
+  box-shadow: -8px 0 0 rgba(0,0,0,.35); overflow-y: auto; padding: 6px;
+}
+html.ui-v2 #sidebar.open { transform: translateX(0); }
+html.ui-v2 #chart-mini {
+  display: block; position: absolute; top: 60px; right: 11px; z-index: 41;
+  font-family: "PressStart"; font-size: 7px; padding: 7px 9px;
+  background: var(--gold); color: var(--ink); border: 3px solid var(--ink);
+  box-shadow: 0 3px 0 var(--ink); cursor: pointer;
+}
+html.ui-v2 #sidebar.open + #chart-mini {
+  right: 364px; background: var(--paper); box-shadow: -3px 3px 0 var(--ink);
+}
+
+/* -------------------------------------------- one spacious publisher desk */
+html.ui-v2 #hud {
+  grid-template-columns: 230px minmax(255px, .82fr) minmax(365px, 1.18fr) 245px;
+  grid-template-rows: minmax(0, 1fr) 34px; gap: 6px 8px; padding: 8px 10px 6px;
+  background:
+    repeating-linear-gradient(90deg, rgba(255,255,255,.018) 0 2px, transparent 2px 52px),
+    #171925;
+}
+html.ui-v2 #desk-status { display: contents; }
+html.ui-v2 #desk-vitals, html.ui-v2 #desk-ledger {
+  display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative;
+  background: linear-gradient(180deg, #49331e, #2d1e12); border: 3px solid var(--ink);
+  padding: 14px 8px 7px; overflow: auto;
+}
+html.ui-v2 #desk-vitals { grid-column: 1; grid-row: 1; }
+html.ui-v2 #hud-hand { grid-column: 2; grid-row: 1; }
+html.ui-v2 #hud-left { grid-column: 3; grid-row: 1; }
+html.ui-v2 #desk-ledger { grid-column: 4; grid-row: 1; }
+html.ui-v2 #wire-strip { grid-column: 1 / -1; grid-row: 2; }
+html.ui-v2 #desk-publisher-mark {
+  display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 7px; align-items: center;
+  margin: 2px 0 6px; padding-bottom: 6px; border-bottom: 2px solid #6e5031;
+}
+html.ui-v2 .v2-pub-logo {
+  display: block; width: 60px; height: 52px; border: 2px solid var(--ink);
+  background-image: url("../assets/New assets/Conmpanies icons.png");
+  background-repeat: no-repeat; background-size: 244px 52px; image-rendering: pixelated;
+}
+html.ui-v2 .v2-pub-logo[data-color="yellow"] { background-position: 0 0; }
+html.ui-v2 .v2-pub-logo[data-color="salmon"] { background-position: -61px 0; }
+html.ui-v2 .v2-pub-logo[data-color="teal"] { background-position: -122px 0; }
+html.ui-v2 .v2-pub-logo[data-color="brown"] { background-position: -183px 0; }
+html.ui-v2 .v2-pub-name { min-width: 0; font-size: 17px; line-height: .95; color: var(--paper); }
+html.ui-v2 .v2-pub-name b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html.ui-v2 .v2-pub-name small { display: block; margin-top: 5px; font-family: "PressStart"; font-size: 5px; color: #c7ad7e; line-height: 1.4; }
+html.ui-v2 #hud-resources {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px;
+  background: transparent; border: 0; padding: 0; overflow: visible;
+}
+html.ui-v2 #hud-resources .res {
+  min-width: 0; justify-content: flex-start; background: rgba(17,14,11,.42);
+  border: 1px solid #6e5031; padding: 2px 4px;
+}
+html.ui-v2 #hud-resources .res b { font-size: 8px; }
+html.ui-v2 #desk-ledger .desk-label { margin-top: 2px; color: var(--gold); }
+html.ui-v2 #desk-orders { min-height: 45px; align-content: flex-start; }
+html.ui-v2 #desk-orders i { line-height: 1; }
+html.ui-v2 #desk-awards { display: grid; grid-template-columns: repeat(3, 36px); gap: 5px; }
+html.ui-v2 #hud-mat, html.ui-v2 #hud-hand { background: linear-gradient(180deg, #4b341e, #2d1d11); }
+html.ui-v2 #hud-mat { padding-top: 18px; }
+html.ui-v2 #hud-hand { padding-top: 18px; }
+
+@media (max-width: 1359px) {
+  html.ui-v2 #screen-game.active { grid-template-rows: 50px minmax(0, 1fr) 272px; }
+  html.ui-v2 #cityhub { grid-template-columns: 238px minmax(0, 1fr); }
+  html.ui-v2 .loc.v2-action-card { grid-template-columns: 86px minmax(0, 1fr); }
+  html.ui-v2 .v2-action-art { width: 86px; }
+  html.ui-v2 .v2-action-name { font-size: 8px; }
+  html.ui-v2 .v2-action-benefit { font-size: 14px; }
+  html.ui-v2 .v2-action-book { grid-template-columns: minmax(0, 1fr) minmax(330px, .9fr); }
+  html.ui-v2 #hud { grid-template-columns: 205px minmax(230px, .8fr) minmax(315px, 1.2fr) 222px; }
+  html.ui-v2 #sidebar { bottom: 280px; }
+}
+
+@media (max-width: 1100px) {
+  html.ui-v2 #cityhub { grid-template-columns: 205px minmax(0, 1fr); }
+  html.ui-v2 #locations { padding-left: 6px; }
+  html.ui-v2 .loc.v2-action-card { grid-template-columns: 72px minmax(0, 1fr); }
+  html.ui-v2 .v2-action-art { width: 72px; }
+  html.ui-v2 .v2-action-copy { padding: 4px; }
+  html.ui-v2 .v2-action-benefit { display: none; }
+  html.ui-v2 .v2-action-book { grid-template-columns: minmax(0, 1fr) 315px; }
+  html.ui-v2 .v2-book-page { padding: 11px; }
+  html.ui-v2 #hud { grid-template-columns: 190px minmax(190px, .8fr) minmax(270px, 1.2fr) 200px; gap: 5px; padding-inline: 5px; }
+  html.ui-v2 .v2-pub-logo { width: 48px; height: 42px; background-size: 196px 42px; }
+  html.ui-v2 .v2-pub-logo[data-color="salmon"] { background-position-x: -49px; }
+  html.ui-v2 .v2-pub-logo[data-color="teal"] { background-position-x: -98px; }
+  html.ui-v2 .v2-pub-logo[data-color="brown"] { background-position-x: -147px; }
+}

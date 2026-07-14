@@ -1,7 +1,7 @@
 // ============================================================================
 // Asset integrity: every sprite the game data can derive exists in ATLAS,
-// atlas rects stay inside their sheets, and every file index.html and
-// style.css reference exists on disk.
+// atlas rects stay inside their sheets, and every linked stylesheet / runtime
+// art reference exists on disk.
 // Run: node game/test/assets.js
 // ============================================================================
 "use strict";
@@ -80,12 +80,19 @@ console.log(`  ok  ${need.size} data-derived sprites checked against ATLAS`);
 // --------------------------------------------------- referenced game files
 const html = fs.readFileSync(path.join(GAME, "index.html"), "utf8");
 const refs = [...html.matchAll(/(?:src|href)="([^"#:]+)"/g)].map((m) => m[1]);
-const css = fs.readFileSync(path.join(GAME, "css", "style.css"), "utf8");
-for (const m of css.matchAll(/url\(["']?([^)"']+)["']?\)/g))
-  if (!m[1].startsWith("data:")) refs.push(path.join("css", m[1]));
-for (const r of refs)
+for (const cssRef of refs.filter((r) => r.endsWith(".css"))) {
+  const css = fs.readFileSync(path.join(GAME, cssRef), "utf8");
+  for (const m of css.matchAll(/url\(["']?([^)"']+)["']?\)/g))
+    if (!m[1].startsWith("data:")) refs.push(path.join(path.dirname(cssRef), m[1]));
+}
+// UI V2 paints its source cutouts into canvases at runtime, so those paths
+// live in JavaScript rather than CSS and need the same missing-file guard.
+const v2 = fs.readFileSync(path.join(GAME, "js", "ui-v2.js"), "utf8");
+for (const m of v2.matchAll(/["'](assets\/[^"']+\.(?:png|jpg|jpeg|webp))["']/gi)) refs.push(m[1]);
+const uniqueRefs = [...new Set(refs.map((r) => path.normalize(r)))];
+for (const r of uniqueRefs)
   if (!fs.existsSync(path.join(GAME, r))) fail(`referenced file missing: ${r}`);
-console.log(`  ok  ${refs.length} referenced files exist (index.html + style.css)`);
+console.log(`  ok  ${uniqueRefs.length} referenced files exist (HTML + CSS + runtime art)`);
 
 if (failures) { console.error(`\n${failures} asset failures`); process.exit(1); }
 console.log("\nassets OK");

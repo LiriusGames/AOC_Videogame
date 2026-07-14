@@ -411,6 +411,7 @@ function renderAll() {
   renderLocations();
   renderChart();
   renderHUD();
+  if (typeof UIV2 !== "undefined" && UIV2.active()) UIV2.afterRender();
 }
 
 function renderTopbar() {
@@ -534,6 +535,7 @@ function offerStrip(action) {
 }
 
 function renderLocations() {
+  if (typeof UIV2 !== "undefined" && UIV2.active()) return UIV2.renderLocations();
   const e = UI.engine, s = e.state;
   const wrap = document.getElementById("locations");
   const focusedAction = wrap.contains(document.activeElement) ? document.activeElement.dataset.action : null;

@@ -11,7 +11,8 @@ const { spawn } = require("child_process");
 const puppeteer = require("puppeteer-core");
 
 const PORT = 8497;
-const URL = `http://localhost:${PORT}/`;
+const V2 = process.env.AOC_UI === "v2";
+const URL = `http://localhost:${PORT}/${V2 ? "?ui=v2" : ""}`;
 const SHOTS = path.join(__dirname, "shots");
 const SIZES = [[1600, 900], [1366, 768], [1280, 720], [1024, 768]];
 
@@ -43,7 +44,7 @@ function findBrowser() {
       await page.setViewport({ width: w, height: h });
       await page.goto(URL, { waitUntil: "networkidle0" });
       await page.evaluate(() => localStorage.clear());
-      const shot = (name) => page.screenshot({ path: path.join(SHOTS, `${name}-${w}x${h}.png`) });
+      const shot = (name) => page.screenshot({ path: path.join(SHOTS, `${V2 ? "v2-" : ""}${name}-${w}x${h}.png`) });
       await shot("title");
 
       await page.$eval("#btn-new-game", (b) => b.click());

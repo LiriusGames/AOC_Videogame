@@ -6,7 +6,8 @@
   "scripts": {
     "test": "node game/test/assets.js && node game/test/rules.js && node game/test/sim.js",
     "test:browser": "node game/test/browser.js",
-    "test:a11y": "node game/test/a11y.js"
+    "test:a11y": "node game/test/a11y.js",
+    "test:ui-v2": "node game/test/ui-v2.js"
   },
   "devDependencies": {
     "axe-core": "^4.12.1",

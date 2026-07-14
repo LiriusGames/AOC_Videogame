@@ -43,6 +43,9 @@ jobs:
       - name: Accessibility gate (axe + keyboard-only scenario)
         run: node game/test/a11y.js
 
+      - name: UI V2 smoke gate (art, desk geometry, drawer, accessibility)
+        run: node game/test/ui-v2.js
+
       - name: serve.js smoke test
         run: |
           node game/tools/serve.js 8477 &
