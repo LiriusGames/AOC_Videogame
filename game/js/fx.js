@@ -76,6 +76,44 @@ const FX = (() => {
     setTimeout(() => d.remove(), 850);
   }
 
+  // a token travels between two DOM anchors (fromEl null = from center
+  // stage) and its destination lights up on landing. Reduced motion places
+  // it instantly with a calm, non-animated highlight instead.
+  function flyToken(sprite, fromEl, toRef, o = {}) {
+    // toRef may be a resolver: re-renders can replace the destination node
+    // between launch and landing, so it is re-resolved when needed
+    const resolve = () => (typeof toRef === "function" ? toRef() : toRef);
+    const toEl = resolve();
+    if (!toEl) return;
+    const land = () => {
+      const t = resolve() || toEl;
+      if (REDUCED_MOTION()) {
+        t.style.outline = "3px solid #f5c86e";
+        setTimeout(() => { t.style.outline = ""; }, 1500);
+      } else {
+        t.classList.remove("flash");
+        void t.offsetWidth;
+        t.classList.add("flash");
+        setTimeout(() => t.classList.remove("flash"), 1600);
+      }
+      if (o.onLand) o.onLand();
+    };
+    if (REDUCED_MOTION()) return land();
+    const d = spr(sprite, o.scale || 0.9, "fx-fly fx-token");
+    const from = fromEl ? fromEl.getBoundingClientRect() : null;
+    d.style.left = (from ? (from.left + from.width / 2) / z() - 14 : innerWidth / 2 / z() - 14) + "px";
+    d.style.top = (from ? (from.top + from.height / 2) / z() - 14 : innerHeight / 2.4 / z()) + "px";
+    root().appendChild(d);
+    const r = toEl.getBoundingClientRect();
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      d.style.left = ((r.left + r.width / 2) / z() - 14) + "px";
+      d.style.top = ((r.top + r.height / 2) / z() - 14) + "px";
+      d.style.transform = "scale(.8)";
+    }));
+    SFX.play("whoosh");
+    setTimeout(() => { d.remove(); land(); }, 820);
+  }
+
   // long confetti rain across the top (endgame)
   function confetti(ms = 2600) {
     if (REDUCED_MOTION()) return;
@@ -87,5 +125,5 @@ const FX = (() => {
     })();
   }
 
-  return { burst, burstEl, celebrate, flyToChart, confetti };
+  return { burst, burstEl, celebrate, flyToChart, flyToken, confetti };
 })();

@@ -437,6 +437,7 @@ function renderTopbar() {
   s.turnOrder.forEach((pid) => {
     const p = P(pid);
     const chip = el("div", "order-chip" + (pid === curr && s.phase === "actions" ? " current" : ""));
+    chip.dataset.pid = pid; // stable landing pad for AI mastery tokens
     chip.style.background = PUBLISHERS[p.color].color;
     chip.appendChild(spr(bossSprite(pid), 0.42));
     chip.appendChild(el("span", "", `${esc(p.human ? "YOU" : p.name.split(" ")[0])} <b style="font-size:14px">&#9998;${p.editorsLeft}</b>`));
@@ -904,6 +905,9 @@ function animateEvent(ev) {
           : `${GENRE_INFO[ev.genre].name.toUpperCase()} MASTERY CHANGES HANDS ${sprHTML("mastery_" + ev.genre, 0.5)}`,
         `<b>${esc(P(ev.player).pubName)}</b> now rules the genre` +
           (ev.prev !== undefined && ev.prev !== null ? `, wresting it from ${esc(P(ev.prev).pubName)}` : ""));
+      // how long the celebration will wait in the hero lane — the token
+      // flight below launches relative to when it actually shows
+      const queueWait = heroRemaining();
       FX.celebrate({
         sprite: "mastery_" + ev.genre, scale: 2,
         title: `${GENRE_INFO[ev.genre].name.toUpperCase()} MASTERY!`,
@@ -914,6 +918,20 @@ function animateEvent(ev) {
         hue: ev.prev === UI.humanId ? "rgba(217,79,67,.3)" : undefined,
         dur: 1800,
       });
+      // after the celebration, the token visibly travels to its persistent
+      // home: your awards shelf, or the rival's turn-order chip. When it
+      // changes hands it launches from the previous owner's spot.
+      {
+        const g = ev.genre;
+        const hasPrev = ev.prev !== undefined && ev.prev !== null;
+        const destFor = (pid) => pid === UI.humanId
+          ? document.querySelector(`#desk-awards .award-socket[data-genre="${g}"]`)
+          : document.querySelector(`#turn-order .order-chip[data-pid="${pid}"]`);
+        setTimeout(() => FX.flyToken("mastery_" + g, hasPrev ? destFor(ev.prev) : null, () => destFor(ev.player)),
+          REDUCED_MOTION() ? 0 : queueWait + 1250);
+        announce(`${P(ev.player).pubName} ${hasPrev ? "takes" : "claims"} ${GENRE_INFO[g].name} mastery` +
+          (hasPrev ? ` from ${P(ev.prev).pubName}` : "") + ".");
+      }
       SFX.play(ev.prev === UI.humanId ? "womp" : "tada");
       return 1600;
     }

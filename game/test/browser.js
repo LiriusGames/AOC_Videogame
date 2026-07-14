@@ -433,6 +433,118 @@ function check(cond, name) {
     await page.evaluate(() => { UI.engine.restore(window.__deskSnap); UI.eventCursor = UI.engine.events.length; renderAll(); });
     await page.setViewport({ width: 800, height: 600 });
 
+    // ---------------- 12. mastery token flight to its persistent home
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: "networkidle0" });
+    await page.$eval("#btn-new-game", (b) => b.click());
+    await page.$eval("#btn-start", (b) => b.click());
+    await page.waitForFunction(() => typeof UI !== "undefined" && !!UI.engine);
+    await page.evaluate(() => {
+      const e = UI.engine;
+      let g = 0;
+      while (g++ < 200 && e.state.phase !== "actions") {
+        const s = e.state;
+        if (s.pending) AI.resolveOwnPendings(e, s.pending.playerId);
+        else if (s.awaitingSpecial) AI.settle(e, s.awaitingSpecial.player);
+        else {
+          const pid = s.turnOrder[s.turnIdx];
+          if (pid === undefined) { e.advanceIncrease(); continue; }
+          AI.doStartingPicks(e, pid);
+          AI.doIncrease(e, pid);
+          e.advanceIncrease();
+        }
+      }
+      closeModal();
+      Main.advance();
+    });
+    const quiesce = () => page.waitForFunction(() => UI.engine.currentPlayerId() === UI.humanId &&
+      !UI.busy && !!UI.undoSnap && !UI.engine.state.pending && !UI.engine.state.awaitingSpecial &&
+      heroRemaining() === 0 && !document.querySelector(".fx-celebrate"), { timeout: 30000 });
+    // prints an original of a genre nobody holds; withPrev fabricates a
+    // rival as the current (comic-less) holder so the token changes hands
+    const masteryPrint = (withPrev) => page.evaluate((withPrev) => {
+      const e = UI.engine, s = e.state, pid = UI.humanId, p = e.player(pid);
+      const cd = COMICS.find((c) => s.mastery[c.genre] === undefined &&
+        !s.chart.some((k) => k.genre === c.genre)) ||
+        COMICS.find((c) => s.mastery[c.genre] === undefined);
+      const rival = s.players.find((q) => q.id !== pid);
+      if (withPrev) s.mastery[cd.genre] = rival.id;
+      // deterministic room to act: an open print slot and an editor
+      s.actionSpaces.print = [];
+      p.editorsLeft = Math.max(1, p.editorsLeft);
+      const give = (id) => {
+        for (const k of ["writers", "artists", "comics"])
+          for (const arr of [s.decks[k], s.discards[k], s.display[k]]) {
+            const i = arr.indexOf(id);
+            if (i >= 0) arr.splice(i, 1);
+          }
+        p.hand.push(id);
+      };
+      const wid = s.decks.writers.concat(s.display.writers).find((id) => CARD_BY_ID[id].genre !== cd.genre);
+      const aid = s.decks.artists.concat(s.display.artists).find((id) => CARD_BY_ID[id].genre !== cd.genre);
+      [cd.id, wid, aid].forEach(give);
+      p.money = 12;
+      p.ideas[cd.genre] = 2;
+      p.printedCount = 0; // no cube decision: keep the presentation clean
+      window.__flyObs = { fly: 0, flash: 0, hl: 0, xfer: 0, ann: 0 };
+      window.__flyIv = setInterval(() => {
+        if (document.querySelector(".fx-token")) window.__flyObs.fly++;
+        if (document.querySelector(".award-socket.flash, .order-chip.flash")) window.__flyObs.flash++;
+        if (document.querySelector('.award-socket[style*="outline"]')) window.__flyObs.hl++;
+        const live = document.getElementById("aria-status").textContent;
+        if (/mastery from/.test(live)) window.__flyObs.xfer++;
+        if (/mastery/.test(live)) window.__flyObs.ann++;
+      }, 50);
+      e.actPrint(pid, { books: [{ type: "original", comic: cd.id, writer: wid, artist: aid }] });
+      Main.afterHumanMove();
+      return cd.genre;
+    }, withPrev);
+    const socketWon = (g) => page.waitForFunction((g) =>
+      !!document.querySelector(`#desk-awards .award-socket[data-genre="${g}"].won .spr`),
+      { timeout: 20000 }, g);
+    const confirmIfShown = async () => {
+      await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 15000 });
+      await page.$eval("#btn-review-confirm", (b) => b.click());
+    };
+
+    await quiesce();
+    const g1 = await masteryPrint(false);
+    await socketWon(g1);
+    // print celebration (~1.9s) + queued mastery celebration (~1.8s) +
+    // flight launch offset (1.25s) + flight (0.8s) + flash tail
+    await new Promise((r) => setTimeout(r, 5600));
+    let fo = await page.evaluate(() => { clearInterval(window.__flyIv); return window.__flyObs; });
+    check(fo.fly > 0, "first mastery: the token visibly flies to the awards shelf");
+    check(fo.flash > 0, "first mastery: the destination socket flashes");
+    await confirmIfShown();
+
+    await quiesce();
+    const g2 = await masteryPrint(true);
+    await socketWon(g2);
+    await new Promise((r) => setTimeout(r, 5600));
+    fo = await page.evaluate(() => { clearInterval(window.__flyIv); return window.__flyObs; });
+    check(fo.fly > 0, "transferred mastery: the token visibly changes hands");
+    check(fo.xfer > 0, "transfer is announced to screen readers");
+    await confirmIfShown();
+
+    // reduced motion: instant placement, calm highlight, still announced
+    await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
+    await quiesce();
+    const g3 = await masteryPrint(true);
+    await socketWon(g3);
+    await new Promise((r) => setTimeout(r, 800));
+    fo = await page.evaluate(() => { clearInterval(window.__flyIv); return window.__flyObs; });
+    check(fo.fly === 0, "reduced motion: no token flight");
+    check(fo.hl > 0, "reduced motion: calm highlight on the destination socket");
+    check(fo.ann > 0, "reduced motion: still announced");
+    await page.emulateMediaFeatures([]);
+    await confirmIfShown();
+
+    // the tokens are persistent state, not presentation leftovers
+    check(await page.evaluate((gs) => { renderAll();
+      return gs.every((g) => !!document.querySelector(`#desk-awards .award-socket[data-genre="${g}"].won .spr`));
+    }, [g1, g2, g3]), "all three tokens remain on the shelf after a re-render");
+
     // direct file:// open: the friendly guard, not a half-loaded game
     const fpage = await browser.newPage();
     await fpage.goto("file:///" + path.join(__dirname, "..", "index.html").replace(/\\/g, "/"),

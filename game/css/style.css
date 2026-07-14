@@ -437,7 +437,7 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
   border: 2px dashed #6b543a; background: rgba(24,20,14,.4); line-height: 0;
 }
 .award-socket.won { border: 2px solid var(--gold); background: rgba(24,20,14,.6); box-shadow: 0 0 0 1px rgba(245,200,110,.4); }
-.award-socket.flash { animation: sockflash .5s steps(2) 3; }
+.award-socket.flash, .order-chip.flash { animation: sockflash .5s steps(2) 3; }
 @keyframes sockflash { 50% { box-shadow: 0 0 0 4px var(--gold); } }
 #hud-mat {
   display: flex; gap: 9px; flex-wrap: nowrap; align-items: flex-end; font-size: 16px; flex: 1;
