@@ -237,6 +237,14 @@ function check(cond, name) {
     check(obs.print < obs.mastery, "print appears before mastery");
     check(!obs.overlap, "hero presentations never overlap");
     check(!obs.modalOverHero && obs.modalAt > obs.mastery, "cube decision dialog opens only after both presentations");
+    // the debut is front-page news in The Daily Spinner archive
+    check(await page.evaluate(() => document.querySelectorAll("#dialogue .news-head").length > 0 &&
+      !!document.querySelector("#dialogue .news-edition")),
+      "comic debut got a Daily Spinner headline under an edition mark");
+    check(await page.evaluate(() => !/NEWSREEL/.test(document.getElementById("dialogue").textContent)),
+      "no NEWSREEL terminology remains in the archive");
+    check(await page.evaluate(() => document.getElementById("wire-latest").textContent.trim().length > 0),
+      "the press wire strip carries the latest dispatch");
 
     // -------------------------------- 9. post-action confirm/undo review
     // (continues from 8: the cube decision dialog is open, review pending)

@@ -120,18 +120,25 @@ if (location.protocol === "file:") {
         </div>
       </div>
       <div id="hud-hand" tabindex="0" aria-label="Your hand"></div>
-      <button id="wire-strip" aria-controls="wire-panel" aria-expanded="false">
-        <span class="ws-label">LATEST</span><span class="ws-text" id="wire-latest"></span><span class="ws-more">FULL LOG &#9656;</span>
+      <!-- press wire: routine news feeds off a teleprinter; the paper opens
+           the full archive, presented as THE DAILY SPINNER -->
+      <button id="wire-strip" aria-controls="wire-panel" aria-expanded="false"
+              aria-label="Press wire: latest dispatch. Opens The Daily Spinner story archive.">
+        <span class="wire-machine" aria-hidden="true"><span class="wm-slot"></span><span class="wm-keys"></span></span>
+        <span class="ws-label" aria-hidden="true">PRESS WIRE</span>
+        <span class="wire-paper"><span class="ws-text" id="wire-latest"></span></span>
+        <span class="ws-more" aria-hidden="true">THE DAILY SPINNER &#9656;</span>
       </button>
     </footer>
 
     <!-- the full event history opens as a bottom sheet over the city -->
-    <div id="wire-panel" role="dialog" aria-label="Full game log" hidden>
+    <div id="wire-panel" role="dialog" aria-label="The Daily Spinner: full story archive" hidden>
       <div class="wp-head">
-        <span class="wp-title">GAME LOG</span>
+        <span class="wp-mast">&#9733; THE DAILY SPINNER &#9733;</span>
+        <span class="wp-sub">ALL THE NEWS FROM EVERY PUBLISHING CYCLE</span>
         <button id="wire-close" class="btn btn-small">CLOSE</button>
       </div>
-      <div id="dialogue" tabindex="0" aria-label="Game log"></div>
+      <div id="dialogue" tabindex="0" aria-label="Story archive"></div>
     </div>
   </section>
 

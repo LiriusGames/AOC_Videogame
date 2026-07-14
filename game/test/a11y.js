@@ -200,6 +200,24 @@ async function axeScan(page, label) {
       return !!r && r.getAttribute("aria-live") === "polite";
     }), "live status region present");
 
+    // -------------------- press wire strip -> The Daily Spinner archive
+    await page.evaluate(() => document.getElementById("wire-strip").focus());
+    await page.keyboard.press("Enter");
+    check(await page.evaluate(() => !document.getElementById("wire-panel").hidden &&
+      document.getElementById("wire-strip").getAttribute("aria-expanded") === "true"),
+      "press wire opens The Daily Spinner archive");
+    check(await page.evaluate(() => document.activeElement.id === "wire-close"),
+      "focus moves into the archive (CLOSE)");
+    check(await page.evaluate(() => {
+      const d = document.getElementById("dialogue");
+      return d.getAttribute("tabindex") === "0" && !!d.getAttribute("aria-label");
+    }), "archive log is a focusable, labelled region");
+    await axeScan(page, "Daily Spinner archive");
+    await page.keyboard.press("Escape");
+    check(await page.evaluate(() => document.getElementById("wire-panel").hidden &&
+      document.activeElement.id === "wire-strip"),
+      "Escape closes the archive and returns focus to the wire strip");
+
     // ---------------------- keyboard-only sales run via the DOM map panel
     await page.waitForFunction(() => UI.engine.currentPlayerId() === UI.humanId &&
       !UI.busy && !UI.engine.state.pending && !UI.engine.state.awaitingSpecial, { timeout: 30000 });

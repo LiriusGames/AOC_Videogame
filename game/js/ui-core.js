@@ -261,26 +261,62 @@ function toast(msg, big = false) {
   announce(msg);
 }
 
-// ----------------------------------------------------------------- dialogue
+// -------------------------------------------------- press wire & the paper
+// Two tiers of narration: routine actions arrive as concise BRIEFS off the
+// press-wire teleprinter; major beats (cycle open/close, comic debuts,
+// mastery changes) get editorialized DAILY SPINNER headlines. Both live in
+// the same chronological archive (#dialogue), so nothing is lost.
 // speaker-name colors: publisher hues darkened to clear AA on the paper log
 // (PUBLISHERS[].dark is tuned for art tinting, not small text)
 const BOSS_TEXT = { yellow: "#6f541c", salmon: "#8c4630", teal: "#2f6862", brown: "#5d302e" };
-function say(pid, text, cls = "") {
+function archiveAppend(node) {
   const box = document.getElementById("dialogue");
+  box.appendChild(node);
+  box.scrollTop = box.scrollHeight;
+  while (box.children.length > 90) box.firstChild.remove();
+}
+// the newest dispatch feeds off the teleprinter: one short paper advance and
+// (rarely) one restrained clack — silent and instant under reduced motion/mute
+let wireClackAt = 0;
+function wireFeed(html, clack = false) {
+  const strip = document.getElementById("wire-latest");
+  if (!strip) return;
+  strip.innerHTML = html;
+  const paper = strip.parentElement;
+  if (paper && !REDUCED_MOTION()) {
+    paper.classList.remove("feed");
+    void paper.offsetWidth;
+    paper.classList.add("feed");
+  }
+  const now = performance.now();
+  if (clack && now - wireClackAt > 4000) { wireClackAt = now; SFX.play("wire"); }
+}
+function say(pid, text, cls = "") {
   const line = el("div", "dlg-line " + (pid === UI.humanId ? "me" : "") + cls);
-  if (pid === null) line.innerHTML = `<span class="who" style="color:#5c5346">NEWSREEL:</span> ${text}`;
+  if (pid === null) line.innerHTML = `<span class="who" style="color:#5c5346">CITY DESK:</span> ${text}`;
   else {
     const p = P(pid);
     line.innerHTML = `<span class="dlg-face">${sprHTML(bossSprite(pid), 0.5)}</span>` +
       `<span class="who" style="color:${BOSS_TEXT[p.color] || PUBLISHERS[p.color].dark}">${esc(p.name).toUpperCase()}:</span> ${text}`;
   }
-  box.appendChild(line);
-  box.scrollTop = box.scrollHeight;
-  while (box.children.length > 60) box.firstChild.remove();
-  // the latest line also runs across the strip at the bottom of the desk
-  const strip = document.getElementById("wire-latest");
-  if (strip) strip.innerHTML =
-    (pid === null ? "" : `<b>${esc(P(pid).name.split(" ")[0].toUpperCase())}:</b> `) + text;
+  archiveAppend(line);
+  wireFeed((pid === null ? "" : `<b>${esc(P(pid).name.split(" ")[0].toUpperCase())}:</b> `) + text);
+}
+// a major beat: headline + optional deck (subtitle) + publisher quotation
+function headline(main, deck = "", quote = "", qpid = null) {
+  const h = el("div", "news-head");
+  h.innerHTML = `<div class="nh-main">${main}</div>` +
+    (deck ? `<div class="nh-deck">${deck}</div>` : "") +
+    (quote ? `<div class="nh-quote">&ldquo;${quote}&rdquo;` +
+      (qpid !== null ? ` <span class="nh-src">&mdash; ${esc(P(qpid).name)}, ${esc(P(qpid).pubName)}</span>` : "") + `</div>` : "");
+  archiveAppend(h);
+  wireFeed(`<b>${main}</b>${deck ? " &middot; " + deck : ""}`, true);
+}
+// a new publishing cycle opens a fresh edition of the paper
+function editionMark(round) {
+  const ed = el("div", "news-edition");
+  ed.innerHTML = `&#9733; THE DAILY SPINNER &#9733;<span>PUBLISHING CYCLE ${["I", "II", "III", "IV", "V"][round - 1] || round} EDITION</span>`;
+  archiveAppend(ed);
 }
 function quip(pid, key, extra = {}) {
   const p = P(pid);
@@ -805,7 +841,9 @@ function animateEvent(ev) {
       return 900;
     }
     case "calendar":
-      say(null, `A new publishing cycle begins: <b>${ev.genres.map((g) => GENRE_INFO[g].name).join(" & ")}</b> orders flip face-up across Manhattan.`);
+      editionMark(ev.round);
+      headline(`A NEW PUBLISHING CYCLE BEGINS`,
+        `<b>${ev.genres.map((g) => GENRE_INFO[g].name).join(" & ")}</b> orders flip face-up across Manhattan`);
       return 300;
     case "hire": {
       const names = ev.cards.map((c) => CARD_BY_ID[c].name).join(" & ");
@@ -833,7 +871,17 @@ function animateEvent(ev) {
       SFX.play("cash");
       return 450;
     case "print": {
-      quip(ev.player, ev.isRipoff ? "print_rip" : "print_orig", { title: ev.title });
+      // a comic debut is front-page news: headline + the publisher's quote
+      {
+        const p = P(ev.player);
+        const quote = pick(QUIPS[ev.isRipoff ? "print_rip" : "print_orig"] || ["..."])
+          .replace("{boss}", esc(p.name)).replace("{pub}", esc(p.pubName))
+          .replace("{title}", `<b>${esc(ev.title)}</b>`).replace("{names}", "");
+        headline(
+          ev.isRipoff ? `${esc(ev.title).toUpperCase()} MUSCLES ONTO THE STANDS` : `${esc(ev.title).toUpperCase()} DEBUTS!`,
+          `${esc(p.pubName)} prints a ${GENRE_INFO[ev.genre].name}${ev.isRipoff ? " rip-off" : " original"} &mdash; ${ev.fans} fan${ev.fans === 1 ? "" : "s"} at the debut`,
+          quote, ev.player);
+      }
       const sprite = comicSprite(e.state.chart[ev.chartIdx]);
       const mine = ev.player === UI.humanId;
       if (mine) UI.lastPrintIdx = ev.chartIdx;
@@ -850,7 +898,12 @@ function animateEvent(ev) {
       return mine ? 2000 : 1500;
     }
     case "mastery": {
-      say(null, `<b>${esc(P(ev.player).pubName)}</b> seizes ${GENRE_INFO[ev.genre].name} <b>MASTERY</b>! ${sprHTML("mastery_" + ev.genre, 0.5)}`);
+      headline(
+        ev.prev === undefined || ev.prev === null
+          ? `${GENRE_INFO[ev.genre].name.toUpperCase()} MASTERY CLAIMED ${sprHTML("mastery_" + ev.genre, 0.5)}`
+          : `${GENRE_INFO[ev.genre].name.toUpperCase()} MASTERY CHANGES HANDS ${sprHTML("mastery_" + ev.genre, 0.5)}`,
+        `<b>${esc(P(ev.player).pubName)}</b> now rules the genre` +
+          (ev.prev !== undefined && ev.prev !== null ? `, wresting it from ${esc(P(ev.prev).pubName)}` : ""));
       FX.celebrate({
         sprite: "mastery_" + ev.genre, scale: 2,
         title: `${GENRE_INFO[ev.genre].name.toUpperCase()} MASTERY!`,
@@ -923,8 +976,9 @@ function animateEvent(ev) {
       say(ev.player, "Nothing left to do this round.");
       return 250;
     case "roundEnd": {
+      const lead = ev.rankInfo[0];
       const lines = ev.rankInfo.map((r) => `${r.place}. ${esc(P(r.player).pubName)} (${r.best >= 0 ? r.best + " fans" : "no comics"}) ${r.vp ? "+" + r.vp + " VP" : ""}`).join(" &middot; ");
-      say(null, `<b>END OF ROUND ${ev.round}</b> — ${lines}`);
+      headline(`CYCLE ${["I", "II", "III", "IV", "V"][ev.round - 1] || ev.round} CLOSES: ${esc(P(lead.player).pubName).toUpperCase()} ON TOP`, lines);
       ev.pay.forEach((pp) => { if (pp.amount) say(null, `${esc(P(pp.player).pubName)} earns <b>$${pp.amount}</b> from the chart.`); });
       SFX.play("fanfare");
       return 1200;
@@ -933,6 +987,7 @@ function animateEvent(ev) {
       renderAll();
       return 150;
     case "gameOver":
+      headline("FINAL EDITION: THE GOLDEN AGE HAS ITS OWNER", "The presses stop &mdash; final standings inside");
       FX.confetti(3000);
       return 100;
   }

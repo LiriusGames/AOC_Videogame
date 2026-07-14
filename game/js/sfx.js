@@ -63,6 +63,8 @@ const SFX = (() => {
     tada:    () => { [523, 659, 784, 988, 1319].forEach((f, i) => beep(f, i === 4 ? 0.35 : 0.11, "square", 0.32, i * 0.08)); noise(0.3, 0.12, 0.4, 8000); },
     womp:    () => { beep(392, 0.2, "sawtooth", 0.28, 0, -80); beep(311, 0.34, "sawtooth", 0.26, 0.18, -90); },
     whoosh:  () => noise(0.32, 0.24, 0, 2400),
+    // one restrained teleprinter clack + faint bell (throttled by the caller)
+    wire:    () => { noise(0.03, 0.14, 0, 2200); beep(1760, 0.08, "triangle", 0.09, 0.03); },
     drumroll:() => { for (let i = 0; i < 8; i++) noise(0.04, 0.25, i * 0.05, 1400); beep(880, 0.2, "square", 0.3, 0.42); },
   };
 
