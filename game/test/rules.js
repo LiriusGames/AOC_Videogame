@@ -399,6 +399,34 @@ test("undo: restore replays to an identical state", () => {
   eq(JSON.stringify(e.state), h1, "identical state after replay");
 });
 
+test("save/resume: JSON round-trip preserves determinism", () => {
+  const cfg = { players: [{ color: "yellow", human: false }, { color: "salmon", human: false }], seed: 888, useRipoffs: true };
+  const run = (e, steps) => {
+    for (let i = 0; i < steps && !e.state.gameOver; i++) {
+      const s = e.state;
+      if (s.pending) AI.resolveOwnPendings(e, s.pending.playerId);
+      else if (s.awaitingSpecial) AI.settle(e, s.awaitingSpecial.player);
+      else if (s.phase === "increase") {
+        const pid = s.turnOrder[s.turnIdx];
+        if (e.player(pid).startingPicks) AI.doStartingPicks(e, pid);
+        AI.doIncrease(e, pid);
+        e.advanceIncrease();
+      } else if (s.phase === "actions") AI.takeTurn(e, e.currentPlayerId());
+    }
+  };
+  const e1 = new Engine(cfg);
+  run(e1, 60);
+  // what Save.store/peek do: state + rng through JSON
+  const d = JSON.parse(JSON.stringify({ state: e1.state, rngA: e1.rng.a }));
+  const e2 = new Engine(cfg);
+  e2.restore({ state: d.state, rngA: d.rngA, nEvents: 0 });
+  run(e1, 4000);
+  run(e2, 4000);
+  ok(e1.state.gameOver && e2.state.gameOver, "both games finish");
+  eq(JSON.stringify(e2.state.scores), JSON.stringify(e1.state.scores), "identical final scores");
+  eq(JSON.stringify(e2.state), JSON.stringify(e1.state), "identical final state");
+});
+
 // ------------------------------------------------------------------ report
 console.log(`\n${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

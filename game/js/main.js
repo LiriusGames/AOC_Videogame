@@ -18,7 +18,22 @@ const Main = (() => {
       buildSetup();
       show("screen-setup");
     };
+    document.getElementById("btn-continue").onclick = () => {
+      SFX.unlock(); SFX.play("click"); SFX.startMusic();
+      resumeGame();
+    };
     document.getElementById("btn-how").onclick = () => { SFX.unlock(); Scenes.helpModal(); };
+    refreshContinue();
+  }
+
+  function refreshContinue() {
+    const btn = document.getElementById("btn-continue");
+    const d = Save.peek();
+    btn.hidden = !d;
+    if (d) {
+      const p = d.state.players[d.humanId];
+      btn.innerHTML = `CONTINUE &mdash; ROUND ${d.state.round}, ${p.pubName.toUpperCase()}`;
+    }
   }
 
   function buildSetup() {
@@ -50,7 +65,18 @@ const Main = (() => {
     hookChoices("setup-difficulty", (v) => (setup.difficulty = v));
     hookChoices("setup-ripoffs", (v) => (setup.ripoffs = v === "on"));
     updatePreview();
-    document.getElementById("btn-start").onclick = () => { SFX.play("click"); newGame(); };
+    document.getElementById("btn-start").onclick = () => {
+      SFX.play("click");
+      if (!Save.peek()) return newGame();
+      openModal((m) => {
+        m.appendChild(el("h2", "", "OVERWRITE SAVED GAME?"));
+        m.appendChild(el("div", "modal-sub", "You have a game in progress. Starting a new one will erase it."));
+        modalButtons(m, [
+          { label: "KEEP MY SAVE", fn: () => closeModal() },
+          { label: "START NEW GAME", cls: "btn-danger", fn: () => { closeModal(); Save.clear(); newGame(); } },
+        ]);
+      });
+    };
     document.getElementById("btn-back-title").onclick = () => { SFX.play("click"); show("screen-title"); };
   }
   function hookChoices(id, fn) {
@@ -97,6 +123,33 @@ const Main = (() => {
     advance();
   }
 
+  // ----------------------------------------------------------------- resume
+  function resumeGame() {
+    const d = Save.peek();
+    if (!d) {
+      toast("No saved game found.");
+      Save.clear();
+      refreshContinue();
+      return;
+    }
+    UI.engine = new Engine({
+      players: d.cfg.players,
+      useRipoffs: d.cfg.useRipoffs,
+      difficulty: d.cfg.difficulty,
+      seed: d.cfg.seed,
+    });
+    UI.engine.restore({ state: d.state, rngA: d.rngA, nEvents: 0 });
+    UI.humanId = d.humanId;
+    UI.eventCursor = 0;
+    UI.lastTurnKey = null;
+    UI.undoSnap = null;
+    show("screen-game");
+    document.getElementById("dialogue").innerHTML = "";
+    say(null, `<b>Back at the office.</b> Resuming round ${d.state.round} of 5.`);
+    renderAll();
+    advance();
+  }
+
   // ------------------------------------------------------------- game flow
   let advanceTimer = null;
   function queueAdvance(ms) {
@@ -111,7 +164,8 @@ const Main = (() => {
     const delay = flushEvents();
     renderAll();
 
-    if (s.gameOver) { Scenes.endgameModal(s.scores); return; }
+    if (s.gameOver) { Save.clear(); Scenes.endgameModal(s.scores); return; }
+    Save.store(); // autosave: the state is always consistent here
 
     // spectator mode: the AI drives the human seat through engine calls
     if (UI.autoplay) {
