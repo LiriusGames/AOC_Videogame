@@ -3,8 +3,9 @@
 import os, json
 from PIL import Image, ImageEnhance
 
-ASSETS = r"C:\Users\giaco\Documents\AOC_Videogame\Assets"
-OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets")
+_GAME = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ASSETS = os.environ.get("AOC_ASSETS", os.path.join(os.path.dirname(_GAME), "Assets"))
+OUT = os.path.join(_GAME, "assets")
 os.makedirs(OUT, exist_ok=True)
 
 GENRES = ["scifi", "crime", "romance", "horror", "superheroes", "western"]

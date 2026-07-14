@@ -971,7 +971,7 @@ const Scenes = (() => {
           dimmed: inDeck.length === 0,
           label: `${fmtGenre(g)}${teamMatch ? "<br><b>&#9733; matches your team!</b>" : "<br>&nbsp;"}`,
           onpick: (d) => {
-            comic = inDeck[(Math.random() * inDeck.length) | 0];
+            comic = inDeck[(e.rng() * inDeck.length) | 0]; // seeded: reproducible + undo-safe
             selectOne(row, d);
             refresh();
           },
