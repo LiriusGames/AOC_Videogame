@@ -81,18 +81,18 @@
 
     <main id="cityhub">
       <div id="locations"></div>
-      <aside id="sidebar">
+      <aside id="sidebar" tabindex="0" aria-label="The comic book chart">
         <div id="chart-panel"></div>
       </aside>
     </main>
 
     <footer id="hud">
-      <div id="hud-left">
+      <div id="hud-left" tabindex="0" aria-label="Your printed comics">
         <div id="hud-mat"></div>
       </div>
-      <div id="hud-hand"></div>
+      <div id="hud-hand" tabindex="0" aria-label="Your hand"></div>
       <div id="hud-log">
-        <div id="dialogue"></div>
+        <div id="dialogue" tabindex="0" aria-label="Game log"></div>
       </div>
     </footer>
   </section>
@@ -100,6 +100,7 @@
   <!-- modals & fx -->
   <div id="modal-root"></div>
   <div id="toast-root"></div>
+  <div id="aria-status" class="sr-only" role="status" aria-live="polite"></div>
   <div id="zoom-root"></div>
   <div id="big-banner"><div class="bb-main"></div><div class="bb-sub"></div></div>
   <div id="ai-status"></div>

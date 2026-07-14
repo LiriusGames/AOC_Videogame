@@ -31,8 +31,12 @@ const Scenes = (() => {
     return d;
   }
   function selectOne(row, d) {
-    row.querySelectorAll(".pick-card,.person,.comic-tile,.token-btn").forEach((x) => x.classList.remove("selected"));
+    row.querySelectorAll(".pick-card,.person,.comic-tile,.token-btn").forEach((x) => {
+      x.classList.remove("selected");
+      x.setAttribute("aria-pressed", "false");
+    });
     d.classList.add("selected");
+    d.setAttribute("aria-pressed", "true");
   }
   // animated pictogram explaining a cube special (drawn in loc-art.js)
   function specialArt(key, wpx = 168) {

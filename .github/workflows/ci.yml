@@ -40,6 +40,9 @@ jobs:
           npm ci
           node game/test/browser.js
 
+      - name: Accessibility gate (axe + keyboard-only scenario)
+        run: node game/test/a11y.js
+
       - name: serve.js smoke test
         run: |
           node game/tools/serve.js 8477 &

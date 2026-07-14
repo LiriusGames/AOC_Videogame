@@ -99,19 +99,103 @@ function personChip(creativeId, opts = {}) {
   return d;
 }
 
+// ------------------------------------------------------- accessibility core
+// Every interactive element in this UI is a styled <div> with .onclick.
+// Rather than converting each creation site, mark them all: keyboard users
+// get Enter/Space activation via one delegated handler, and a sweep (kept
+// current by a MutationObserver, since scenes rebuild their own DOM) gives
+// each clickable element a button role, tab stop, and derived label.
+function a11ySweep(root) {
+  if (!root) return;
+  root.querySelectorAll("*").forEach((d) => {
+    if (typeof d.onclick !== "function") return;
+    if (d.tagName === "BUTTON" || d.tagName === "A" || d.tagName === "CANVAS" || d.hasAttribute("role")) return;
+    d.setAttribute("role", "button");
+    d.tabIndex = 0;
+    if (!d.getAttribute("aria-label")) {
+      const txt = (d.textContent || "").replace(/\s+/g, " ").trim();
+      if (txt) d.setAttribute("aria-label", txt.slice(0, 90));
+    }
+  });
+  root.querySelectorAll(".dimmed, .disabled").forEach((d) => d.setAttribute("aria-disabled", "true"));
+}
+document.addEventListener("keydown", (ev) => {
+  const t = ev.target;
+  if (!(t instanceof HTMLElement)) return;
+  const role = t.getAttribute("role");
+  if ((ev.key === "Enter" || ev.key === " ") && (role === "button" || role === "radio")) {
+    ev.preventDefault();
+    t.click();
+    return;
+  }
+  if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(ev.key)) {
+    const group = t.closest('[role="radiogroup"], .choice-group, .card-row');
+    if (!group) return;
+    const items = [...group.querySelectorAll('[role="radio"], [role="button"], button')].filter((x) => !x.disabled);
+    const i = items.indexOf(t);
+    if (i < 0) return;
+    ev.preventDefault();
+    const dir = ev.key === "ArrowRight" || ev.key === "ArrowDown" ? 1 : -1;
+    const next = items[(i + dir + items.length) % items.length];
+    next.focus();
+    if (next.getAttribute("role") === "radio") next.click(); // selection follows focus
+  }
+});
+
+// polite screen-reader announcements (toasts, banners, errors — not the
+// animation feed); replaces content so only the latest message is read
+function announce(msg) {
+  const r = document.getElementById("aria-status");
+  if (r) r.textContent = String(msg).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// scenes rebuild their own DOM on every refresh — keep the sweep current
+{
+  const mr = document.getElementById("modal-root");
+  if (mr) new MutationObserver(() => a11ySweep(mr)).observe(mr, { childList: true, subtree: true });
+}
+
 // ------------------------------------------------------------------- modals
+let modalOpener = null;
 function openModal(build, opts = {}) {
   const root = document.getElementById("modal-root");
+  modalOpener = document.activeElement;
   root.innerHTML = "";
   root.classList.add("active");
   const m = el("div", "modal");
   if (opts.width) m.style.width = opts.width;
   build(m);
   root.appendChild(m);
-  // click on the darkened backdrop = dismiss (only for uncommitted choices)
+  // dialog semantics + labelled by its heading
+  m.setAttribute("role", "dialog");
+  m.setAttribute("aria-modal", "true");
+  m.tabIndex = -1;
+  const h = m.querySelector("h2, h3");
+  if (h) { h.id = h.id || "modal-title"; m.setAttribute("aria-labelledby", h.id); }
+  a11ySweep(m);
+  const focusables = () =>
+    [...m.querySelectorAll('button:not([disabled]), [tabindex="0"], [href]')].filter((x) => x.offsetParent !== null);
+  (focusables()[0] || m).focus();
+  // click on the darkened backdrop = dismiss (only for uncommitted choices);
+  // Escape follows the same legality rule
   root.onclick = opts.onDismiss
     ? (ev) => { if (ev.target === root) { SFX.play("paper"); closeModal(); opts.onDismiss(); } }
     : null;
+  root.onkeydown = (ev) => {
+    if (ev.key === "Escape" && opts.onDismiss) {
+      ev.stopPropagation();
+      SFX.play("paper");
+      closeModal();
+      opts.onDismiss();
+      return;
+    }
+    if (ev.key !== "Tab") return; // trap focus inside the dialog
+    const items = focusables();
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (ev.shiftKey && document.activeElement === first) { ev.preventDefault(); last.focus(); }
+    else if (!ev.shiftKey && document.activeElement === last) { ev.preventDefault(); first.focus(); }
+  };
   SFX.play("paper");
   return m;
 }
@@ -119,7 +203,10 @@ function closeModal() {
   const root = document.getElementById("modal-root");
   root.classList.remove("active");
   root.onclick = null;
+  root.onkeydown = null;
   root.innerHTML = "";
+  if (modalOpener && document.contains(modalOpener) && modalOpener.focus) modalOpener.focus();
+  modalOpener = null;
 }
 function modalButtons(m, buttons) {
   const bar = el("div", "modal-buttons");
@@ -154,6 +241,7 @@ function toast(msg, big = false) {
   root.appendChild(t);
   setTimeout(() => t.remove(), 2600);
   while (root.children.length > 4) root.firstChild.remove();
+  announce(msg);
 }
 
 // ----------------------------------------------------------------- dialogue
@@ -216,6 +304,7 @@ function showBanner(main, sub = "") {
   b.classList.remove("show");
   void b.offsetWidth; // restart animation
   b.classList.add("show");
+  announce(main + ". " + sub);
 }
 function setAIStatus(pid) {
   const st = document.getElementById("ai-status");
@@ -386,9 +475,18 @@ function renderLocations() {
     loc.appendChild(offerStrip(action));
     loc.appendChild(el("div", "loc-name", `<span>${info.name}</span>`));
     loc.appendChild(el("div", "loc-chip", benefitText(action)));
-    loc.title = info.desc;
+    // keyboard/screen-reader semantics, with the reason when unavailable
+    let reason = "";
+    if (!myTurn) reason = "waiting for your turn";
+    else if (P(UI.humanId).editorsLeft <= 0) reason = "no editors left";
+    else if (e.nextSlot(action) < 0) reason = "all spaces taken";
+    loc.title = info.desc + (reason ? `\nUnavailable: ${reason}.` : "");
+    loc.setAttribute("role", "button");
+    loc.tabIndex = 0;
+    loc.setAttribute("aria-label", `${info.name} — ${info.verb}` + (reason ? ` (unavailable: ${reason})` : ""));
+    if (!canGo) loc.setAttribute("aria-disabled", "true");
     loc.onclick = () => {
-      if (!canGo) { SFX.play("error"); return; }
+      if (!canGo) { SFX.play("error"); if (reason) toast(`Unavailable: ${reason}.`); return; }
       SFX.play("click");
       Scenes.open(action);
     };

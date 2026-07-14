@@ -39,9 +39,15 @@ const Main = (() => {
   function buildSetup() {
     const colors = document.getElementById("setup-colors");
     colors.innerHTML = "";
+    colors.setAttribute("role", "radiogroup");
+    colors.setAttribute("aria-label", "Choose your publisher");
     for (const c of PLAYER_COLORS) {
       const pub = PUBLISHERS[c];
       const d = el("div", "pub-card" + (c === setup.color ? " active" : ""));
+      d.setAttribute("role", "radio");
+      d.setAttribute("aria-checked", c === setup.color ? "true" : "false");
+      d.tabIndex = c === setup.color ? 0 : -1; // roving tab stop
+      d.setAttribute("aria-label", `${pub.name} — ${pub.boss}. ${pub.blurb}`);
       d.style.setProperty("--pc", pub.color);
       const head = el("div", "pub-head");
       head.appendChild(spr("bossbig_" + c, 1.15));
@@ -58,6 +64,8 @@ const Main = (() => {
         SFX.play("click");
         setup.color = c;
         buildSetup();
+        const active = colors.querySelector(".pub-card.active");
+        if (active) active.focus(); // rebuild dropped focus — restore it
       };
       colors.appendChild(d);
     }

@@ -5,9 +5,11 @@
   "description": "Age of Comics: The Golden Years — 16-bit web videogame. Runtime has zero dependencies; puppeteer-core is used only by the browser smoke test (it drives an already-installed Edge/Chrome, no download).",
   "scripts": {
     "test": "node game/test/assets.js && node game/test/rules.js && node game/test/sim.js",
-    "test:browser": "node game/test/browser.js"
+    "test:browser": "node game/test/browser.js",
+    "test:a11y": "node game/test/a11y.js"
   },
   "devDependencies": {
+    "axe-core": "^4.12.1",
     "puppeteer-core": "^23.0.0"
   }
 }
