@@ -182,7 +182,12 @@ function check(cond, name) {
       Main.advance();
     });
     await page.waitForFunction(() => UI.engine.currentPlayerId() === UI.humanId && !UI.busy, { timeout: 20000 });
+    // drain the hero lane first: leftover AI print/mastery celebrations from
+    // the turns just played would pollute the observation
+    await page.waitForFunction(() => heroRemaining() === 0 && !document.querySelector(".fx-celebrate"),
+      { timeout: 20000 });
     // observe hero surfaces + dialogs while a mastery-winning print plays out
+    // (patterns are human-specific: "HOT OFF THE PRESS" / "You rule the genre")
     await page.evaluate(() => {
       window.__obs = { print: 0, mastery: 0, overlap: false, modalOverHero: false, modalAt: 0, t0: performance.now() };
       window.__obsIv = setInterval(() => {
@@ -191,7 +196,7 @@ function check(cond, name) {
         if (cels.length > 1) o.overlap = true;
         for (const c of cels) {
           if (/HOT OFF THE PRESS/.test(c.textContent) && !o.print) o.print = t;
-          if (/MASTERY/.test(c.textContent) && !o.mastery) o.mastery = t;
+          if (/You rule the genre/.test(c.textContent) && !o.mastery) o.mastery = t;
         }
         const modal = document.getElementById("modal-root").classList.contains("active");
         if (modal && !o.modalAt) o.modalAt = t;
@@ -225,6 +230,64 @@ function check(cond, name) {
     check(obs.print < obs.mastery, "print appears before mastery");
     check(!obs.overlap, "hero presentations never overlap");
     check(!obs.modalOverHero && obs.modalAt > obs.mastery, "cube decision dialog opens only after both presentations");
+
+    // -------------------------------- 9. post-action confirm/undo review
+    // (continues from 8: the cube decision dialog is open, review pending)
+    check(await page.evaluate(() => document.getElementById("review-bar").hidden),
+      "review bar stays hidden while a chained decision is open");
+    await page.evaluate(() => {
+      const e = UI.engine;
+      e.resolvePending(UI.humanId, { special: e.state.pending.data.options[0] });
+      closeModal();
+      Main.advance();
+    });
+    await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
+    check(true, "review bar appears once the chained decision resolves");
+    const rivalsHash = () => page.evaluate(() =>
+      JSON.stringify(UI.engine.state.players.filter((p) => !p.human).map((p) => [p.editorsLeft, p.money, p.hand.length])));
+    const beforeAI = await rivalsHash();
+    await new Promise((r) => setTimeout(r, 1300));
+    check((await rivalsHash()) === beforeAI, "no AI action before confirmation");
+    // documented save semantics: mid-transaction checkpoints (a pending
+    // decision existed) ARE saved — revealed information must not be
+    // undoable via reload. The pure review window is tested below.
+    check(await page.evaluate(() =>
+      JSON.parse(localStorage.getItem("aoc_save")).state.chart.length === UI.engine.state.chart.length),
+      "chained transaction checkpoint is saved (reload resumes, not undoes)");
+    const snapJson = await page.evaluate(() => JSON.stringify(UI.undoSnap.state));
+    await page.keyboard.press("u"); // keyboard undo shortcut
+    check(await page.evaluate((sj) => JSON.stringify(UI.engine.state) === sj, snapJson),
+      "undo restores the exact pre-action state");
+    check(await page.evaluate(() => document.getElementById("review-bar").hidden &&
+      UI.engine.currentPlayerId() === UI.humanId), "undo returns control to the human");
+    // simple action -> review -> confirm lets the AI proceed
+    const mBefore = await page.evaluate(() => UI.engine.player(UI.humanId).money);
+    await page.evaluate(() => { UI.engine.actRoyalties(UI.humanId); Main.afterHumanMove(); });
+    await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
+    check(true, "simple action (royalties) reaches review");
+    check(await page.evaluate((m0) =>
+      JSON.parse(localStorage.getItem("aoc_save")).state.players[UI.humanId].money === m0 &&
+      UI.engine.player(UI.humanId).money > m0, mBefore),
+      "unconfirmed simple action is not autosaved (reload would undo it)");
+    const beforeConfirm = await rivalsHash();
+    await page.$eval("#btn-review-confirm", (b) => b.click());
+    await page.waitForFunction((h) =>
+      JSON.stringify(UI.engine.state.players.filter((p) => !p.human).map((p) => [p.editorsLeft, p.money, p.hand.length])) !== h,
+      { timeout: 15000 }, beforeConfirm);
+    check(true, "confirm lets the AI proceed");
+    // completed sales run reaches review too (wait for the UI to arm the
+    // undo snapshot — engine-driven actions before that skip review, as
+    // there would be nothing to undo to)
+    await page.waitForFunction(() => UI.engine.currentPlayerId() === UI.humanId && !UI.busy &&
+      !!UI.undoSnap && !UI.engine.state.pending && !UI.engine.state.awaitingSpecial, { timeout: 30000 });
+    await page.evaluate(() => {
+      UI.engine.actSalesStart(UI.humanId);
+      UI.engine.salesEnd(UI.humanId);
+      Main.afterHumanMove();
+    });
+    await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
+    check(true, "completed sales run reaches review");
+    await page.$eval("#btn-review-confirm", (b) => b.click());
 
     check(jsErrors.length === 0, "no JS errors during the whole run" + (jsErrors.length ? ": " + jsErrors[0] : ""));
   } finally {

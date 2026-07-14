@@ -183,6 +183,14 @@ async function axeScan(page, label) {
     await page.waitForFunction((m0) => UI.engine.player(UI.humanId).money > m0, { timeout: 10000 }, money0);
     check(true, "keyboard: Enter on the Accounting location collects royalties");
 
+    // post-action review: focus lands on CONFIRM, Enter locks the action in
+    await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
+    check(await page.evaluate(() => document.activeElement.id === "btn-review-confirm"),
+      "review bar appears with focus on CONFIRM");
+    await page.keyboard.press("Enter");
+    check(await page.evaluate(() => document.getElementById("review-bar").hidden),
+      "Enter confirms and play continues");
+
     check(await page.evaluate(() => {
       const r = document.getElementById("aria-status");
       return !!r && r.getAttribute("aria-live") === "polite";

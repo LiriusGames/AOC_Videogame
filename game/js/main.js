@@ -121,6 +121,8 @@ const Main = (() => {
     });
     UI.humanId = 0;
     UI.eventCursor = 0;
+    UI.pendingReview = false;
+    hideReview();
     show("screen-game");
     document.getElementById("dialogue").innerHTML = "";
     say(null, `<b>Manhattan, 1938.</b> Four publishing houses race to own the golden age of comics. Round I begins!`);
@@ -151,6 +153,8 @@ const Main = (() => {
     UI.eventCursor = 0;
     UI.lastTurnKey = null;
     UI.undoSnap = null;
+    UI.pendingReview = false;
+    hideReview();
     show("screen-game");
     document.getElementById("dialogue").innerHTML = "";
     say(null, `<b>Back at the office.</b> Resuming round ${d.state.round} of 5.`);
@@ -173,7 +177,10 @@ const Main = (() => {
     renderAll();
 
     if (s.gameOver) { Save.clear(); Scenes.endgameModal(s.scores); return; }
-    Save.store(); // autosave: the state is always consistent here
+    // autosave: the state is always consistent here, but an unconfirmed
+    // action is not saved — reloading during review returns to the last
+    // confirmed state (see reviewHold)
+    if (!reviewHold(s)) Save.store();
 
     // spectator mode: the AI drives the human seat through engine calls
     if (UI.autoplay) {
@@ -211,6 +218,14 @@ const Main = (() => {
     }
     // resume an open human sales run (e.g. after an order-choice interrupted it)
     if (s.salesSession && isHuman(s.salesSession.player)) { Scenes.salesScene(true); return; }
+
+    // the completed action holds here until the human confirms or undoes;
+    // results (hero presentations) finish playing before the bar appears
+    if (reviewHold(s)) {
+      if (heroRemaining() > 0) { queueAdvance(heroRemaining() + 80); return; }
+      showReview();
+      return;
+    }
 
     if (s.phase === "increase") {
       const pid = s.turnOrder[s.turnIdx];
@@ -276,9 +291,41 @@ const Main = (() => {
 
   // called after every human-initiated engine mutation
   function afterHumanMove() {
+    UI.pendingReview = true; // the action awaits confirm/undo before AI acts
     const delay = flushEvents();
     renderAll();
     queueAdvance(Math.max(120, Math.min(delay, 500)));
+  }
+
+  // ------------------------------------------------------ post-action review
+  // The world holds after a completed human action: no AI mutation, no AI
+  // timer, and no autosave (reloading mid-review returns to the last
+  // confirmed state — an unconfirmed action is effectively undone).
+  // The hold only engages once the whole transaction is resolved and there
+  // is a snapshot to undo to. Autoplay is unaffected.
+  function reviewHold(s) {
+    return UI.pendingReview && !UI.autoplay && !s.gameOver && !!UI.undoSnap &&
+      !s.pending && !s.awaitingSpecial && !s.salesSession && !s.printX2;
+  }
+  function showReview() {
+    const bar = document.getElementById("review-bar");
+    if (!bar.hidden) return;
+    UI.busy = false;
+    setAIStatus(null);
+    bar.hidden = false;
+    announce("Action complete. Confirm to continue, or undo.");
+    document.getElementById("btn-review-confirm").focus();
+  }
+  function hideReview() {
+    document.getElementById("review-bar").hidden = true;
+  }
+  function confirmReview() {
+    UI.pendingReview = false;
+    UI.undoSnap = null; // the action is locked in
+    hideReview();
+    const loc = document.querySelector('#locations [role="button"]');
+    if (loc) loc.focus();
+    advance();
   }
 
   // ------------------------------------------------------------- UI scale
@@ -302,6 +349,8 @@ const Main = (() => {
   function doUndo() {
     if (!UI.undoSnap || UI.autoplay) return;
     clearTimeout(advanceTimer);
+    UI.pendingReview = false;
+    hideReview();
     UI.engine.restore(UI.undoSnap);
     UI.undoSnap = null;
     UI.eventCursor = UI.engine.events.length;
@@ -371,6 +420,15 @@ const Main = (() => {
           document.getElementById("sidebar").classList.contains("open")) setDrawer(false);
     });
     document.getElementById("btn-undo").onclick = () => { SFX.play("click"); doUndo(); };
+    document.getElementById("btn-review-undo").onclick = () => { SFX.play("click"); doUndo(); };
+    document.getElementById("btn-review-confirm").onclick = () => { SFX.play("click"); confirmReview(); };
+    document.addEventListener("keydown", (ev) => {
+      if (document.getElementById("review-bar").hidden || modalIsOpen()) return;
+      if (ev.key === "u" || ev.key === "U" || (ev.key === "z" && ev.ctrlKey)) {
+        ev.preventDefault();
+        doUndo();
+      }
+    });
     document.getElementById("btn-help").onclick = () => { SFX.play("click"); Scenes.helpModal(); };
     document.getElementById("btn-chart").onclick = () => { SFX.play("click"); Scenes.viewMap(); };
     document.getElementById("btn-sound").onclick = (ev) => {

@@ -98,6 +98,13 @@
     </footer>
   </section>
 
+  <!-- post-action review: inspect the result, then undo or continue -->
+  <div id="review-bar" role="group" aria-label="Action complete: review the result" hidden>
+    <span class="rb-text">&#10004; ACTION COMPLETE</span>
+    <button id="btn-review-undo" class="btn" title="Rewind to the start of your turn (U or Ctrl+Z)">&#8630; UNDO</button>
+    <button id="btn-review-confirm" class="btn btn-go" title="Lock it in — the rivals move next (Enter)">CONFIRM &amp; CONTINUE &#9654;</button>
+  </div>
+
   <!-- modals & fx -->
   <div id="modal-root"></div>
   <div id="toast-root"></div>
