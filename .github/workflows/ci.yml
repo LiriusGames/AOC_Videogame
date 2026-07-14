@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # sparse + blobless checkout: the game is ~2.5 MB, the source artwork
+      # in Assets/ is ~410 MB and not needed for any check
+      - uses: actions/checkout@v4
+        with:
+          filter: blob:none
+          sparse-checkout: game
+          sparse-checkout-cone-mode: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Syntax-check all JavaScript
+        run: |
+          for f in game/js/*.js game/test/*.js game/tools/*.js; do
+            node --check "$f"
+          done
+
+      - name: Rule regression tests
+        run: node game/test/rules.js
+
+      - name: Simulation matrix (360 AI games, invariants checked)
+        run: node game/test/sim.js
+
+      - name: serve.js smoke test
+        run: |
+          node game/tools/serve.js 8477 &
+          sleep 1
+          curl -fsS -o /dev/null http://localhost:8477/
+          curl -fsS -o /dev/null http://localhost:8477/js/engine.js
+          type=$(curl -fsS -o /dev/null -w '%{content_type}' http://localhost:8477/assets/title.png)
+          [ "$type" = "image/png" ]
+          code=$(curl -s -o /dev/null -w '%{http_code}' --path-as-is http://localhost:8477/../README.md)
+          [ "$code" = "403" ]
