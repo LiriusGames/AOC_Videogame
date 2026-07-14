@@ -744,6 +744,7 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 [aria-disabled="true"] { cursor: not-allowed; }
 
 /* sales run DOM panel (keyboard/low-vision twin of the canvas map) */
+.sales-workspace, .sales-map-pane { display: contents; }
 .sales-panel {
   display: flex; flex-direction: column; gap: 4px; margin-top: 6px;
   border: 3px solid var(--ink); background: #efe6d0; padding: 6px 8px;

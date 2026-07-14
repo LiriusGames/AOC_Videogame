@@ -76,6 +76,38 @@ function findBrowser() {
       await page.evaluate(() => document.getElementById("big-banner").classList.remove("show"));
       await shot("board");
 
+      if (V2) {
+        await page.evaluate(() => {
+          const e = UI.engine, s = e.state, p = e.player(UI.humanId);
+          window.__screenDeskSnap = e.snapshot();
+          p.hand = CREATIVES.slice(0, 3).map((c) => c.id).concat(COMICS.slice(0, 3).map((c) => c.id));
+          p.hyped = [];
+          s.chart = s.chart.filter((c) => c.owner !== UI.humanId);
+          COMICS.slice(0, 8).forEach((cd) => s.chart.push({
+            idx: 0, owner: UI.humanId, title: cd.title, genre: cd.genre,
+            cardId: cd.id, isRipoff: false, fans: 3, value: 4, bettercolor: false,
+            everOnChart: true, masteryFanApplied: false,
+            creatives: {
+              writer: { id: "writer_" + cd.genre + "_2", genre: cd.genre, baseValue: 2, curValue: 2, name: "Test Writer" },
+              artist: { id: "artist_" + cd.genre + "_2", genre: cd.genre, baseValue: 2, curValue: 2, name: "Test Artist" },
+            },
+          }));
+          s.chart.forEach((c, i) => (c.idx = i));
+          p.printedCount = 8;
+          p.orders = s.mapSlots.slice(0, 12).map((order) => {
+            order.takenBy = UI.humanId; order.faceUp = true; return order.id;
+          });
+          renderHUD();
+        });
+        await new Promise((r) => setTimeout(r, 100));
+        await shot("desk-full");
+        await page.evaluate(() => {
+          UI.engine.restore(window.__screenDeskSnap);
+          UI.eventCursor = UI.engine.events.length;
+          renderAll();
+        });
+      }
+
       const hasDrawer = await page.evaluate(() =>
         getComputedStyle(document.getElementById("chart-mini")).display !== "none");
       if (hasDrawer) {
@@ -85,7 +117,19 @@ function findBrowser() {
         await page.$eval("#chart-mini", (b) => b.click());
       }
 
-      await page.evaluate(() => { UI.engine.actSalesStart(UI.humanId); Scenes.salesScene(true); });
+      await page.evaluate(() => {
+        const e = UI.engine;
+        let guard = 0;
+        while (guard++ < 60 && e.currentPlayerId() !== UI.humanId) {
+          const s = e.state;
+          if (s.pending) AI.resolveOwnPendings(e, s.pending.playerId);
+          else if (s.awaitingSpecial) AI.settle(e, s.awaitingSpecial.player);
+          else AI.takeTurn(e, e.currentPlayerId());
+        }
+        e.state.actionSpaces.sales = [];
+        e.player(UI.humanId).editorsLeft = Math.max(1, e.player(UI.humanId).editorsLeft);
+        if (e.actSalesStart(UI.humanId)) Scenes.salesScene(true);
+      });
       await new Promise((r) => setTimeout(r, 300));
       await shot("map");
       await page.close();

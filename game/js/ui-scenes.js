@@ -446,21 +446,27 @@ const Scenes = (() => {
     function runModal() {
     let ticketMode = false;
     openModal((m) => {
+      m.classList.add("sales-run-modal");
       m.appendChild(el("h2", "", "MANHATTAN &mdash; SALES RUN"));
+      const workspace = el("div", "sales-workspace");
+      m.appendChild(workspace);
       const hud = el("div", "map-hud");
-      m.appendChild(hud);
+      hud.setAttribute("aria-label", "Sales run status");
+      workspace.appendChild(hud);
+      const mapPane = el("div", "sales-map-pane");
       const cv = el("canvas");
       cv.id = "map-canvas";
       cv.style.width = "min(680px, calc(68vh / var(--z, 1)))";
       cv.style.alignSelf = "center";
-      m.appendChild(cv);
+      mapPane.appendChild(cv);
       cv.setAttribute("aria-hidden", "true"); // the panel below mirrors the map for keyboard/SR users
-      m.appendChild(el("div", "modal-sub", "Click a <b>circle</b> to move (first step free, then $2/block by cab). " +
-        "Click a <b>tile</b> next to your agent to flip / collect it. Landing on a rival's corner costs $2."));
+      mapPane.appendChild(el("div", "modal-sub sales-legend", "<b>GREEN</b> free walk &middot; <b>GOLD</b> $2 cab &middot; " +
+        "<b>RED</b> blocked or rival fee. Select a newsstand order at your current corner to flip or collect it."));
+      workspace.appendChild(mapPane);
       const panel = el("div", "sales-panel");
       panel.setAttribute("aria-label", "Sales run controls");
-      m.appendChild(panel);
-      modalButtons(m, [
+      workspace.appendChild(panel);
+      const actionBar = modalButtons(workspace, [
         { label: "USE TICKET", id: "btn-ticket", fn: (btn) => {
             if (P(me()).tickets <= 0) return;
             ticketMode = !ticketMode;
@@ -473,6 +479,7 @@ const Scenes = (() => {
             Main.afterHumanMove();
           } },
       ]);
+      actionBar.classList.add("sales-actions");
       refreshHud();
       MapView.attach(cv, true, (h) => {
         const ses = s.salesSession;
@@ -557,6 +564,7 @@ const Scenes = (() => {
         const a = document.activeElement;
         const prevKey = a && a.dataset ? a.dataset.pkey : null;
         panel.innerHTML = "";
+        panel.appendChild(el("h3", "sp-title", "DISPATCH DESK"));
         const feeOwed = ses.unpaidNode != null && !ses.feePaid;
         panel.appendChild(el("div", "sp-status",
           `You are at <b>${cornerName(p.agentNode)}</b> &middot; $${p.money} &middot; ` +

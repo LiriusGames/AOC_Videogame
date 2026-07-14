@@ -286,19 +286,59 @@ const MapView = (() => {
     // node kiosks
     const myPid = ses ? ses.player : UI.humanId;
     const adj = ses ? e.agentAdjacent(myPid) : [];
+    const currentNode = e.player(myPid).agentNode;
     for (const n of MAP.nodes) {
       const p = nodePos(n.id);
       kiosk(p.x, p.y, now + n.id * 300);
+      // persistent coordinates: the spatial map and the dispatch buttons use
+      // the same A1–D6 vocabulary, so the player never has to translate.
+      ctx.fillStyle = "rgba(15,17,24,.86)";
+      ctx.fillRect(p.x + 10, p.y - 16, 22, 13);
+      ctx.fillStyle = "#efe6d0";
+      ctx.font = "bold 11px VT323";
+      ctx.fillText("ABCD"[n.c] + (n.r + 1), p.x + 13, p.y - 6);
       if (interactive && ses && adj.includes(n.id)) {
-        ctx.strokeStyle = ses.freeWalk ? "#7ab648" : "#f5c86e";
-        ctx.lineWidth = 3;
+        const chk = e.salesMoveCheck(myPid, n.id);
+        const occupied = chk.occupied;
+        const col = !chk.ok || occupied ? "#d94f43" : chk.cabFare ? "#f5c86e" : "#7ab648";
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 4;
         ctx.beginPath(); ctx.arc(p.x, p.y + 2, 15 + Math.sin(now / 250) * 1.5, 0, 7); ctx.stroke();
+        const tag = !chk.ok ? "BLOCKED" : occupied ? "+$2 FEE" : chk.cabFare ? "$2 CAB" : "FREE";
+        ctx.font = "bold 11px VT323";
+        const tw = Math.max(30, ctx.measureText(tag).width + 8);
+        ctx.fillStyle = "#221d16";
+        ctx.fillRect(p.x - tw / 2, p.y + 17, tw, 14);
+        ctx.fillStyle = col;
+        ctx.textAlign = "center";
+        ctx.fillText(tag, p.x, p.y + 28);
+        ctx.textAlign = "left";
+      }
+      if (interactive && currentNode === n.id) {
+        ctx.strokeStyle = PUBLISHERS[e.player(myPid).color].color;
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(p.x, p.y + 2, 22, 0, 7); ctx.stroke();
+        ctx.fillStyle = "#221d16";
+        ctx.fillRect(p.x - 17, p.y + 20, 34, 14);
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 11px VT323";
+        ctx.textAlign = "center";
+        ctx.fillText("YOU", p.x, p.y + 31);
+        ctx.textAlign = "left";
       }
       if (interactive && hover && hover.node === n.id) {
         ctx.strokeStyle = "#fff";
         ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(p.x, p.y + 2, 18, 0, 7); ctx.stroke();
       }
+    }
+    if (interactive && currentNode === "X") {
+      ctx.strokeStyle = PUBLISHERS[e.player(myPid).color].color;
+      ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(XPOS.x, XPOS.y, 21, 0, 7); ctx.stroke();
+      ctx.fillStyle = "#221d16"; ctx.fillRect(XPOS.x - 39, XPOS.y + 19, 78, 14);
+      ctx.fillStyle = "#fff"; ctx.font = "bold 11px VT323"; ctx.textAlign = "center";
+      ctx.fillText("CENTRAL · YOU", XPOS.x, XPOS.y + 30); ctx.textAlign = "left";
     }
 
     // order signs (bobbing on poles); collected ones become owner pennants
@@ -361,6 +401,34 @@ const MapView = (() => {
         ctx.lineWidth = 2;
         ctx.strokeRect(pos.x - 24, y - 42, 48, 48);
       }
+    }
+
+    // Decision overlays are deliberately drawn after order signs, so route
+    // costs and the player's current corner can never disappear behind a
+    // newsstand tile.
+    if (interactive && ses) {
+      for (const nd of adj) {
+        if (nd === "X") continue;
+        const p = nodePos(nd), chk = e.salesMoveCheck(myPid, nd);
+        const occupied = chk.occupied;
+        const col = !chk.ok || occupied ? "#d94f43" : chk.cabFare ? "#f5c86e" : "#7ab648";
+        ctx.strokeStyle = col; ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.arc(p.x, p.y + 2, 16, 0, 7); ctx.stroke();
+        const tag = !chk.ok ? "BLOCKED" : occupied ? "+$2 FEE" : chk.cabFare ? "$2 CAB" : "FREE";
+        ctx.font = "bold 11px VT323";
+        const tw = Math.max(30, ctx.measureText(tag).width + 8);
+        ctx.fillStyle = "#221d16"; ctx.fillRect(p.x - tw / 2, p.y + 17, tw, 14);
+        ctx.fillStyle = col; ctx.textAlign = "center"; ctx.fillText(tag, p.x, p.y + 28); ctx.textAlign = "left";
+      }
+    }
+    if (interactive) {
+      const p = nodePos(currentNode), label = currentNode === "X" ? "CENTRAL · YOU" : "YOU";
+      ctx.strokeStyle = PUBLISHERS[e.player(myPid).color].color; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(p.x, p.y + 2, 22, 0, 7); ctx.stroke();
+      ctx.font = "bold 11px VT323";
+      const tw = currentNode === "X" ? 78 : 34;
+      ctx.fillStyle = "#221d16"; ctx.fillRect(p.x - tw / 2, p.y + 20, tw, 14);
+      ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(label, p.x, p.y + 31); ctx.textAlign = "left";
     }
 
     // agents

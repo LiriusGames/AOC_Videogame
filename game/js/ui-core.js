@@ -167,6 +167,12 @@ function openModal(build, opts = {}) {
   modalOpener = document.activeElement;
   // a dialog takes the stage: any banner still playing yields to it
   document.getElementById("big-banner").classList.remove("show");
+  document.querySelectorAll(".fx-celebrate").forEach((node) => node.remove());
+  // Hover inspectors live above ordinary UI; dismiss them before a dialog so
+  // a stale comic enlargement can never float over the map or a decision.
+  const zoom = document.getElementById("zoom-root");
+  if (zoom) zoom.style.display = "none";
+  document.querySelectorAll(".magnified").forEach((node) => node.classList.remove("magnified"));
   root.innerHTML = "";
   root.classList.add("active");
   const m = el("div", "modal");
@@ -411,7 +417,6 @@ function renderAll() {
   renderLocations();
   renderChart();
   renderHUD();
-  if (typeof UIV2 !== "undefined" && UIV2.active()) UIV2.afterRender();
 }
 
 function renderTopbar() {
@@ -693,6 +698,7 @@ function renderChart() {
 function renderHUD() {
   const e = UI.engine, s = e.state;
   const p = P(UI.humanId);
+  const compactDesk = typeof UIV2 !== "undefined" && UIV2.active();
   // publisher desk: stable resource sockets (dim at zero, never vanishing —
   // a persistent home the eye can always return to)
   const res = document.getElementById("hud-resources");
@@ -705,12 +711,12 @@ function renderHUD() {
     parent.appendChild(r);
     return r;
   };
-  chip(res, "coin_1", 0.9, ` <b>$${p.money}</b>`, "Cash");
-  chip(res, "meeple_" + p.color, 1, ` <b>x${p.editorsLeft}</b>`, "Editors left this round");
-  chip(res, "vp_1", 0.65, ` <b>${p.vpTokens}</b>`, "Victory point tokens", p.vpTokens === 0);
-  chip(res, "ticket", 0.6, `<b>${p.tickets}</b>`, "Super-transport tickets", p.tickets === 0);
+  chip(res, "coin_1", compactDesk ? 0.55 : 0.9, ` <b>$${p.money}</b>`, "Cash");
+  chip(res, "meeple_" + p.color, compactDesk ? 0.62 : 1, ` <b>x${p.editorsLeft}</b>`, "Editors left this round");
+  chip(res, "vp_1", compactDesk ? 0.44 : 0.65, ` <b>${p.vpTokens}</b>`, "Victory point tokens", p.vpTokens === 0);
+  chip(res, "ticket", compactDesk ? 0.4 : 0.6, `<b>${p.tickets}</b>`, "Super-transport tickets", p.tickets === 0);
   GENRES.forEach((g) =>
-    chip(res, "idea_" + g, 0.75, `<b>${p.ideas[g]}</b>`, GENRE_INFO[g].name + " ideas", p.ideas[g] === 0));
+    chip(res, "idea_" + g, compactDesk ? 0.5 : 0.75, `<b>${p.ideas[g]}</b>`, GENRE_INFO[g].name + " ideas", p.ideas[g] === 0));
 
   // collected orders: shown openly so you always know what you must deliver
   const ord = document.getElementById("desk-orders");
@@ -813,6 +819,7 @@ function renderHUD() {
     hand.appendChild(hc);
   }
   if (!entries.length) hand.innerHTML = "<i style='color:#9aa'>your desk is empty</i>";
+  if (compactDesk) UIV2.afterRender();
 }
 
 // the newsroom shelf can outgrow its column: show the nudge buttons whenever

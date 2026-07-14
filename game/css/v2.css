@@ -159,7 +159,7 @@ html.ui-v2 #desk-status { display: contents; }
 html.ui-v2 #desk-vitals, html.ui-v2 #desk-ledger {
   display: flex; flex-direction: column; min-width: 0; min-height: 0; position: relative;
   background: linear-gradient(180deg, #49331e, #2d1e12); border: 3px solid var(--ink);
-  padding: 14px 8px 7px; overflow: auto;
+  padding: 14px 8px 7px; overflow: hidden;
 }
 html.ui-v2 #desk-vitals { grid-column: 1; grid-row: 1; }
 html.ui-v2 #hud-hand { grid-column: 2; grid-row: 1; }
@@ -167,37 +167,178 @@ html.ui-v2 #hud-left { grid-column: 3; grid-row: 1; }
 html.ui-v2 #desk-ledger { grid-column: 4; grid-row: 1; }
 html.ui-v2 #wire-strip { grid-column: 1 / -1; grid-row: 2; }
 html.ui-v2 #desk-publisher-mark {
-  display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 7px; align-items: center;
-  margin: 2px 0 6px; padding-bottom: 6px; border-bottom: 2px solid #6e5031;
+  display: grid; grid-template-columns: 54px minmax(0, 1fr); gap: 7px; align-items: center;
+  margin: 1px 0 4px; padding-bottom: 4px; border-bottom: 2px solid #6e5031;
 }
 html.ui-v2 .v2-pub-logo {
-  display: block; width: 60px; height: 52px; border: 2px solid var(--ink);
+  display: block; width: 52px; height: 44px; border: 2px solid var(--ink);
   background-image: url("../assets/New assets/Conmpanies icons.png");
-  background-repeat: no-repeat; background-size: 244px 52px; image-rendering: pixelated;
+  background-repeat: no-repeat; background-size: 208px 44px; image-rendering: pixelated;
 }
 html.ui-v2 .v2-pub-logo[data-color="yellow"] { background-position: 0 0; }
-html.ui-v2 .v2-pub-logo[data-color="salmon"] { background-position: -61px 0; }
-html.ui-v2 .v2-pub-logo[data-color="teal"] { background-position: -122px 0; }
-html.ui-v2 .v2-pub-logo[data-color="brown"] { background-position: -183px 0; }
-html.ui-v2 .v2-pub-name { min-width: 0; font-size: 17px; line-height: .95; color: var(--paper); }
+html.ui-v2 .v2-pub-logo[data-color="salmon"] { background-position: -52px 0; }
+html.ui-v2 .v2-pub-logo[data-color="teal"] { background-position: -104px 0; }
+html.ui-v2 .v2-pub-logo[data-color="brown"] { background-position: -156px 0; }
+html.ui-v2 .v2-pub-name { min-width: 0; font-size: 15px; line-height: .95; color: var(--paper); }
 html.ui-v2 .v2-pub-name b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 html.ui-v2 .v2-pub-name small { display: block; margin-top: 5px; font-family: "PressStart"; font-size: 5px; color: #c7ad7e; line-height: 1.4; }
 html.ui-v2 #hud-resources {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px;
   background: transparent; border: 0; padding: 0; overflow: visible;
 }
 html.ui-v2 #hud-resources .res {
   min-width: 0; justify-content: flex-start; background: rgba(17,14,11,.42);
-  border: 1px solid #6e5031; padding: 2px 4px;
+  border: 1px solid #6e5031; padding: 1px 3px;
 }
-html.ui-v2 #hud-resources .res b { font-size: 8px; }
+html.ui-v2 #hud-resources .res b { font-size: 7px; }
 html.ui-v2 #desk-ledger .desk-label { margin-top: 2px; color: var(--gold); }
-html.ui-v2 #desk-orders { min-height: 45px; align-content: flex-start; }
-html.ui-v2 #desk-orders i { line-height: 1; }
+html.ui-v2 #desk-orders {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 21px;
+  gap: 3px; min-height: 28px; align-content: start;
+}
+html.ui-v2 #desk-orders .res { min-width: 0; gap: 1px; padding: 0 2px; overflow: hidden; }
+html.ui-v2 #desk-orders .res b { font-family: "PressStart"; font-size: 5px; white-space: nowrap; }
+html.ui-v2 #desk-orders i {
+  grid-column: 1 / -1; min-height: 28px; font-size: 13px; line-height: 1.05;
+  white-space: normal;
+}
+html.ui-v2 #desk-ledger > .desk-label { flex: none; }
 html.ui-v2 #desk-awards { display: grid; grid-template-columns: repeat(3, 36px); gap: 5px; }
 html.ui-v2 #hud-mat, html.ui-v2 #hud-hand { background: linear-gradient(180deg, #4b341e, #2d1d11); }
-html.ui-v2 #hud-mat { padding-top: 18px; }
-html.ui-v2 #hud-hand { padding-top: 18px; }
+html.ui-v2 #hud-left { display: block; min-width: 0; min-height: 0; overflow: hidden; }
+html.ui-v2 #hud-hand {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(var(--v2-hand-rows, 1), minmax(0, 1fr));
+  gap: 4px; padding: 25px 6px 6px; align-items: stretch; justify-content: stretch;
+  overflow: hidden;
+}
+html.ui-v2 #hud-mat {
+  width: 100%; height: 100%; display: grid;
+  grid-template-columns: repeat(var(--v2-news-cols, 1), minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 4px; padding: 25px 6px 6px; align-items: stretch; overflow: hidden;
+}
+html.ui-v2 #hud-hand::-webkit-scrollbar,
+html.ui-v2 #hud-mat::-webkit-scrollbar { display: none; }
+html.ui-v2 #mat-nav { display: none !important; }
+html.ui-v2 .v2-hand-tile {
+  position: relative; min-width: 0; min-height: 0; display: grid;
+  grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 5px;
+  color: var(--ink); background: var(--paper); border: 2px solid var(--ink);
+  padding: 3px 5px; overflow: hidden;
+}
+html.ui-v2 .v2-hand-copy { min-width: 0; display: flex; flex-direction: column; line-height: 1; }
+html.ui-v2 .v2-hand-copy > b {
+  font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+html.ui-v2 .v2-hand-copy > span { font-size: 12px; white-space: nowrap; }
+html.ui-v2 .v2-hand-copy > span .chip { margin-left: 0; font-size: 5px; padding: 2px; }
+html.ui-v2 .v2-hand-copy small { margin-top: 2px; font-family: "PressStart"; font-size: 5px; color: #70593b; white-space: nowrap; }
+html.ui-v2 .v2-hand-tile .genre-dot { width: 9px; height: 9px; border-width: 1px; }
+html.ui-v2 .v2-hand-tile .hype-badge { top: 1px; right: 1px; font-size: 5px; padding: 1px 2px; }
+html.ui-v2 .v2-news-tile {
+  margin: 0; min-width: 0; min-height: 0; display: grid;
+  grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 5px;
+  color: var(--ink); background: #dfd2b4; border: 2px solid var(--ink);
+  padding: 3px 4px; overflow: hidden;
+}
+html.ui-v2 .v2-news-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; line-height: 1; }
+html.ui-v2 .v2-news-copy > b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+html.ui-v2 .v2-news-copy > span:not(.v2-news-team) { font-size: 11px; white-space: nowrap; }
+html.ui-v2 .v2-news-tile .pi-cover .val-plate {
+  position: absolute; left: -4px; top: -4px; z-index: 4;
+  font-size: 7px; padding: 2px 3px;
+}
+html.ui-v2 .v2-news-team { display: flex; gap: 2px; }
+html.ui-v2 .v2-news-creative {
+  display: flex; align-items: center; gap: 1px; min-width: 0;
+  background: var(--paper); border: 1px solid var(--ink); padding: 1px;
+}
+html.ui-v2 .v2-news-creative.spec { border-color: #9b6c16; box-shadow: inset 0 0 0 1px var(--gold); }
+html.ui-v2 .v2-news-creative small { color: #8a2f22; font-size: 7px; white-space: nowrap; }
+html.ui-v2 .v2-news-tile .pi-genre { top: -4px; right: -4px; }
+html.ui-v2 .v2-news-tile .genre-dot { width: 9px; height: 9px; border-width: 1px; }
+html.ui-v2 .v2-news-tile .new-tag { top: 1px; left: 1px; font-size: 5px; animation: none; }
+html.ui-v2 .v2-news-next {
+  position: absolute; top: -3px; right: -3px; z-index: 3;
+  font-family: "PressStart"; font-size: 5px; color: var(--ink);
+  background: var(--paper); border: 2px solid var(--ink); padding: 3px 5px;
+}
+html.ui-v2 .v2-empty { align-self: center; justify-self: center; color: #b9a47b; font-size: 15px; }
+
+/* ----------------------------------------------------------- sales dispatch
+   The map and every legal decision share one viewport. Nothing strategic is
+   pushed below the fold or into an independently scrolling strip. */
+html.ui-v2 .modal.sales-run-modal {
+  width: min(1120px, calc(96vw / var(--z, 1))) !important;
+  height: min(650px, calc(92vh / var(--z, 1)));
+  max-width: calc(96vw / var(--z, 1)); max-height: calc(92vh / var(--z, 1));
+  overflow: hidden; padding: 11px 13px; gap: 7px;
+}
+html.ui-v2 .sales-run-modal > h2 { margin: 0; flex: none; }
+html.ui-v2 .sales-workspace {
+  flex: 1; min-width: 0; min-height: 0; display: grid;
+  grid-template-columns: minmax(430px, 1fr) 380px;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "map status" "map panel" "map actions";
+  gap: 8px 11px;
+}
+html.ui-v2 .sales-map-pane {
+  grid-area: map; min-width: 0; min-height: 0; display: grid;
+  grid-template-rows: minmax(0, 1fr) auto; align-items: center;
+  padding: 7px; background: #17202a; border: 3px solid var(--ink);
+}
+html.ui-v2 .sales-map-pane #map-canvas {
+  width: auto !important; height: 100%; min-height: 0; max-width: 100%; max-height: 100%;
+  justify-self: center; align-self: center; aspect-ratio: 560 / 600;
+  image-rendering: pixelated;
+}
+html.ui-v2 .sales-map-pane .sales-legend {
+  width: 100%; box-sizing: border-box; margin: 5px 0 0; padding: 5px 7px;
+  color: var(--paper); background: #263342; border: 2px solid #53687a;
+  font-size: 14px; line-height: 1.05;
+}
+html.ui-v2 .sales-map-pane .sales-legend b { font-family: "PressStart"; font-size: 6px; color: var(--gold); }
+html.ui-v2 .sales-run-modal .map-hud {
+  grid-area: status; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px; padding: 7px; background: #ded0ad; border: 3px solid var(--ink);
+}
+html.ui-v2 .sales-run-modal .map-hud span {
+  min-width: 0; display: flex; align-items: center; justify-content: space-between;
+  gap: 3px; padding: 4px; background: var(--paper); border: 1px solid #9b8763;
+  font-size: 14px; white-space: nowrap;
+}
+html.ui-v2 .sales-run-modal .map-hud b { font-size: 6px; }
+html.ui-v2 .sales-run-modal .sales-panel {
+  grid-area: panel; min-width: 0; min-height: 0; margin: 0; overflow: hidden;
+  gap: 8px; padding: 9px; background: #efe4ca;
+}
+html.ui-v2 .sales-run-modal .sales-panel .sp-title {
+  margin: 0; padding-bottom: 6px; border-bottom: 3px double #8f7955;
+  color: #8a2f22; font-size: 9px;
+}
+html.ui-v2 .sales-run-modal .sales-panel .sp-status {
+  background: #d9c8a5; border: 2px solid #8f7955; padding: 6px; font-size: 15px; line-height: 1.15;
+}
+html.ui-v2 .sales-run-modal .sales-panel .sp-row {
+  display: flex; flex-wrap: wrap; align-items: stretch; gap: 5px;
+  padding: 6px 0; border-bottom: 2px dashed #b8a47d;
+}
+html.ui-v2 .sales-run-modal .sales-panel .sp-lab {
+  width: 100%; font-size: 6px; color: #725c3d; opacity: 1;
+}
+html.ui-v2 .sales-run-modal .sales-panel .btn.btn-small {
+  flex: 1 1 calc(50% - 4px); min-width: 110px; min-height: 31px;
+  padding: 4px 6px; font-size: 6px; line-height: 1.25;
+}
+html.ui-v2 .sales-run-modal .sales-panel select {
+  flex: 1; min-width: 0; font-size: 14px; padding: 4px;
+}
+html.ui-v2 .sales-run-modal .sales-actions {
+  grid-area: actions; position: static; margin: 0; padding: 0; background: transparent;
+  display: grid; grid-template-columns: 1fr 1.25fr; gap: 7px;
+}
+html.ui-v2 .sales-run-modal .sales-actions .btn { min-height: 42px; font-size: 8px; }
 
 @media (max-width: 1359px) {
   html.ui-v2 #screen-game.active { grid-template-rows: 50px minmax(0, 1fr) 272px; }
@@ -225,4 +366,7 @@ html.ui-v2 #hud-hand { padding-top: 18px; }
   html.ui-v2 .v2-pub-logo[data-color="salmon"] { background-position-x: -49px; }
   html.ui-v2 .v2-pub-logo[data-color="teal"] { background-position-x: -98px; }
   html.ui-v2 .v2-pub-logo[data-color="brown"] { background-position-x: -147px; }
+  html.ui-v2 .sales-workspace { grid-template-columns: minmax(380px, 1fr) 330px; gap: 7px; }
+  html.ui-v2 .sales-run-modal .sales-panel { padding: 7px; gap: 5px; }
+  html.ui-v2 .sales-run-modal .sales-panel .btn.btn-small { min-width: 92px; }
 }

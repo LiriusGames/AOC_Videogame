@@ -119,6 +119,68 @@ function check(condition, name) {
     check(geometry.mark.width > 0 && geometry.mark.height > 0,
       "the clean publisher mark is visible");
 
+    // Worst-case strategic desk: the hand limit is six and measured games
+    // reach eight printed comics. Every item must remain visible without
+    // making any of the four persistent desk zones scroll.
+    const fullDesk = await page.evaluate(async () => {
+      const e = UI.engine, s = e.state, p = e.player(UI.humanId);
+      window.__v2DeskSnap = e.snapshot();
+      p.hand = CREATIVES.slice(0, 3).map((c) => c.id).concat(COMICS.slice(0, 3).map((c) => c.id));
+      p.hyped = [];
+      s.chart = s.chart.filter((c) => c.owner !== UI.humanId);
+      COMICS.slice(0, 8).forEach((cd) => s.chart.push({
+        idx: 0, owner: UI.humanId, title: cd.title, genre: cd.genre,
+        cardId: cd.id, isRipoff: false, fans: 3, value: 4, bettercolor: false,
+        everOnChart: true, masteryFanApplied: false,
+        creatives: {
+          writer: { id: "writer_" + cd.genre + "_2", genre: cd.genre, baseValue: 2, curValue: 2, name: "Test Writer" },
+          artist: { id: "artist_" + cd.genre + "_2", genre: cd.genre, baseValue: 2, curValue: 2, name: "Test Artist" },
+        },
+      }));
+      s.chart.forEach((c, i) => (c.idx = i));
+      p.printedCount = 8;
+      p.orders = s.mapSlots.slice(0, 12).map((order) => {
+        order.takenBy = UI.humanId; order.faceUp = true; return order.id;
+      });
+      renderHUD();
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+      const noScroll = (selector) => {
+        const node = document.querySelector(selector);
+        return node.scrollWidth <= node.clientWidth + 1 && node.scrollHeight <= node.clientHeight + 1;
+      };
+      const contained = (parentSelector, childSelector) => {
+        const parent = document.querySelector(parentSelector).getBoundingClientRect();
+        return [...document.querySelectorAll(childSelector)].every((child) => {
+          const r = child.getBoundingClientRect();
+          return r.left >= parent.left - 1 && r.right <= parent.right + 1 &&
+            r.top >= parent.top - 1 && r.bottom <= parent.bottom + 1;
+        });
+      };
+      const scrollMetrics = ["#desk-vitals", "#hud-hand", "#hud-mat", "#desk-ledger"].map((selector) => {
+        const node = document.querySelector(selector);
+        return [selector, node.scrollWidth, node.clientWidth, node.scrollHeight, node.clientHeight];
+      });
+      return {
+        handN: document.querySelectorAll("#hud-hand .v2-hand-tile").length,
+        bookN: document.querySelectorAll("#hud-mat .v2-news-tile").length,
+        orderN: document.querySelectorAll("#desk-orders .res").length,
+        zonesNoScroll: scrollMetrics.every((m) => m[1] <= m[2] + 1 && m[3] <= m[4] + 1),
+        scrollMetrics,
+        handContained: contained("#hud-hand", "#hud-hand .v2-hand-tile"),
+        booksContained: contained("#hud-mat", "#hud-mat .v2-news-tile"),
+        ordersContained: contained("#desk-ledger", "#desk-orders .res"),
+      };
+    });
+    check(fullDesk.handN === 6 && fullDesk.handContained,
+      "all six hand cards remain visible at once");
+    check(fullDesk.bookN === 8 && fullDesk.booksContained,
+      "all eight newsroom comics remain visible at once");
+    check(fullDesk.orderN === 12 && fullDesk.ordersContained,
+      "twelve persistent sales orders remain visible at once");
+    if (!fullDesk.zonesNoScroll) console.error("      desk scroll metrics:", fullDesk.scrollMetrics);
+    check(fullDesk.zonesNoScroll,
+      "no persistent Publisher Desk zone requires a scrollbar");
+
     await page.$eval("#chart-mini", (button) => button.click());
     await page.waitForFunction(() => document.querySelector("#sidebar").classList.contains("open"));
     const drawer = await page.evaluate(() => {
@@ -128,6 +190,53 @@ function check(condition, name) {
     });
     check(drawer.separated, "open chart keeps its close tab outside the drawer content");
     check(drawer.expanded === "true", "chart drawer exposes its expanded state");
+    await page.$eval("#chart-mini", (button) => button.click());
+    await page.waitForFunction(() => !document.querySelector("#sidebar").classList.contains("open"));
+
+    const salesStarted = await page.evaluate(() => {
+      const e = UI.engine;
+      e.restore(window.__v2DeskSnap);
+      UI.eventCursor = e.events.length;
+      closeModal();
+      let guard = 0;
+      while (guard++ < 60 && e.currentPlayerId() !== UI.humanId) {
+        const s = e.state;
+        if (s.pending) AI.resolveOwnPendings(e, s.pending.playerId);
+        else if (s.awaitingSpecial) AI.settle(e, s.awaitingSpecial.player);
+        else AI.takeTurn(e, e.currentPlayerId());
+      }
+      e.state.actionSpaces.sales = [];
+      e.player(UI.humanId).editorsLeft = Math.max(1, e.player(UI.humanId).editorsLeft);
+      const ok = e.actSalesStart(UI.humanId);
+      if (ok) Scenes.salesScene(true);
+      return ok;
+    });
+    check(salesStarted, "V2 opens a real engine-backed sales run");
+    await page.waitForFunction(() => !!document.querySelector(".sales-run-modal .sales-workspace"));
+    const salesLayout = await page.evaluate(() => {
+      const rect = (selector) => document.querySelector(selector).getBoundingClientRect();
+      const modal = document.querySelector(".sales-run-modal");
+      const workspace = document.querySelector(".sales-workspace");
+      const map = rect(".sales-map-pane"), panel = rect(".sales-panel"), actions = rect(".sales-actions");
+      const within = (r) => {
+        const m = modal.getBoundingClientRect();
+        return r.left >= m.left - 1 && r.right <= m.right + 1 && r.top >= m.top - 1 && r.bottom <= m.bottom + 1;
+      };
+      return {
+        sideBySide: map.right <= panel.left + 1,
+        allInside: [map, panel, actions].every(within),
+        noScroll: modal.scrollHeight <= modal.clientHeight + 1 &&
+          workspace.scrollHeight <= workspace.clientHeight + 1 &&
+          document.querySelector(".sales-panel").scrollHeight <= document.querySelector(".sales-panel").clientHeight + 1,
+        destinations: document.querySelectorAll('.sales-panel [data-pkey^="dest-"]').length,
+        canvasVisible: rect("#map-canvas").width > 350 && rect("#map-canvas").height > 350,
+      };
+    });
+    check(salesLayout.sideBySide && salesLayout.allInside,
+      "Sales map and dispatch desk share one viewport");
+    check(salesLayout.noScroll, "Sales decisions require no modal or panel scrolling");
+    check(salesLayout.destinations > 0 && salesLayout.canvasVisible,
+      "legal destinations stay visible beside a readable map");
 
     await page.evaluate(AXE_SRC);
     const serious = await page.evaluate(() => axe.run(document, {
