@@ -1196,13 +1196,60 @@ const Scenes = (() => {
   // ============================================================== GAME OVER
   function endgameModal(scores) {
     SFX.play("fanfare");
-    openModal((m) => {
-      const win = scores[0];
+    if (!matchMedia("(prefers-reduced-motion: reduce)").matches) FX.confetti(2600);
+    const win = scores[0];
+    // the 2-3 categories that actually decided it, from the winner's record
+    const CAT_LABELS = [
+      ["fans", "fans on the stands"], ["origVP", "original books"],
+      ["vpTokens", "chart-rank prizes"], ["masteryVP", "genre mastery"],
+      ["bcVP", "better colors"], ["moneyVP", "cold cash"],
+      ["ideasVP", "spare ideas"], ["extraVP", "prolific printing"],
+    ];
+    const decisive = CAT_LABELS.map(([k, label]) => ({ label, v: win[k] }))
+      .filter((c) => c.v > 0).sort((a, b) => b.v - a.v).slice(0, 3);
+
+    const m = openModal((m) => {
       m.appendChild(el("h2", "", "&#9733; FINAL EDITION &#9733;"));
-      m.appendChild(el("div", "modal-sub",
-        `<b>${esc(win.pubName)}</b> (${esc(win.name)}) is the top publisher of the Golden Age with <b>${win.total} VP</b>!`));
+      const wp = P(win.player);
+      m.appendChild(el("div", "eg-headline",
+        wp.human ? "YOU OWN THE GOLDEN AGE!" : `${esc(win.pubName).toUpperCase()} OWNS THE GOLDEN AGE!`));
+      m.appendChild(el("div", "modal-sub eg-sub",
+        `${esc(win.name)} leads <b>${esc(win.pubName)}</b> to the top with <b>${win.total} VP</b>` +
+        (decisive.length ? ` — built on ${decisive.map((c) => `<b>${c.v}</b> from ${c.label}`).join(", ")}.` : ".")));
+
+      // podium: ranked publisher cards, winner enlarged and color-framed
+      const pod = el("div", "podium");
+      const RANK = ["1st", "2nd", "3rd", "4th"];
+      scores.forEach((r, i) => {
+        const p = P(r.player), pub = PUBLISHERS[p.color];
+        const c = el("div", "pod-card" + (i === 0 ? " pod-win" : ""));
+        c.style.setProperty("--pc", pub.color);
+        c.appendChild(el("div", "pod-rank", RANK[i]));
+        c.appendChild(spr(i === 0 ? "bossbig_" + p.color : "boss_" + p.color, i === 0 ? 1.15 : 1.1));
+        const lg = el("div", "pod-logo");
+        lg.appendChild(spr(pub.logo, i === 0 ? 0.7 : 0.55));
+        c.appendChild(lg);
+        c.appendChild(el("div", "pod-name", esc(r.pubName) + (p.human ? "<br>(YOU)" : "")));
+        c.appendChild(el("div", "pod-total", r.total + " VP"));
+        pod.appendChild(c);
+      });
+      m.appendChild(pod);
+
+      const mine = scores.find((r) => P(r.player).human);
+      if (mine) {
+        const title = TITLES.find(([min]) => mine.total >= min)[1];
+        m.appendChild(el("div", "eg-career",
+          "THE PRESS CLUB CONFERS UPON YOU THE TITLE OF<b>" + title + "</b>" +
+          (mine === win ? "<i>the newsboys are shouting your headlines!</i>"
+            : "<i>there's always the next golden age.</i>")));
+      }
+
+      // the accessible table stays, behind an expandable control
       const tbl = el("table", "score-table");
-      tbl.innerHTML = `<tr><th>PUBLISHER</th><th>FANS</th><th>ORDERS</th><th>RANK VP</th><th>MASTERY</th><th>COLORS</th><th>$/4</th><th>IDEAS/4</th><th>ORIGINALS</th><th>EXTRA</th><th>TOTAL</th></tr>`;
+      tbl.setAttribute("aria-label", "Full scoring breakdown");
+      tbl.innerHTML = `<tr><th scope="col">PUBLISHER</th><th scope="col">FANS</th><th scope="col">ORDERS</th>` +
+        `<th scope="col">RANK VP</th><th scope="col">MASTERY</th><th scope="col">COLORS</th><th scope="col">$/4</th>` +
+        `<th scope="col">IDEAS/4</th><th scope="col">ORIGINALS</th><th scope="col">EXTRA</th><th scope="col">TOTAL</th></tr>`;
       for (const r of scores) {
         const tr = el("tr", r === win ? "winner" : "");
         tr.innerHTML = `<td>${esc(r.pubName)}${P(r.player).human ? " (YOU)" : ""}</td><td>${r.fans}</td><td>${r.orderPenalty ? "-" + r.orderPenalty : 0}</td>` +
@@ -1210,17 +1257,28 @@ const Scenes = (() => {
           `<td>${r.origVP}</td><td>${r.extraVP}</td><td class="total">${r.total}</td>`;
         tbl.appendChild(tr);
       }
+      tbl.hidden = true;
+      const tgl = el("button", "btn btn-small", "FULL BREAKDOWN &#9662;");
+      tgl.setAttribute("aria-expanded", "false");
+      tgl.onclick = () => {
+        SFX.play("click");
+        const opening = tbl.hidden;
+        tbl.hidden = !opening;
+        tgl.setAttribute("aria-expanded", String(opening));
+        tgl.innerHTML = opening ? "HIDE BREAKDOWN &#9652;" : "FULL BREAKDOWN &#9662;";
+      };
+      const tglWrap = el("div", "eg-toggle");
+      tglWrap.appendChild(tgl);
+      m.appendChild(tglWrap);
       m.appendChild(tbl);
-      const mine = scores.find((r) => P(r.player).human);
-      if (mine) {
-        const title = TITLES.find(([min]) => mine.total >= min)[1];
-        m.appendChild(el("div", "modal-sub", `Your career title: <b style="font-family:PressStart;font-size:12px">${title}</b>` +
-          (mine === win ? " — the newsboys are shouting YOUR headlines!" : " — there's always next golden age.")));
-      }
+
       modalButtons(m, [
         { label: "PLAY AGAIN", cls: "btn-go", fn: () => location.reload() },
       ]);
-    }, { width: "900px" });
+    }, { width: "820px" });
+    const again = m.querySelector(".modal-buttons .btn-go");
+    if (again) again.focus(); // predictable landing: the primary action
+    announce(`${win.pubName} wins the golden age with ${win.total} victory points.`);
   }
 
   // ------------------------------------------------------------------- help

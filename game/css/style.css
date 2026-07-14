@@ -621,3 +621,34 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 .sales-panel .btn.btn-small { padding: 3px 7px; font-size: 7px; }
 .sales-panel select { font: 12px monospace; border: 2px solid var(--ink); background: var(--paper); padding: 2px; }
 .sales-panel .btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+
+/* endgame front page */
+.eg-headline {
+  font-family: "PressStart"; font-size: 19px; line-height: 1.4; color: #8a2f26;
+  text-align: center; margin: 2px 0 4px; text-shadow: 2px 2px 0 #0002;
+}
+.eg-sub { text-align: center; }
+.podium { display: flex; gap: 12px; justify-content: center; align-items: flex-end; margin: 14px 0 8px; }
+.pod-card {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  border: 3px solid var(--ink); background: var(--paper-dark); padding: 12px 10px 8px; width: 128px;
+}
+.pod-card.pod-win {
+  width: 168px; padding: 16px 12px 10px; background: var(--paper);
+  border: 6px solid var(--pc); outline: 3px solid var(--ink); box-shadow: 0 6px 0 var(--ink);
+}
+.pod-rank {
+  position: absolute; top: -10px; left: 50%; transform: translateX(-50%);
+  font-family: "PressStart"; font-size: 8px; background: var(--ink); color: var(--gold); padding: 3px 6px;
+}
+.pod-logo { margin-top: 2px; }
+.pod-name { font-family: "PressStart"; font-size: 7px; line-height: 1.6; text-align: center; }
+.pod-total { font-family: "PressStart"; font-size: 13px; }
+.pod-win .pod-total { font-size: 20px; }
+.eg-career {
+  text-align: center; border: 3px dashed var(--ink); background: #f7efdc;
+  padding: 8px 10px; margin: 8px auto 2px; max-width: 560px; font-size: 15px;
+}
+.eg-career b { display: block; font-family: "PressStart"; font-size: 13px; color: #8a2f26; margin: 5px 0 2px; }
+.eg-career i { display: block; font-size: 14px; opacity: .8; }
+.eg-toggle { text-align: center; margin-top: 8px; }
