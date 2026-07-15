@@ -1,7 +1,8 @@
 // ============================================================================
-// UI V2 smoke gate: proves the opt-in publisher-desk shell renders its source
-// art, keeps V2 browsing non-mutating, preserves the responsive desk geometry,
-// and still opens the existing action scenes. Run: node game/test/ui-v2.js
+// UI V2 smoke gate: proves the opt-in publisher-desk shell preserves the six
+// living action rooms, keeps the strategic desk scroll-free at its real limits,
+// and shares the existing engine-backed scenes and Sales map. Run:
+// node game/test/ui-v2.js
 // ============================================================================
 "use strict";
 const fs = require("fs");
@@ -73,30 +74,44 @@ function check(condition, name) {
       closeModal();
       Main.advance();
     });
-    await page.waitForFunction(() => document.querySelectorAll(".v2-action-card").length === 6);
+    await page.waitForFunction(() => document.querySelectorAll("#locations .loc").length === 6);
 
-    check((await page.$$(".v2-action-card")).length === 6,
-      "all six actions render as compact comics");
-    check(await page.$eval("#action-stage", (stage) => getComputedStyle(stage).display !== "none"),
-      "one selected action spread is visible");
+    check((await page.$$("#locations .loc")).length === 6,
+      "all six illustrated action rooms remain present");
+    check(await page.$eval("#action-stage", (stage) => getComputedStyle(stage).display === "none"),
+      "the discarded selected-action spread reserves no board space");
 
     await page.waitForFunction(() => {
-      const canvases = [...document.querySelectorAll(".v2-action-art, .v2-stage-art")];
-      if (canvases.length !== 7) return false;
+      const canvases = [...document.querySelectorAll("#locations canvas.loc-scene")];
+      if (canvases.length !== 6) return false;
       return canvases.every((canvas) => {
         const pixels = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height).data;
         for (let i = 3; i < pixels.length; i += 4) if (pixels[i]) return true;
         return false;
       });
     }, { timeout: 10000 });
-    check(true, "all action canvases contain rendered artwork");
+    check(true, "all six room canvases contain rendered artwork");
+
+    await page.evaluate(() => {
+      const e = UI.engine, s = e.state;
+      s.phase = "actions";
+      s.turnIdx = s.turnOrder.indexOf(UI.humanId);
+      s.pending = null;
+      s.awaitingSpecial = null;
+      s.actionSpaces.hire = [];
+      e.player(UI.humanId).editorsLeft = Math.max(1, e.player(UI.humanId).editorsLeft);
+      UI.busy = false;
+      renderAll();
+    });
 
     const before = await page.evaluate(() => JSON.stringify(UI.engine.state));
-    await page.$eval('.v2-action-card[data-action="hire"]', (button) => button.click());
-    check(await page.$eval("#action-stage h2", (heading) => heading.textContent) === "TALENT AGENCY",
-      "selecting a comic changes the focused spread");
+    await page.$eval('#locations .loc[data-action="hire"]', (button) => button.click());
+    await page.waitForFunction(() => !!document.querySelector("#modal-root .modal"));
+    check((await page.$eval("#modal-root .modal h2", (heading) => heading.textContent)).includes("TALENT AGENCY"),
+      "an action room opens its existing decision scene");
     check(await page.evaluate(() => JSON.stringify(UI.engine.state)) === before,
-      "browsing action comics never mutates game state");
+      "opening an action scene never mutates game state");
+    await page.evaluate(() => closeModal());
 
     const geometry = await page.evaluate(() => {
       const box = (selector) => {
@@ -104,14 +119,22 @@ function check(condition, name) {
         return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
       };
       return {
-        rail: box("#locations"), stage: box("#action-stage"), hud: box("#hud"),
+        city: box("#cityhub"), rooms: box("#locations"), hud: box("#hud"),
         vitals: box("#desk-vitals"), hand: box("#hud-hand"), newsroom: box("#hud-left"),
         ledger: box("#desk-ledger"), mark: box("#desk-publisher-mark"),
+        tiles: [...document.querySelectorAll("#locations .loc")].map((node) => {
+          const r = node.getBoundingClientRect();
+          return { left: Math.round(r.left), top: Math.round(r.top), right: r.right, bottom: r.bottom };
+        }),
       };
     });
-    check(geometry.rail.right <= geometry.stage.left + 1,
-      "action rail and focused spread do not overlap");
-    check(geometry.stage.bottom <= geometry.hud.top + 1,
+    check(geometry.rooms.left >= geometry.city.left - 1 && geometry.rooms.right <= geometry.city.right + 1 &&
+      geometry.rooms.top >= geometry.city.top - 1 && geometry.rooms.bottom <= geometry.city.bottom + 1,
+      "the living board fills the city area");
+    check(new Set(geometry.tiles.map((r) => r.left)).size === 3 &&
+      new Set(geometry.tiles.map((r) => r.top)).size === 2,
+      "action rooms form a comparable three-by-two board");
+    check(geometry.rooms.bottom <= geometry.hud.top + 1,
       "the publisher desk has its own uninterrupted lower zone");
     check([geometry.vitals, geometry.hand, geometry.newsroom, geometry.ledger]
       .every((r) => r.top >= geometry.hud.top && r.bottom <= geometry.hud.bottom),
