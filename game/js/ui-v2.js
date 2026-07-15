@@ -67,7 +67,7 @@ const UIV2 = (() => {
   function renderCompactNewsroom() {
     const s = UI.engine.state, mat = document.getElementById("hud-mat");
     const books = s.chart.filter((c) => c.owner === UI.humanId);
-    mat.innerHTML = "<div class='mat-plate'>&#9733; THE NEWSROOM &#9733;</div>";
+    mat.innerHTML = "<div class='mat-plate'>&#9733; ON THE STANDS &#9733;</div>";
     mat.dataset.count = books.length;
     mat.style.setProperty("--v2-news-cols", Math.min(4, Math.max(1, Math.ceil(books.length / 2))));
     const n = P(UI.humanId).printedCount;

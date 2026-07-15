@@ -754,9 +754,9 @@ function renderHUD() {
     aw.appendChild(sock);
   });
 
-  // newsroom: every printed comic with the team working on it
+  // published catalog: every printed comic with the team working on it
   const mat = document.getElementById("hud-mat");
-  mat.innerHTML = "<div class='mat-plate'>&#9733; THE NEWSROOM &#9733;</div>";
+  mat.innerHTML = "<div class='mat-plate'>&#9733; ON THE STANDS &#9733;</div>";
   s.chart.filter((c) => c.owner === UI.humanId).forEach((c) => {
     const d = el("div", "press-item" + (c.isRipoff ? " ripoff" : ""));
     d.dataset.chartIdx = c.idx;
@@ -821,7 +821,7 @@ function renderHUD() {
   if (compactDesk) UIV2.afterRender();
 }
 
-// the newsroom shelf can outgrow its column: show the nudge buttons whenever
+// the published catalog can outgrow its column: show the nudge buttons whenever
 // it actually scrolls (the rail is styled visible too — never a hidden one)
 function updateMatNav() {
   const mat = document.getElementById("hud-mat"), nav = document.getElementById("mat-nav");

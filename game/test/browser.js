@@ -362,7 +362,7 @@ function check(cond, name) {
     await page.$eval("#btn-review-confirm", (b) => b.click());
     check(true, "UI-driven sales run completes through review");
 
-    // -------------------- 11. publisher desk unification + newsroom overflow
+    // --------------- 11. publisher desk unification + published-catalog overflow
     check(await page.evaluate(() => !document.querySelector("#topbar #hud-resources") &&
       !!document.querySelector("#hud #hud-resources") &&
       !!document.querySelector("#hud #desk-orders") && !!document.querySelector("#hud #desk-awards")),
@@ -423,7 +423,7 @@ function check(cond, name) {
         const tag = `${vp.width}x${vp.height}, ${n} comics`;
         if (r.reachable !== n || r.overlapHand)
           console.error(`      geometry: mat=${r.matR} handLeft=${r.handL} items=${JSON.stringify(r.detail)}`);
-        check(r.count === n, `${tag}: newsroom renders all of them`);
+        check(r.count === n, `${tag}: published catalog renders all of them`);
         check(r.reachable === n, `${tag}: every comic can be brought fully into view`);
         check(r.valuesOk === n, `${tag}: every VALUE plate matches engine state`);
         check(r.overlapHand === 0, `${tag}: none hides under the ON YOUR DESK column`);

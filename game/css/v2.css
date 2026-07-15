@@ -128,6 +128,10 @@ html.ui-v2 #hud-mat {
   grid-template-columns: repeat(var(--v2-news-cols, 1), minmax(0, 1fr));
   grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 4px; padding: 25px 6px 6px; align-items: stretch; overflow: hidden;
+  background:
+    linear-gradient(0deg, #171008 0 8px, #86552e 8px 12px, transparent 12px 49%,
+      #171008 49% calc(49% + 7px), #86552e calc(49% + 7px) calc(49% + 11px), transparent calc(49% + 11px)),
+    linear-gradient(180deg, #4b341e, #2d1d11);
 }
 html.ui-v2 #hud-hand::-webkit-scrollbar,
 html.ui-v2 #hud-mat::-webkit-scrollbar { display: none; }
@@ -148,10 +152,11 @@ html.ui-v2 .v2-hand-copy small { margin-top: 2px; font-family: "PressStart"; fon
 html.ui-v2 .v2-hand-tile .genre-dot { width: 9px; height: 9px; border-width: 1px; }
 html.ui-v2 .v2-hand-tile .hype-badge { top: 1px; right: 1px; font-size: 5px; padding: 1px 2px; }
 html.ui-v2 .v2-news-tile {
-  margin: 0; min-width: 0; min-height: 0; display: grid;
+  position: relative; margin: 0; min-width: 0; min-height: 0; display: grid;
   grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 5px;
-  color: var(--ink); background: #dfd2b4; border: 2px solid var(--ink);
-  padding: 3px 4px; overflow: hidden;
+  color: var(--ink); background: #e5d7b8; border: 2px solid var(--ink);
+  border-bottom: 7px solid #764722; padding: 3px 4px 5px; overflow: hidden;
+  box-shadow: inset 0 -2px 0 #b67a43, 0 2px 0 #130d08;
 }
 html.ui-v2 .v2-news-copy { min-width: 0; display: flex; flex-direction: column; gap: 2px; line-height: 1; }
 html.ui-v2 .v2-news-copy > b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

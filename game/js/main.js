@@ -436,7 +436,7 @@ const Main = (() => {
     document.addEventListener("keydown", (ev) => {
       if (ev.key === "Escape" && !modalIsOpen() && !wirePanel.hidden) setWire(false);
     });
-    // newsroom shelf nudge buttons (mouse users; the rail itself is visible)
+    // published-catalog nudge buttons (mouse users; the rail itself is visible)
     const matScroll = (dir) => document.getElementById("hud-mat")
       .scrollBy({ left: dir * 180, behavior: REDUCED_MOTION() ? "auto" : "smooth" });
     document.getElementById("mat-prev").onclick = () => matScroll(-1);

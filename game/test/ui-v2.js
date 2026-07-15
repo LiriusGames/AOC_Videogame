@@ -197,7 +197,7 @@ function check(condition, name) {
     check(fullDesk.handN === 6 && fullDesk.handContained,
       "all six hand cards remain visible at once");
     check(fullDesk.bookN === 8 && fullDesk.booksContained,
-      "all eight newsroom comics remain visible at once");
+      "all eight published comics remain visible at once");
     check(fullDesk.orderN === 12 && fullDesk.ordersContained,
       "twelve persistent sales orders remain visible at once");
     if (!fullDesk.zonesNoScroll) console.error("      desk scroll metrics:", fullDesk.scrollMetrics);
