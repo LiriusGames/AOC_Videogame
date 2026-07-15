@@ -106,6 +106,10 @@ function findBrowser() {
           UI.eventCursor = UI.engine.events.length;
           renderAll();
         });
+        await page.evaluate(() => document.querySelector(`.v2-lane-head[data-player="${UI.humanId}"]`).click());
+        await new Promise((r) => setTimeout(r, 100));
+        await shot("chart-detail");
+        await page.$eval(".v2-chart-detail-close", (button) => button.click());
       }
 
       const hasDrawer = await page.evaluate(() =>

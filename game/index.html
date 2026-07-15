@@ -91,6 +91,7 @@ if (location.protocol === "file:") {
   <section id="screen-game" class="screen">
     <header id="topbar">
       <div id="top-logo">AGE OF COMICS</div>
+      <div id="top-wire-slot"></div>
       <div id="calendar"></div>
       <div id="turn-order"></div>
       <div id="top-buttons">
@@ -125,14 +126,16 @@ if (location.protocol === "file:") {
           <div id="desk-awards" role="group" aria-label="Your mastery awards shelf"></div>
         </div>
       </div>
-      <div id="hud-left">
-        <div id="hud-mat" tabindex="0" aria-label="Your printed comics"></div>
-        <div id="mat-nav" hidden>
-          <button id="mat-prev" aria-label="Scroll printed comics left">&#9664;</button>
-          <button id="mat-next" aria-label="Scroll printed comics right">&#9654;</button>
+      <div id="desk-collections">
+        <div id="hud-hand" tabindex="0" aria-label="Your hand"></div>
+        <div id="hud-left">
+          <div id="hud-mat" tabindex="0" aria-label="Your printed comics"></div>
+          <div id="mat-nav" hidden>
+            <button id="mat-prev" aria-label="Scroll printed comics left">&#9664;</button>
+            <button id="mat-next" aria-label="Scroll printed comics right">&#9654;</button>
+          </div>
         </div>
       </div>
-      <div id="hud-hand" tabindex="0" aria-label="Your hand"></div>
       <!-- press wire: routine news feeds off a teleprinter; the paper opens
            the full archive, presented as THE DAILY SPINNER -->
       <button id="wire-strip" aria-controls="wire-panel" aria-expanded="false"

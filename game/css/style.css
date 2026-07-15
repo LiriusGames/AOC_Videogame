@@ -141,6 +141,7 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
   background: var(--bg2); border-bottom: 4px solid var(--ink);
 }
 #top-logo { font-size: 13px; color: var(--gold); text-shadow: 2px 2px 0 #7a2d18; white-space: nowrap; }
+#top-wire-slot { display: none; }
 #calendar { display: flex; gap: 6px; align-items: center; }
 .cal-tile {
   width: 34px; height: 34px; border: 3px solid var(--ink); display: flex; align-items: center; justify-content: center;
@@ -405,6 +406,7 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
   background: var(--bg2); border-top: 4px solid var(--ink); min-height: 0; overflow: hidden;
 }
 #hud > * { min-height: 0; }
+#desk-collections { display: contents; }
 #desk-vitals, #desk-ledger { display: contents; }
 #desk-publisher-mark { display: none; }
 #hud-left { display: flex; min-width: 0; position: relative; }

@@ -431,7 +431,11 @@ const Main = (() => {
         document.getElementById("wire-close").focus();
       } else document.getElementById("wire-strip").focus();
     };
-    document.getElementById("wire-strip").onclick = () => { SFX.play("paper"); setWire(wirePanel.hidden); };
+    document.getElementById("wire-strip").onclick = () => {
+      const opening = wirePanel.hidden;
+      SFX.play(opening ? "wire" : "paper");
+      setWire(opening);
+    };
     document.getElementById("wire-close").onclick = () => setWire(false);
     document.addEventListener("keydown", (ev) => {
       if (ev.key === "Escape" && !modalIsOpen() && !wirePanel.hidden) setWire(false);

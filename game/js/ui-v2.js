@@ -7,6 +7,8 @@
 "use strict";
 
 const UIV2 = (() => {
+  let inspectedPublisher = null;
+
   function active() {
     return document.documentElement.classList.contains("ui-v2");
   }
@@ -14,19 +16,82 @@ const UIV2 = (() => {
   function afterRender() {
     const mark = document.getElementById("desk-publisher-mark");
     if (!mark || !UI.engine) return;
+    setupShell();
+    renderPublisher();
+    renderCompactHand();
+    renderCompactNewsroom();
+    renderChartLanes();
+    const nav = document.getElementById("mat-nav");
+    if (nav) nav.hidden = true;
+  }
+
+  function setupShell() {
+    const wire = document.getElementById("wire-strip");
+    const slot = document.getElementById("top-wire-slot");
+    if (wire && slot && wire.parentElement !== slot) slot.appendChild(wire);
+    if (wire) wire.title = "Open the Press Wire";
+  }
+
+  function renderPublisher() {
+    const e = UI.engine, p = P(UI.humanId), score = e.scorePlayer(UI.humanId);
+    const status = document.getElementById("desk-status");
+    status.style.setProperty("--pub", PUBLISHERS[p.color].color);
     const vitals = document.getElementById("desk-vitals");
     vitals.tabIndex = 0;
-    vitals.setAttribute("aria-label", "Your publisher resources");
-    const p = P(UI.humanId);
+    vitals.setAttribute("aria-label", `Your publisher: ${p.pubName}, projected score ${score.total} victory points, ${p.editorsLeft} editors available`);
+    const plate = vitals.querySelector(".desk-plate");
+    if (plate) plate.innerHTML = "&#9733; PUBLISHER &#9733;";
+    const mark = document.getElementById("desk-publisher-mark");
     mark.innerHTML = "";
     const logo = el("span", "v2-pub-logo");
     logo.dataset.color = p.color;
     mark.appendChild(logo);
     mark.appendChild(el("span", "v2-pub-name", `<b>${esc(p.pubName)}</b><small>YOUR PUBLISHING HOUSE</small>`));
-    renderCompactHand();
-    renderCompactNewsroom();
-    const nav = document.getElementById("mat-nav");
-    if (nav) nav.hidden = true;
+    const scoreCard = el("div", "v2-score-card", `<span>PROJECTED VP</span><b>${score.total}</b>`);
+    scoreCard.title = `If the game ended now: ${score.fans} fans - ${score.orderPenalty} order penalties + ` +
+      `${score.vpTokens} VP tokens + ${score.masteryVP} mastery + ${score.bcVP} better colors + ` +
+      `${score.moneyVP} money + ${score.ideasVP} ideas + ${score.origVP + score.extraVP} published comics`;
+    mark.appendChild(scoreCard);
+
+    const resources = document.getElementById("hud-resources");
+    resources.innerHTML = "";
+    const staffBlock = el("div", "v2-publisher-block");
+    staffBlock.appendChild(el("span", "v2-publisher-label", "EDITORS AVAILABLE"));
+    const totalStaff = p.editors + (p.extraEditorUsed ? 1 : 0);
+    const roster = el("div", "v2-staff-roster" + (totalStaff > 4 ? " has-temp" : ""));
+    const colorRow = PLAYER_COLORS.indexOf(p.color);
+    for (let i = 0; i < totalStaff; i++) {
+      const available = i < p.editorsLeft;
+      const person = i % 4;
+      const staff = el("span", "v2-staffer" + (available ? "" : " spent") + (i >= p.editors ? " temp" : ""));
+      staff.style.setProperty("--staff-x", [0, 33.333, 66.667, 100][person] + "%");
+      staff.style.setProperty("--staff-y", [0, 33.333, 66.667, 100][colorRow] + "%");
+      staff.setAttribute("role", "img");
+      staff.setAttribute("aria-label", `${i >= p.editors ? "Extra editor" : `Editor ${i + 1}`} — ${available ? "available" : "already assigned"}`);
+      roster.appendChild(staff);
+    }
+    staffBlock.appendChild(roster);
+    resources.appendChild(staffBlock);
+
+    const cashBlock = el("div", "v2-publisher-block");
+    const cashRow = el("div", "v2-cash-row");
+    const cash = el("span", "v2-resource-big");
+    cash.appendChild(spr("coin_1", 0.8)); cash.appendChild(el("b", "", `$${p.money}`)); cash.title = "Cash";
+    const tickets = el("span", "v2-resource-big");
+    tickets.appendChild(spr("ticket", 0.58)); tickets.appendChild(el("b", "", `${p.tickets}`)); tickets.title = "Super-transport tickets";
+    cashRow.appendChild(cash); cashRow.appendChild(tickets); cashBlock.appendChild(cashRow);
+    resources.appendChild(cashBlock);
+
+    const ideasBlock = el("div", "v2-publisher-block");
+    ideasBlock.appendChild(el("span", "v2-publisher-label", "IDEAS"));
+    const ideas = el("div", "v2-idea-grid");
+    for (const genre of GENRES) {
+      const chip = el("span", "v2-idea-chip" + (p.ideas[genre] ? "" : " dim"));
+      chip.appendChild(spr("idea_" + genre, 0.48)); chip.appendChild(el("b", "", String(p.ideas[genre])));
+      chip.title = `${GENRE_INFO[genre].name} ideas`;
+      ideas.appendChild(chip);
+    }
+    ideasBlock.appendChild(ideas); resources.appendChild(ideasBlock);
   }
 
   function renderCompactHand() {
@@ -35,8 +100,29 @@ const UIV2 = (() => {
       .concat(p.hyped.map((h) => ({ id: h.cardId, hyped: true, tokens: h.tokens })));
     hand.innerHTML = "";
     hand.dataset.count = entries.length;
-    hand.style.setProperty("--v2-hand-rows", Math.max(1, Math.ceil(entries.length / 2)));
+    const groups = [
+      { key: "writer", label: "WRITERS", entries: [] },
+      { key: "artist", label: "ARTISTS", entries: [] },
+      { key: "project", label: "PROJECTS", entries: [] },
+    ];
     for (const entry of entries) {
+      const card = CARD_BY_ID[entry.id];
+      const key = card.kind || "project";
+      groups.find((group) => group.key === key).entries.push(entry);
+    }
+    for (const group of groups) {
+      const section = el("section", "v2-hand-group");
+      section.setAttribute("aria-label", group.label.toLowerCase());
+      section.appendChild(el("h4", "", group.label));
+      const body = el("div", "v2-hand-group-body");
+      body.style.setProperty("--group-count", Math.max(1, group.entries.length));
+      for (const entry of group.entries) body.appendChild(renderHandTile(entry));
+      if (!group.entries.length) body.appendChild(el("i", "v2-hand-group-empty", "—"));
+      section.appendChild(body); hand.appendChild(section);
+    }
+  }
+
+  function renderHandTile(entry) {
       const card = CARD_BY_ID[entry.id];
       const tile = el("div", "v2-hand-tile " + (card.kind ? "creative" : "comic"));
       tile.setAttribute("role", "group");
@@ -59,9 +145,95 @@ const UIV2 = (() => {
           `<b>${esc(card.title)}</b><br>${fmtGenre(card.genre)} &middot; ${BONUS_CHIP[card.bonus][3]}`);
       }
       if (entry.hyped) tile.appendChild(el("div", "hype-badge", `HYPE +${entry.tokens * 2}`));
-      hand.appendChild(tile);
+      return tile;
+  }
+
+  function renderChartLanes() {
+    const e = UI.engine, s = e.state, panel = document.getElementById("chart-panel");
+    const order = s.players.map((p) => p.id).sort((a, b) => e.bestComicFans(b) - e.bestComicFans(a));
+    if (inspectedPublisher !== null && !order.includes(inspectedPublisher)) inspectedPublisher = null;
+    panel.innerHTML = "<h3>&#9733; THE COMIC BOOK CHART &#9733;</h3>";
+    const grid = el("div", "v2-chart-grid");
+    grid.style.setProperty("--lanes", order.length);
+    grid.appendChild(el("div", "v2-chart-corner", "$"));
+    for (const pid of order) {
+      const p = P(pid), pub = PUBLISHERS[p.color];
+      const head = el("button", "v2-lane-head");
+      head.type = "button";
+      head.dataset.player = pid;
+      head.style.setProperty("--lane", pub.color);
+      head.setAttribute("aria-expanded", String(inspectedPublisher === pid));
+      head.setAttribute("aria-label", `${p.pubName}${p.human ? ", your publishing house" : `, ${p.name}`}. Open publisher details.`);
+      head.appendChild(spr(pub.logo, 0.42));
+      head.appendChild(el("span", "", esc(p.pubName.split(" ")[0])));
+      head.onclick = () => {
+        SFX.play("paper");
+        inspectedPublisher = inspectedPublisher === pid ? null : pid;
+        renderChartLanes();
+        const focus = panel.querySelector(`[data-player="${pid}"]`);
+        if (focus) focus.focus();
+      };
+      grid.appendChild(head);
     }
-    if (!entries.length) hand.appendChild(el("i", "v2-empty", "your desk is empty"));
+    for (let fans = 10; fans >= 1; fans--) {
+      grid.appendChild(el("div", "v2-chart-fan", `<span>$${TRACK_MONEY[fans]}</span><b>${fans}</b>`));
+      for (const pid of order) {
+        const p = P(pid), pub = PUBLISHERS[p.color];
+        const cell = el("div", "v2-chart-cell");
+        cell.style.setProperty("--lane", pub.color);
+        const best = e.bestComicFans(pid);
+        const books = s.chart.filter((comic) => comic.owner === pid && Math.min(10, comic.fans) === fans && comic.fans >= 1);
+        for (const comic of books) {
+          const tile = el("div", "track-tile" + (comic.isRipoff ? " ripoff" : ""));
+          tile.appendChild(spr(comicSprite(comic), 0.25));
+          if (comic.fans > 10) tile.appendChild(el("div", "over-badge", "+" + (comic.fans - 10)));
+          if (comic.fans === best) tile.classList.add("best");
+          tile.title = `${comic.title}: ${comic.fans} fans, value ${comic.value}`;
+          attachZoom(tile, comicSprite(comic),
+            `<b>${esc(comic.title)}</b><br>${genreDot(comic.genre)} v${comic.value} &middot; ${comic.fans}&#9829; &middot; ${esc(p.pubName)}`);
+          cell.appendChild(tile);
+        }
+        grid.appendChild(cell);
+      }
+    }
+    panel.appendChild(grid);
+    if (inspectedPublisher !== null) panel.appendChild(renderPublisherDetails(inspectedPublisher));
+  }
+
+  function renderPublisherDetails(pid) {
+    const e = UI.engine, s = e.state, p = P(pid), pub = PUBLISHERS[p.color], score = e.scorePlayer(pid);
+    const detail = el("section", "v2-chart-detail");
+    detail.style.setProperty("--lane", pub.color);
+    detail.setAttribute("aria-label", `${p.pubName} publisher details`);
+    const head = el("div", "v2-chart-detail-head");
+    head.appendChild(spr(bossSprite(pid), 0.7));
+    head.appendChild(el("h4", "", `${esc(p.pubName)}${p.human ? "<br>(YOU)" : `<br>${esc(p.name)}`}`));
+    const close = el("button", "v2-chart-detail-close", "BACK");
+    close.type = "button";
+    close.onclick = () => { SFX.play("paper"); inspectedPublisher = null; renderChartLanes(); };
+    head.appendChild(close); detail.appendChild(head);
+    const mastery = GENRES.filter((genre) => s.mastery[genre] === pid).length;
+    const unfulfilled = p.orders.map((id) => s.mapSlots[id]).filter((order) => !order.fulfilled).length;
+    const stats = el("div", "v2-chart-stats");
+    const stat = (label, value) => stats.appendChild(el("div", "v2-chart-stat", `<b>${label}</b>${value}`));
+    stat("PROJECTED VP", score.total);
+    stat("BEST COMIC", `${Math.max(0, e.bestComicFans(pid))}&#9829;`);
+    stat("CASH / TICKETS", `$${p.money} / ${p.tickets}`);
+    stat("EDITORS LEFT", `${p.editorsLeft}`);
+    stat("PUBLISHED", p.printedCount);
+    stat("MASTERY / ORDERS", `${mastery} / ${unfulfilled} open`);
+    detail.appendChild(stats);
+    detail.appendChild(el("div", "v2-publisher-label", "PUBLISHED COMICS"));
+    const books = el("div", "v2-chart-books");
+    for (const comic of s.chart.filter((item) => item.owner === pid)) {
+      const cover = spr(comicSprite(comic), 0.45);
+      cover.title = `${comic.title}: value ${comic.value}, ${comic.fans} fans`;
+      attachZoom(cover, comicSprite(comic), `<b>${esc(comic.title)}</b><br>v${comic.value} &middot; ${comic.fans}&#9829;`);
+      books.appendChild(cover);
+    }
+    if (!books.children.length) books.appendChild(el("i", "", "No comics published yet"));
+    detail.appendChild(books);
+    return detail;
   }
 
   function renderCompactNewsroom() {

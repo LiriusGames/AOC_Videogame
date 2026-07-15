@@ -1077,37 +1077,46 @@ class Engine {
   }
 
   // --------------------------------------------------------------- scoring
+  scorePlayer(pid) {
+    const s = this.state;
+    const p = this.player(pid);
+    const comics = s.chart.filter((c) => c.owner === p.id);
+    const fans = comics.reduce((sum, c) => sum + Math.max(0, c.fans), 0);
+    const unfulfilled = p.orders.map((oid) => s.mapSlots[oid]).filter((o) => !o.fulfilled);
+    const orderPenalty = unfulfilled.reduce((sum, o) => sum + o.fans, 0);
+    const masteryVP = Object.values(s.mastery).filter((owner) => owner === p.id).length * 2;
+    const bcVP = comics.filter((c) => c.bettercolor).length * 2;
+    const moneyVP = Math.floor(p.money / 4);
+    const ideasVP = Math.floor(GENRES.reduce((sum, g) => sum + p.ideas[g], 0) / 4);
+    let origVP = 0;
+    comics.filter((c) => !c.isRipoff).forEach((c) => {
+      const spec = (c.creatives.writer.genre === c.genre ? 1 : 0) + (c.creatives.artist.genre === c.genre ? 1 : 0);
+      origVP += spec === 2 ? 6 : spec === 1 ? 4 : 2;
+    });
+    let extraVP = 0;
+    if (p.printedCount >= 5) extraVP += comics.filter((c) => !c.isRipoff).length; // +1 per original
+    if (p.printedCount >= 6) extraVP += (p.printedCount - 5) * 2;                 // +2 from 6th onward
+    const total = fans - orderPenalty + p.vpTokens + masteryVP + bcVP + moneyVP + ideasVP + origVP + extraVP;
+    return {
+      player: p.id, name: p.name, pubName: p.pubName, color: p.color,
+      fans, orderPenalty, vpTokens: p.vpTokens, masteryVP, bcVP, moneyVP, ideasVP, origVP, extraVP, total,
+      printed: p.printedCount,
+    };
+  }
+
+  scorePreview() {
+    const scores = this.state.players.map((p) => this.scorePlayer(p.id));
+    // tiebreak: most printed, then highest total comic value
+    scores.sort((a, b) => b.total - a.total ||
+      this.player(b.player).printedCount - this.player(a.player).printedCount);
+    return scores;
+  }
+
   finishGame() {
     const s = this.state;
     s.gameOver = true;
     s.phase = "gameover";
-    const scores = s.players.map((p) => {
-      const comics = s.chart.filter((c) => c.owner === p.id);
-      const fans = comics.reduce((sum, c) => sum + Math.max(0, c.fans), 0);
-      const unfulfilled = p.orders.map((oid) => s.mapSlots[oid]).filter((o) => !o.fulfilled);
-      const orderPenalty = unfulfilled.reduce((sum, o) => sum + o.fans, 0);
-      const masteryVP = Object.values(s.mastery).filter((pid) => pid === p.id).length * 2;
-      const bcVP = comics.filter((c) => c.bettercolor).length * 2;
-      const moneyVP = Math.floor(p.money / 4);
-      const ideasVP = Math.floor(GENRES.reduce((sum, g) => sum + p.ideas[g], 0) / 4);
-      let origVP = 0;
-      comics.filter((c) => !c.isRipoff).forEach((c) => {
-        const spec = (c.creatives.writer.genre === c.genre ? 1 : 0) + (c.creatives.artist.genre === c.genre ? 1 : 0);
-        origVP += spec === 2 ? 6 : spec === 1 ? 4 : 2;
-      });
-      let extraVP = 0;
-      if (p.printedCount >= 5) extraVP += comics.filter((c) => !c.isRipoff).length; // +1 per original
-      if (p.printedCount >= 6) extraVP += (p.printedCount - 5) * 2;                 // +2 from 6th onward
-      const total = fans - orderPenalty + p.vpTokens + masteryVP + bcVP + moneyVP + ideasVP + origVP + extraVP;
-      return {
-        player: p.id, name: p.name, pubName: p.pubName, color: p.color,
-        fans, orderPenalty, vpTokens: p.vpTokens, masteryVP, bcVP, moneyVP, ideasVP, origVP, extraVP, total,
-        printed: p.printedCount,
-      };
-    });
-    // tiebreak: most printed, then highest total comic value
-    scores.sort((a, b) => b.total - a.total ||
-      this.player(b.player).printedCount - this.player(a.player).printedCount);
+    const scores = this.scorePreview();
     s.scores = scores;
     this.emit("gameOver", { scores });
     return scores;

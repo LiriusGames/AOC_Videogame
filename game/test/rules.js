@@ -490,7 +490,11 @@ test("final scoring components", () => {
   ok(printOriginal(e, A, "orig_25", "writer_scifi_2", "artist_crime_2"));
   const B = e.state.players.find((q) => q.id !== A).id;
   e.player(A).money = 10; // moneyVP 2
+  const beforePreview = JSON.stringify(e.state);
+  const preview = e.scorePreview();
+  eq(JSON.stringify(e.state), beforePreview, "score preview is a pure query");
   const scores = e.finishGame();
+  eq(JSON.stringify(scores), JSON.stringify(preview), "projected VP uses the final-scoring calculation");
   const sA = scores.find((r) => r.player === A), sB = scores.find((r) => r.player === B);
   eq(sA.fans, 2); eq(sA.masteryVP, 2); eq(sA.moneyVP, 2);
   eq(sA.origVP, 2, "no specialists: 2 VP for the original");

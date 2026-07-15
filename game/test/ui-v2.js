@@ -119,28 +119,39 @@ function check(condition, name) {
         return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
       };
       return {
-        city: box("#cityhub"), rooms: box("#locations"), hud: box("#hud"),
-        vitals: box("#desk-vitals"), hand: box("#hud-hand"), newsroom: box("#hud-left"),
-        ledger: box("#desk-ledger"), mark: box("#desk-publisher-mark"),
+        screen: box("#screen-game"), top: box("#topbar"), publisher: box("#desk-status"),
+        rooms: box("#locations"), chart: box("#sidebar"), collections: box("#desk-collections"),
+        hand: box("#hud-hand"), stands: box("#hud-left"), mark: box("#desk-publisher-mark"),
         tiles: [...document.querySelectorAll("#locations .loc")].map((node) => {
           const r = node.getBoundingClientRect();
           return { left: Math.round(r.left), top: Math.round(r.top), right: r.right, bottom: r.bottom };
         }),
       };
     });
-    check(geometry.rooms.left >= geometry.city.left - 1 && geometry.rooms.right <= geometry.city.right + 1 &&
-      geometry.rooms.top >= geometry.city.top - 1 && geometry.rooms.bottom <= geometry.city.bottom + 1,
-      "the living board fills the city area");
+    check(geometry.publisher.left >= geometry.screen.left - 1 && geometry.publisher.right <= geometry.rooms.left + 1 &&
+      geometry.publisher.top >= geometry.top.bottom - 1 && geometry.publisher.bottom <= geometry.screen.bottom + 1,
+      "the Publisher owns the full left column");
     check(new Set(geometry.tiles.map((r) => r.left)).size === 3 &&
       new Set(geometry.tiles.map((r) => r.top)).size === 2,
       "action rooms form a comparable three-by-two board");
-    check(geometry.rooms.bottom <= geometry.hud.top + 1,
-      "the publisher desk has its own uninterrupted lower zone");
-    check([geometry.vitals, geometry.hand, geometry.newsroom, geometry.ledger]
-      .every((r) => r.top >= geometry.hud.top && r.bottom <= geometry.hud.bottom),
-      "all four personal-information zones stay inside the desk");
+    check(geometry.rooms.right <= geometry.chart.left + 1 && geometry.rooms.top >= geometry.top.bottom - 1,
+      "Actions remain centered between Publisher and Chart");
+    check(geometry.collections.left >= geometry.publisher.right - 1 && geometry.collections.top >= geometry.rooms.bottom - 1 &&
+      geometry.collections.right <= geometry.screen.right + 1 && geometry.collections.bottom <= geometry.screen.bottom + 1,
+      "Team, Projects and On the Stands own the lower row");
+    check([geometry.hand, geometry.stands].every((r) => r.top >= geometry.collections.top && r.bottom <= geometry.collections.bottom),
+      "both collection trays stay inside the lower row");
     check(geometry.mark.width > 0 && geometry.mark.height > 0,
       "the clean publisher mark is visible");
+    check(await page.$eval("#desk-publisher-mark .v2-score-card b", (node) =>
+      Number(node.textContent) === UI.engine.scorePlayer(UI.humanId).total),
+      "projected VP comes from the engine scoring query");
+    check((await page.$$(".v2-staffer")).length === 4,
+      "the Publisher shows the normal four-editor staff roster");
+    check((await page.$$("#hud-hand .v2-hand-group")).length === 3,
+      "Team and Projects are grouped as writers, artists and projects");
+    check(await page.$eval("#topbar", (bar) => bar.contains(document.getElementById("wire-strip"))),
+      "the compact Press Wire teletype lives in the top bar");
 
     // Worst-case strategic desk: the hand limit is six and measured games
     // reach eight printed comics. Every item must remain visible without
@@ -179,7 +190,7 @@ function check(condition, name) {
             r.top >= parent.top - 1 && r.bottom <= parent.bottom + 1;
         });
       };
-      const scrollMetrics = ["#desk-vitals", "#hud-hand", "#hud-mat", "#desk-ledger"].map((selector) => {
+      const scrollMetrics = ["#desk-status", "#desk-collections", "#hud-hand", "#hud-mat"].map((selector) => {
         const node = document.querySelector(selector);
         return [selector, node.scrollWidth, node.clientWidth, node.scrollHeight, node.clientHeight];
       });
@@ -204,17 +215,20 @@ function check(condition, name) {
     check(fullDesk.zonesNoScroll,
       "no persistent Publisher Desk zone requires a scrollbar");
 
-    await page.$eval("#chart-mini", (button) => button.click());
-    await page.waitForFunction(() => document.querySelector("#sidebar").classList.contains("open"));
-    const drawer = await page.evaluate(() => {
-      const side = document.querySelector("#sidebar").getBoundingClientRect();
-      const tab = document.querySelector("#chart-mini").getBoundingClientRect();
-      return { separated: tab.right <= side.left + 1, expanded: document.querySelector("#chart-mini").getAttribute("aria-expanded") };
-    });
-    check(drawer.separated, "open chart keeps its close tab outside the drawer content");
-    check(drawer.expanded === "true", "chart drawer exposes its expanded state");
-    await page.$eval("#chart-mini", (button) => button.click());
-    await page.waitForFunction(() => !document.querySelector("#sidebar").classList.contains("open"));
+    check((await page.$$(".v2-lane-head")).length === await page.evaluate(() => UI.engine.state.players.length),
+      "every publishing house has an immediately visible colored chart lane");
+    await page.evaluate(() => document.querySelector(`.v2-lane-head[data-player="${UI.humanId}"]`).click());
+    await page.waitForFunction(() => !!document.querySelector(".v2-chart-detail"));
+    check(await page.$eval(".v2-chart-detail", (detail) => detail.textContent.includes("PROJECTED VP") && detail.textContent.includes("PUBLISHED COMICS")),
+      "clicking a chart lane opens the publisher information sheet");
+    await page.$eval(".v2-chart-detail-close", (button) => button.click());
+    await page.waitForFunction(() => !document.querySelector(".v2-chart-detail"));
+
+    await page.$eval("#wire-strip", (button) => button.click());
+    await page.waitForFunction(() => !document.getElementById("wire-panel").hidden);
+    check(await page.$eval("#wire-panel", (panel) => getComputedStyle(panel).animationName === "v2-wire-open"),
+      "the top teletype opens the animated paper archive");
+    await page.$eval("#wire-close", (button) => button.click());
 
     const salesStarted = await page.evaluate(() => {
       const e = UI.engine;
