@@ -30,6 +30,33 @@ def retro(im, target_w, colors=24, sat=1.18, con=1.06, max_h=None):
         q.putalpha(a)
     return q
 
+def crisp(im, target_w, max_h=None):
+    """Resize only — NO palette crunch. Anything that functions as an ICON
+    (tokens, coins, faces, genre marks) stays clean; the 16-bit treatment
+    lives on the poster-scale surfaces (scenes, covers, vignettes)."""
+    im = im.convert("RGBA")
+    ratio = target_w / im.width
+    if max_h is not None and im.height * ratio > max_h:
+        ratio = max_h / im.height
+    size = (max(1, round(im.width * ratio)), max(1, round(im.height * ratio)))
+    out_c = im.resize(size, Image.LANCZOS)
+    out_c.putalpha(out_c.split()[3].point(lambda v: 255 if v > 120 else 0))
+    return out_c
+
+def defringe(im):
+    """Backfill the RGB under transparency with the art's average opaque
+    color, keeping the true alpha — edge pixels then blend into art color
+    instead of black during LANCZOS."""
+    a = im.split()[3]
+    solid = a.point(lambda v: 255 if v > 200 else 0)
+    stat_src = Image.composite(im.convert("RGB"), Image.new("RGB", im.size), solid)
+    px = [p for p, s in zip(stat_src.getdata(), solid.getdata()) if s]
+    avg = tuple(sum(c[i] for c in px) // len(px) for i in range(3)) if px else (128, 128, 128)
+    base = Image.new("RGBA", im.size, avg + (255,))
+    base.alpha_composite(im)
+    base.putalpha(a)
+    return base
+
 class Sheet:
     def __init__(self, name, cell_w, cell_h, cols):
         self.name, self.cw, self.ch, self.cols = name, cell_w, cell_h, cols
@@ -63,8 +90,8 @@ atlas = {}
 sheet_sizes = {}
 
 # ---------------------------------------------------------------- cards sheet
-CARD_W = 72  # sprite width; 745x1040 -> 72x100
-cards = Sheet("cards", 74, 102, 12)
+CARD_W = 72  # sprite width; the re-exported scans yield up to 72x106 covers
+cards = Sheet("cards", 74, 108, 12)
 
 ORIGINALS = [  # (id, file, genre, bonus, title)
     (1,  "Originals_1.png",  "western",     "fan",    "Kings of the Plains"),
@@ -136,28 +163,31 @@ atlas.update(cards.save())
 tokens = Sheet("tokens", 48, 48, 10)
 IDEA_FILE = {"scifi": "Scifi", "crime": "Crime", "romance": "Romance",
              "horror": "Horror", "superheroes": "Superheroes", "western": "Western"}
+# the whole token family is ICONS at chip scale — crisp (resize-only), no
+# palette crunch; idea coins store at 40px (they display up to ~40 on the
+# café table, and used to be a 30px upscale)
 for g in GENRES:
     p = os.path.join(ASSETS, r"#02_ROUND TOKENS\IDEAS", f"Ideas_{IDEA_FILE[g]}.png")
-    tokens.add(f"idea_{g}", retro(Image.open(p).convert("RGBA"), 30, 12))
+    tokens.add(f"idea_{g}", crisp(Image.open(p).convert("RGBA"), 40))
 MASTERY = {"scifi": "Scifi", "crime": "Crime", "romance": "Romance",
            "horror": "Horror", "superheroes": "Super", "western": "Western"}
 for g in GENRES:
     p = os.path.join(ASSETS, r"#04_CUSTOM SHAPED TILES\#AOCTGY19_Mastery", f"Mastery_{MASTERY[g]}.png")
-    tokens.add(f"mastery_{g}", retro(Image.open(p).convert("RGBA"), 42, 16))
+    tokens.add(f"mastery_{g}", crisp(Image.open(p).convert("RGBA"), 42))
 for v in (1, 2, 5, 10):
     p = os.path.join(ASSETS, r"#02_ROUND TOKENS\COINS", f"${v}.png")
-    tokens.add(f"coin_{v}", retro(Image.open(p).convert("RGBA"), 26, 12))
+    tokens.add(f"coin_{v}", crisp(Image.open(p).convert("RGBA"), 26))
 for v, f in ((1, "1 STAR PNG.png"), (2, "2 STARS PNG.png"), (3, "3 STARS PNG.png")):
-    tokens.add(f"vp_{v}", retro(Image.open(os.path.join(ASSETS, r"#02_ROUND TOKENS\VP", f)).convert("RGBA"), 28, 12))
-tokens.add("hype", retro(Image.open(os.path.join(ASSETS, r"#02_ROUND TOKENS\Hype.png")).convert("RGBA"), 28, 12))
-tokens.add("ticket", retro(Image.open(os.path.join(ASSETS, r"#04_CUSTOM SHAPED TILES\#AOCTGY18_Transport ticket\TicketPNG.png")).convert("RGBA"), 46, 14))
-tokens.add("bettercolor", retro(Image.open(os.path.join(ASSETS, r"#03_TILES\#AOCTGY12_Better Color\better_color.png")).convert("RGBA"), 30, 14))
+    tokens.add(f"vp_{v}", crisp(Image.open(os.path.join(ASSETS, r"#02_ROUND TOKENS\VP", f)).convert("RGBA"), 28))
+tokens.add("hype", crisp(Image.open(os.path.join(ASSETS, r"#02_ROUND TOKENS\Hype.png")).convert("RGBA"), 28))
+tokens.add("ticket", crisp(Image.open(os.path.join(ASSETS, r"#04_CUSTOM SHAPED TILES\#AOCTGY18_Transport ticket\TicketPNG.png")).convert("RGBA"), 46))
+tokens.add("bettercolor", crisp(Image.open(os.path.join(ASSETS, r"#03_TILES\#AOCTGY12_Better Color\better_color.png")).convert("RGBA"), 30))
 # genre icons from order tile fronts
 ORDER_FOLDER = {"scifi": "Scifi", "crime": "Crime", "romance": "Romance",
                 "horror": "Horror", "superheroes": "Superheroes", "western": "Western"}
 for g in GENRES:
     p = os.path.join(ASSETS, rf"#03_TILES\#AOCTGY15_Orders\{ORDER_FOLDER[g]}", f"Order_{g}_front.png")
-    tokens.add(f"gicon_{g}", retro(Image.open(p).convert("RGBA"), 26, 12))
+    tokens.add(f"gicon_{g}", crisp(Image.open(p).convert("RGBA"), 26))
 # meeple recolored per player
 meeple_src = Image.open(os.path.join(ASSETS, r"#06_CUSTOM SHAPED MEEPLES\#AOCTGY21_Meeple\Meeple.png")).convert("RGBA")
 bbox = meeple_src.split()[3].getbbox()
@@ -175,6 +205,179 @@ for name, (r_, g_, b_) in PLAYER_COLORS.items():
     out_m.alpha_composite(edge)
     tokens.add(f"meeple_{name}", out_m)
 atlas.update(tokens.save())
+
+# ----------------------------------------------------------------- staff sheet
+# The Publisher rail shows editors as people, not meeples: four 1950s staffers
+# (two men, two women) drawn as pixel maps and palette-swapped into each
+# publishing house's colors. Grid legend: . transparent / O ink outline /
+# S skin, T skin shade / H hair / C house color, D house dark (garment) /
+# W white shirt or blouse / G gray trousers / K near-black (shoes, hat band).
+STAFF_MAPS = [
+    # 0 — man in a fedora and house-color suit, white shirt, dark tie
+    """
+....ODDDO....
+...ODDDDDO...
+...OKKKKKO...
+.ODDDDDDDDDO.
+..OOOOOOOOO..
+...OSSSSSO...
+...OSESESO...
+...OTSSSTO...
+....OSSSO....
+...OWWWWWO...
+..OCCWDWCCO..
+.OCCCWDWCCCO.
+.OCCCWDWCCCO.
+.OCOCWWWCOCO.
+.OCOCCCCCOCO.
+.OTOCCCCCOTO.
+..OODDDDDOO..
+...ODDDDDO...
+...ODDODDO...
+...ODDODDO...
+...OKKOKKO...
+....OO.OO....
+""",
+    # 1 — woman with an updo, white blouse, house-color pencil skirt
+    """
+.............
+....OHHHO....
+...OHHHHHO...
+..OHHHHHHHO..
+..OHSSSSSHO..
+..OHSESESHO..
+..OHTSSSTHO..
+...OSSSSSO...
+....OSSSO....
+...OWWWWWO...
+..OWWWWWWWO..
+.OWOWWWWWOWO.
+.OWOWWWWWOWO.
+.OTOWWWWWOTO.
+..OODCCCDOO..
+...OCCCCCO...
+...OCCCCCO...
+..OCCCCCCCO..
+..OCCCCCCCO..
+...OOSOSOO...
+....OSOSO....
+....OKOKO....
+""",
+    # 2 — man in shirtsleeves with house-color suspenders, gray trousers
+    """
+.............
+.............
+.............
+....OHHHO....
+...OHHHHHO...
+...OHSSSHO...
+...OSESESO...
+...OTSSSTO...
+....OSSSO....
+...OWWWWWO...
+..OWCWWWCWO..
+.OWWCWWWCWWO.
+.OWOCWWWCOWO.
+.OWOCWWWCOWO.
+.OTOWWWWWOTO.
+..OODDDDDOO..
+...OCCCCCO...
+...OCCOCCO...
+...OCCOCCO...
+...OCCOCCO...
+...OKKOKKO...
+....OO.OO....
+""",
+    # 3 — woman with a bob cut in a house-color day dress, dark belt
+    """
+.............
+.............
+....OHHHO....
+..OHHHHHHHO..
+..OHHHHHHHO..
+..OHSSSSSHO..
+..OHSESESHO..
+..OHTSSSTHO..
+..OHHSSSHHO..
+....OSSSO....
+...OCCCCCO...
+..OCCCCCCCO..
+.OCOCCCCCOCO.
+.OCOCDDDCOCO.
+.OTOCCCCCOTO.
+...OCCCCCO...
+..OCCCCCCCO..
+..OCCCCCCCO..
+.OCCCCCCCCCO.
+...OOSOSOO...
+....OSOSO....
+....OKOKO....
+""",
+]
+# per-character skin + hair, for a mixed 1950s newsroom
+STAFF_TONES = [
+    {"S": (236, 188, 148), "T": (206, 152, 112), "H": (74, 50, 34)},    # light skin (hair unseen under hat)
+    {"S": (150, 100, 66),  "T": (122, 76, 48),   "H": (28, 24, 24)},    # deep skin, black updo
+    {"S": (196, 142, 96),  "T": (166, 112, 72),  "H": (32, 28, 28)},    # tan skin, black slick
+    {"S": (240, 196, 160), "T": (210, 160, 120), "H": (146, 74, 42)},   # light skin, auburn bob
+]
+STAFF_FIXED = {"O": (26, 21, 18), "E": (30, 26, 24), "W": (244, 238, 222), "G": (108, 104, 100), "K": (34, 32, 32)}
+
+def staff_sprite(map_txt, tones, house, house_dark, scale=2):
+    rows = [r for r in map_txt.strip("\n").split("\n")]
+    w, h = max(len(r) for r in rows), len(rows)
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    pal = dict(STAFF_FIXED, C=house, D=house_dark, **tones)
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch in pal:
+                im.putpixel((x, y), pal[ch] + (255,))
+    return im.resize((w * scale, h * scale), Image.NEAREST)
+
+staff = Sheet("staff", 28, 48, 8)
+for name, (r_, g_, b_) in PLAYER_COLORS.items():
+    house = (r_, g_, b_)
+    house_dark = (max(0, r_ - 74), max(0, g_ - 74), max(0, b_ - 74))
+    for i, (map_txt, tones) in enumerate(zip(STAFF_MAPS, STAFF_TONES)):
+        staff.add(f"staff_{name}_{i}", staff_sprite(map_txt, tones, house, house_dark))
+
+# the press-wire teleprinter (modeled on a Model 15: glass paper window up
+# top, sloped cast-metal body with brass plates, paper bail arm sticking out
+# right, and a protruding tray of round keys)
+from PIL import ImageDraw
+def teletype_sprite():
+    W, H = 48, 44
+    im = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    OUT = (23, 22, 27, 255); BODY = (38, 38, 46, 255); MID = (52, 52, 62, 255)
+    HILIT = (76, 77, 88, 255); GLASS = (56, 64, 80, 255); PAPER = (242, 234, 216, 255)
+    BRASS = (185, 143, 53, 255); ARM = (168, 172, 180, 255); KEY = (104, 105, 116, 255)
+    # glass top with the paper visible inside
+    d.rectangle([6, 0, 40, 11], fill=GLASS, outline=OUT, width=2)
+    d.rectangle([13, 2, 31, 8], fill=PAPER)
+    d.rectangle([8, 8, 38, 9], fill=MID)                    # typebar basket hint
+    # main sloped body
+    d.rectangle([2, 11, 44, 26], fill=BODY, outline=OUT, width=2)
+    d.rectangle([4, 13, 42, 14], fill=HILIT)                # top edge catches light
+    d.rectangle([5, 16, 15, 21], fill=BRASS, outline=OUT)   # instruction plate
+    # paper bail arm, protruding to the right of the body
+    d.rectangle([40, 16, 47, 17], fill=ARM)
+    d.rectangle([45, 16, 47, 23], fill=ARM)
+    # lower front, a little wider, with the small brass switch labels
+    d.rectangle([0, 26, 46, 34], fill=BODY, outline=OUT, width=2)
+    d.rectangle([4, 29, 10, 32], fill=BRASS)
+    d.rectangle([36, 29, 42, 32], fill=BRASS)
+    # keyboard tray: three staggered rows of round keys
+    d.rectangle([0, 34, 46, 43], fill=OUT)
+    for row, y in ((0, 35), (1, 38), (2, 41)):
+        for i in range(9):
+            x = 3 + i * 5 + (row % 2) * 2
+            d.rectangle([x, y, x + 2, y + 1], fill=KEY)
+    return im
+atlas.update(staff.save())
+machine = Sheet("machine", 48, 44, 1)
+machine.add("teletype", teletype_sprite())
+atlas.update(machine.save())
 
 # --------------------------------------------------------------- scenes sheet
 board = Image.open(os.path.join(ASSETS, r"#01_BOARDS\#AOCTGY01_Board\AOC_MainBoard_Front_Common_V08.png"))
@@ -259,35 +462,154 @@ for key, box in VIGNETTES.items():
         scenes.add(key + "_b", frame_b)
 # calendar tile front
 scenes.add("calendar", retro(Image.open(os.path.join(ASSETS, r"#03_TILES\#AOCTGY16_Calendar\Crime\Calendar_Front.png")).convert("RGBA"), 60, 16))
-# publisher logos from player mats (top-left corner)
-MATS = {"brown": "Player Mat Brown.png", "salmon": "Player Mat Pink.png",
-        "teal": "Player Mat Teal.png", "yellow": "Player Mat Yellow.png"}
-for name, f in MATS.items():
-    mat = Image.open(os.path.join(ASSETS, r"#01_BOARDS\#AOCTGY02_Player Mats", f))
-    logo = mat.crop((30, 12, 220, 200))
-    scenes.add(f"logo_{name}", retro(logo, 40, 12))
+# publisher marks: user-prepared die-cut plates, one file per house
+# (game/assets/custom). Two fringe traps live here: transparent pixels are
+# BLACK in the RGB channels, so both the plate's own soft die-cut edges and
+# any padding must be backfilled with the plate's color BEFORE the resize +
+# quantize, or a dark contour line rings the mark.
+MARKS = {"yellow": "Yellow.png", "salmon": "Pink.png", "teal": "Teal.png", "brown": "Brown.png"}
+def custom_img(name):
+    im = Image.open(os.path.join(CUSTOM_DIR, name + ".png")).convert("RGBA")
+    b = im.split()[3].getbbox()
+    # every cutout shares the black-under-transparency edge trap
+    return defringe(im.crop(b) if b else im)
+for name, f in MARKS.items():
+    plate = Image.open(os.path.join(OUT, "custom", f)).convert("RGBA")
+    bbox = plate.split()[3].getbbox()
+    if bbox:
+        plate = plate.crop(bbox)
+    pad = 3
+    art = retro(defringe(plate), 42 - 2 * pad, 16)
+    sq = Image.new("RGBA", (42, 42), (0, 0, 0, 0))
+    sq.paste(art, (pad + (42 - 2 * pad - art.width) // 2, pad + (42 - 2 * pad - art.height) // 2), art)
+    scenes.add(f"logo_{name}", sq)
 atlas.update(scenes.save())
 
 # ------------------------------------------------------------------- faces
+# pre-masked caricature discs. The caricatures are hand-drawn at slightly
+# different positions per card, so a uniform crop can't center all 48:
+# instead the drawing's ink bounding box is detected (dark strokes on cream
+# stock) and a fixed 150px window is RE-CENTERED on it, clamped to the badge
+# region so the card frame / name plate never leak in. The circle is baked
+# here so the UI ring never crops the drawing. A user-provided cutout in
+# game/assets/custom (e.g. "Face Writer Crime 1.png") overrides the crop.
+# two sizes per face (mip pair, like boss_/bossbig_): 26px for the small
+# chips/bands, 56px for panels, reveals and detail panes — storing only 26px
+# and upscaling 2-3x was what made faces look fuzzy. Both sizes skip the
+# palette quantize: ink drawings keep their period feel without it.
 faces = Sheet("faces", 28, 28, 12)
+facesbig = Sheet("facesbig", 58, 58, 10)
+def face_disc(im, d=26):
+    tile = crisp(im, d)
+    mask = Image.new("L", (d, d), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, d - 1, d - 1), fill=255)
+    out_f = Image.new("RGBA", (d, d), (0, 0, 0, 0))
+    out_f.paste(tile, (0, 0), mask)
+    # the ink ring is baked (the CSS circle frame is gone everywhere)
+    ImageDraw.Draw(out_f).ellipse((0, 0, d - 1, d - 1), outline=(34, 29, 22, 255), width=max(1, d // 26))
+    return out_f
+# the user supplies cutout heads named by CREATIVE (game/assets/custom/
+# Faces_PNG/**/<Name>.png) — the names live in js/data.js, so parse the two
+# name tables and match loosely (case/punctuation-insensitive: "D.J." ≡ "DJ")
+def parse_names(varname):
+    djs = open(os.path.join(_GAME, "js", "data.js"), encoding="utf-8").read()
+    m = re.search(varname + r"\s*=\s*\{(.*?)\};", djs, re.S)
+    out_n = {}
+    for gm in re.finditer(r"(\w+):\s*\[(.*?)\]", m.group(1), re.S):
+        out_n[gm.group(1)] = re.findall(r'"([^"]+)"', gm.group(2))
+    return out_n
+import re
+NAME_TABLE = {"writer": parse_names("WRITER_NAMES"), "artist": parse_names("ARTIST_NAMES")}
+def norm_name(s):
+    return re.sub(r"[^a-z0-9]", "", s.lower())
+FACE_CUTOUTS = {}
+for root_d, _dirs, fs in os.walk(os.path.join(CUSTOM_DIR, "Faces_PNG")):
+    for fn in fs:
+        if fn.lower().endswith((".png", ".psd")):
+            FACE_CUTOUTS[norm_name(os.path.splitext(fn)[0])] = os.path.join(root_d, fn)
+import difflib
+def find_cutout(cname):
+    key = norm_name(cname)
+    if key in FACE_CUTOUTS:
+        return FACE_CUTOUTS[key]
+    # tolerate small spelling drifts ("Zabjaku"/"Zhabjaku") but never guess
+    # across genuinely different names
+    close = difflib.get_close_matches(key, FACE_CUTOUTS.keys(), n=1, cutoff=0.8)
+    return FACE_CUTOUTS[close[0]] if close else None
+CREAM = (242, 234, 216, 255)  # the card-stock tone (disc fallbacks + sticker rims)
+from PIL import ImageFilter
+def sticker(im, d):
+    """Bare cutout with a baked cream 'sticker' rim — no circle frame
+    (user's call), reads on light AND dark surfaces."""
+    im = defringe(im)
+    a = im.split()[3].point(lambda v: 255 if v > 120 else 0)
+    rim = a.filter(ImageFilter.MaxFilter(13))
+    base = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    base.paste(Image.new("RGBA", im.size, CREAM), (0, 0), rim)
+    base.alpha_composite(im)
+    pad = 8  # the rim must never touch the crop edge
+    padded = Image.new("RGBA", (im.width + 2 * pad, im.height + 2 * pad), (0, 0, 0, 0))
+    padded.paste(base, (pad, pad), base)
+    return crisp(padded, d, max_h=d)
+
+FACE_SCAN = (16, 830, 158, 972)   # frame-free zone used to find the ink
+FACE_ZONE = (8, 822, 166, 980)    # the window may slide within this
+FACE_SIDE = 150
+def face_crop(card):
+    scan = card.crop(FACE_SCAN).convert("L")
+    ink = scan.point(lambda v: 255 if v < 150 else 0)
+    bb = ink.getbbox()
+    if bb:
+        cx = FACE_SCAN[0] + (bb[0] + bb[2]) // 2
+        cy = FACE_SCAN[1] + (bb[1] + bb[3]) // 2
+    else:
+        cx = (FACE_SCAN[0] + FACE_SCAN[2]) // 2
+        cy = (FACE_SCAN[1] + FACE_SCAN[3]) // 2
+    x0 = max(FACE_ZONE[0], min(cx - FACE_SIDE // 2, FACE_ZONE[2] - FACE_SIDE))
+    y0 = max(FACE_ZONE[1], min(cy - FACE_SIDE // 2, FACE_ZONE[3] - FACE_SIDE))
+    return card.crop((x0, y0, x0 + FACE_SIDE, y0 + FACE_SIDE))
+missing_faces = []
 for kind, sub in (("writer", r"#05_CARDS\#AOCTGY20B_Writers\Writers Front"),
                   ("artist", r"#05_CARDS\#AOCTGY20C_Artists\Artists Front")):
     prefix = "Writer" if kind == "writer" else "Artist"
     for g in GENRES:
-        for suffix in ("1", "2", "2B", "3"):
-            card = Image.open(os.path.join(ASSETS, sub, f"{prefix} {CRE_FOLDER[g]} {suffix}.png"))
-            face = card.crop((26, 840, 148, 962))  # caricature circle, bottom-left
-            faces.add(f"face_{kind}_{g}_{suffix}", retro(face, 26, 14))
+        for i, suffix in enumerate(("1", "2", "2B", "3")):
+            cname = NAME_TABLE[kind][g][i]
+            cut = find_cutout(cname)
+            if cut:
+                # user cutout → bare sticker head (no circle frame)
+                head = Image.open(cut).convert("RGBA")
+                faces.add(f"face_{kind}_{g}_{suffix}", sticker(head, 26))
+                facesbig.add(f"facebig_{kind}_{g}_{suffix}", sticker(head, 56))
+            else:
+                # card crop → still needs the disc to hide its square edges
+                # (resolves itself as the remaining cutouts arrive)
+                missing_faces.append(cname)
+                card = Image.open(os.path.join(ASSETS, sub, f"{prefix} {CRE_FOLDER[g]} {suffix}.png"))
+                face = face_crop(card)
+                faces.add(f"face_{kind}_{g}_{suffix}", face_disc(face))
+                facesbig.add(f"facebig_{kind}_{g}_{suffix}", face_disc(face, 56))
+if missing_faces:
+    print("  note: no cutout for", ", ".join(missing_faces), "- using card crops")
+# the classified ad: the detailed generic trade tools as the same bare
+# sticker cutouts — only the content says "unknown writer/artist"
+for kind, fsrc in (("writer", "Micro icon Generic Writer"), ("artist", "Micro icon Generic Artist")):
+    icon = custom_img(fsrc)
+    faces.add("mystery_" + kind, sticker(icon, 26))
+    facesbig.add("mysterybig_" + kind, sticker(icon, 56))
 atlas.update(faces.save())
+atlas.update(facesbig.save())
 # publisher bosses, cropped from the box-art office scene. BOTH boss sizes
 # live on their own sheet: the 28px faces cells cannot hold 44px portraits
 # (adding them there once corrupted the last creative row).
 box_src = Image.open(os.path.join(ASSETS, r"#10_BOX\AOC squared image.jpg"))
 BOSSES = {
-    "yellow": (520, 820, 690, 990),    # Goldie Marsh — at the drafting table
-    "salmon": (1020, 840, 1180, 1000), # Rex Calloway — behind the desk
-    "teal":   (1545, 705, 1705, 865),  # Vivian Cole — with the fresh issues
-    "brown":  (75, 645, 245, 815),     # Mortimer Quill — man of mystery
+    # headroom matters: these render at 26px in the rivals strip and order
+    # chips, where a hair-grazing crop reads as a decapitation
+    "yellow": (515, 788, 695, 968),    # Goldie Marsh — at the drafting table
+    "salmon": (1012, 806, 1188, 982),  # Rex Calloway — behind the desk
+    "teal":   (1538, 672, 1712, 846),  # Vivian Cole — with the fresh issues
+    "brown":  (68, 612, 250, 794),     # Mortimer Quill — man of mystery
 }
 BOSSBIG = {
     "yellow": (530, 825, 680, 975),
@@ -300,7 +622,39 @@ for color, crop_box in BOSSBIG.items():
     bosses_big.add(f"bossbig_{color}", retro(box_src.crop(crop_box), 96, 32))
 for color, crop_box in BOSSES.items():
     bosses_big.add(f"boss_{color}", retro(box_src.crop(crop_box), 44, 22))
+    # native-size variant for the tiny uses (setup rivals strip at 26px):
+    # fractional downscales of the 44px sprite came out ragged
+    bosses_big.add(f"bosssm_{color}", crisp(box_src.crop(crop_box).convert("RGBA"), 26))
 atlas.update(bosses_big.save())
+
+# ------------------------------------------------- custom cutout icon sheets
+# user-drawn cutouts (game/assets/custom): per-genre writer/artist trade
+# icons, the Writer/Artist tag ribbons + generic micro glyphs, the six genre
+# symbols, and the action vignettes that crown the redesigned panels
+# (custom_img moved up beside defringe — the faces section needs it too)
+
+CUSTOM_GENRE = {"scifi": "Scifi", "crime": "Crime", "romance": "Romance",
+                "horror": "Horror", "superheroes": "Superhero", "western": "Western"}
+# crisp (resize-only) throughout: these render at 14-36px, where the
+# 16-bit quantize only added speckle
+icons = Sheet("icons", 60, 48, 8)
+for g in GENRES:
+    icons.add(f"wicon_{g}", crisp(custom_img(f"Typewriting {CUSTOM_GENRE[g]}"), 56, max_h=44))
+    icons.add(f"aicon_{g}", crisp(custom_img(f"Artist {CUSTOM_GENRE[g]}"), 56, max_h=44))
+    icons.add(f"genreicon_{g}", crisp(custom_img(f"{CUSTOM_GENRE[g]} Icon"), 34, max_h=30))
+icons.add("tag_writer", crisp(custom_img("Writer Tag"), 48, max_h=24))
+icons.add("tag_artist", crisp(custom_img("Artist Tag"), 48, max_h=24))
+icons.add("micro_writer", crisp(custom_img("Micro icon Generic Writer"), 20, max_h=22))
+icons.add("micro_artist", crisp(custom_img("Micro icon Generic Artist"), 20, max_h=22))
+atlas.update(icons.save())
+
+vign = Sheet("vign", 124, 104, 4)
+VIG_FILES = {"hire": "Hire Handshake", "develop": "Develop drawing man",
+             "ideas": "Ideas Thinkin mang", "print": "Print press",
+             "royalties": "Royalties lady counting", "sales": "Sales", "hype": "Hype"}
+for key, f in VIG_FILES.items():
+    vign.add(f"vig_{key}", retro(custom_img(f), 120, 32, max_h=100))
+atlas.update(vign.save())
 
 # ----------------------------------------------------------------- title art
 box_art = Image.open(os.path.join(ASSETS, r"#10_BOX\AOC squared image.jpg"))

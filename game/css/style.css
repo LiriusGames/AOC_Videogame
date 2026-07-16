@@ -56,6 +56,8 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 .btn.btn-big { font-size: 16px; padding: 14px 26px; background: var(--accent); color: var(--ink); }
 .btn.btn-small { font-size: 10px; padding: 6px 8px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.7); }
+/* blocked-but-reachable buttons (they explain themselves when pressed) */
+.btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; filter: grayscale(.7); }
 .btn.btn-danger { background: #c0392b; color: #fff; }
 .btn.btn-go { background: #4c7a2a; color: #fff; }
 
@@ -111,7 +113,7 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 .pub-card .pub-head .spr { border: 3px solid var(--ink); background: var(--paper); }
 .pub-card .pub-body { padding: 7px 8px; display: flex; flex-direction: column; gap: 3px; }
 .pub-card .pub-logo-row { display: flex; align-items: center; gap: 6px; font-family: "PressStart"; font-size: 8px; }
-.pub-card .pub-logo-row .spr { border: 2px solid var(--ink); background: var(--paper); padding: 1px; flex-shrink: 0; }
+.pub-card .pub-logo-row .spr { flex-shrink: 0; } /* the die-cut mark, unframed */
 .pub-card .pub-boss { font-size: 19px; font-weight: bold; }
 .pub-card .pub-blurb { font-size: 15px; line-height: 1.15; color: var(--ink); min-height: 34px; }
 .setup-options { display: flex; gap: 22px; flex-wrap: wrap; border-top: 2px dashed var(--ink); padding-top: 12px; }
@@ -124,24 +126,27 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
   background: var(--paper-dark); border: 3px solid var(--ink); cursor: pointer; color: var(--ink);
 }
 .choice.active { background: var(--accent); color: var(--ink); box-shadow: inset 0 -3px 0 rgba(0,0,0,.3); }
-.setup-rivals-preview { font-size: 18px; line-height: 1.5; background: var(--paper-dark); padding: 8px 10px; border: 2px dashed var(--ink); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.setup-rivals-preview { font-size: 18px; line-height: 1.5; background: var(--paper-dark); padding: 8px 10px; border: 2px dashed var(--ink); display: flex; align-items: center; gap: 6px 18px; flex-wrap: wrap; }
 .setup-rivals-preview .spr { border: 2px solid var(--ink); vertical-align: middle; }
+.setup-rivals-preview .rival-chip { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
 
-/* -------------------------------------------------------------------- game */
+/* -------------------------------------------------------------------- game
+   board-table layout: top = news + global info, left = YOUR publishing house,
+   center = the action board, right = the chart, bottom = your cards */
 #screen-game.active {
   display: grid;
-  grid-template-rows: 56px 1fr 258px;
-  grid-template-columns: 100%;
+  grid-template-columns: 252px minmax(0, 1fr) 344px;
+  grid-template-rows: 56px minmax(0, 1fr) 236px;
   align-items: stretch;
   justify-content: stretch;
   justify-items: stretch;
 }
 #topbar {
-  display: flex; align-items: center; gap: 18px; padding: 0 12px;
+  grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 0 12px;
   background: var(--bg2); border-bottom: 4px solid var(--ink);
 }
 #top-logo { font-size: 13px; color: var(--gold); text-shadow: 2px 2px 0 #7a2d18; white-space: nowrap; }
-#top-wire-slot { display: none; }
+#round-tag { font-family: "PressStart"; font-size: 8px; color: #c8b087; letter-spacing: 1px; margin-right: -8px; }
 #calendar { display: flex; gap: 6px; align-items: center; }
 .cal-tile {
   width: 34px; height: 34px; border: 3px solid var(--ink); display: flex; align-items: center; justify-content: center;
@@ -157,9 +162,9 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 .order-chip.current { opacity: 1; outline: 3px solid #fff; }
 #top-buttons { display: flex; gap: 6px; }
 
-/* city hub */
-#cityhub { display: grid; grid-template-columns: 1fr 356px; overflow: hidden; }
+/* the action board */
 #locations {
+  grid-column: 2; grid-row: 2; min-width: 0; min-height: 0; overflow: hidden;
   display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 1fr; gap: 12px; padding: 14px;
   background:
     repeating-linear-gradient(0deg, transparent 0 46px, rgba(255,255,255,.03) 46px 48px),
@@ -167,15 +172,22 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
     linear-gradient(180deg, #232739 0%, #191c28 100%);
 }
 .loc {
+  /* mockup layout: opaque TOP RAIL (identity plate + queue + ★), then the
+     scene with a single translucent offer band over its foot */
   position: relative; border: 4px solid var(--ink);
   background: #151824;
   cursor: pointer; overflow: hidden;
   box-shadow: 0 5px 0 rgba(0,0,0,.5);
   min-height: 0;
+  display: flex; flex-direction: column;
 }
 .loc:hover { outline: 3px solid var(--gold); }
-.loc:hover .loc-name { background: var(--gold); color: var(--ink); }
 .loc.disabled { cursor: not-allowed; filter: grayscale(.55) brightness(.72); }
+.loc .loc-head {
+  flex: none; height: 46px; display: flex; align-items: center; gap: 10px;
+  padding: 0 8px; background: #1a1d2a; border-bottom: 3px solid var(--ink);
+}
+.loc .loc-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 .loc canvas.loc-scene {
   position: absolute; inset: 0; width: 100%; height: 100%;
   image-rendering: pixelated;
@@ -183,45 +195,76 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
   object-fit: cover;
 }
 .loc .loc-verb {
-  position: absolute; top: 6px; left: 50%; transform: translateX(-50%);
-  font-family: "PressStart"; font-size: 14px; color: #fff; white-space: nowrap;
-  background: var(--ac); border: 3px solid var(--ink); padding: 5px 12px;
+  flex: none;
+  font-family: "PressStart"; font-size: 11px; color: #fff; white-space: nowrap;
+  border: 3px solid var(--ink); padding: 4px 8px;
   background: color-mix(in srgb, var(--ac) 50%, #1a1a1a); /* AA for the white verb; hue kept */
-  box-shadow: 0 3px 0 rgba(0,0,0,.45); text-shadow: 2px 2px 0 rgba(0,0,0,.5);
-  letter-spacing: 1px; pointer-events: none; z-index: 2;
+  box-shadow: 0 2px 0 rgba(0,0,0,.45); text-shadow: 2px 2px 0 rgba(0,0,0,.5);
+  letter-spacing: 1px; pointer-events: none;
 }
 .loc .loc-offer {
-  position: absolute; left: 0; right: 0; bottom: 33px; min-height: 40px;
-  display: flex; align-items: center; gap: 5px; padding: 4px 8px;
-  background: rgba(24,20,14,.8); color: var(--paper); font-size: 19px; flex-wrap: wrap;
+  /* the single overlay: one locked 52px line over the scene's foot (the
+     top-rail move bought the height back — covers and faces gain reading room) */
+  position: absolute; left: 0; right: 0; bottom: 0; height: 52px; overflow: hidden;
+  display: flex; align-items: center; gap: 4px; padding: 4px 8px;
+  background: rgba(24,20,14,.78); color: var(--paper); font-size: 19px; flex-wrap: nowrap;
+  border-top: 3px solid var(--ink); white-space: nowrap;
 }
-.loc .loc-offer .spr { border: 2px solid var(--ink); background: var(--paper); }
+.loc .loc-offer.dense { font-size: 17px; gap: 4px; } /* print's 5-item needs list */
+/* sprites in the band stand free — no paper chip boxes (coins are coins) */
 .loc .loc-offer .spr.taken { opacity: .3; filter: grayscale(1); }
-.loc .loc-offer-sep { color: var(--gold); margin: 0 2px; }
+/* the writers|artists divider: a thin brass rule — a glyph stole face room */
+.loc .loc-offer-sep { flex: none; width: 3px; height: 30px; background: var(--gold); margin: 0 2px; }
 .offer-person { display: flex; flex-direction: column; align-items: center; gap: 1px; }
-.offer-person .op-meta { display: flex; align-items: center; gap: 2px; font-size: 15px; line-height: 1; color: #ffd75e; }
-.offer-comic { position: relative; line-height: 0; margin-top: 4px; }
-.offer-comic .oc-dot { position: absolute; right: -5px; top: -5px; line-height: 0; }
-.loc .loc-name {
-  position: absolute; left: 0; bottom: 0;
-  font-family: "PressStart"; font-size: 10px; padding: 8px 11px; background: rgba(24,20,14,.92); color: var(--paper);
-  border-top: 3px solid var(--ink); border-right: 3px solid var(--ink);
+.offer-person .op-meta { display: flex; align-items: center; gap: 2px; font-size: 15px; line-height: 1; color: #ffd75e; text-shadow: 1px 1px 0 #221d16; }
+.offer-genre { display: flex; align-items: center; gap: 2px; }
+.offer-genre b { font-size: 15px; color: #ffd75e; }
+/* cover + genre icon inside ONE muted genre-colored plate (shared container
+   = shared identity; the icon is an attribute of the comic) */
+.offer-comic {
+  display: flex; align-items: center; gap: 3px; line-height: 0;
+  background: color-mix(in srgb, var(--gc, #888) 45%, #241f18);
+  padding: 2px 3px;
 }
-.loc .loc-chip {
-  position: absolute; right: 0; bottom: 0; font-size: 19px; padding: 4px 10px;
-  background: var(--paper); color: var(--ink); border-top: 3px solid var(--ink); border-left: 3px solid var(--ink);
-}
+.offer-comic .oc-dot { flex: none; line-height: 0; }
+/* the action-space queue in the top rail — placed staffers on house-color
+   plinths, chalked markers (with the spot's payout) where the queue
+   continues; the next takeable spot pulses */
 .loc .slots {
-  position: absolute; top: 0; left: 0; display: flex; flex-direction: column; gap: 4px;
-  padding: 6px; background: rgba(24,20,14,.62); border-bottom-right-radius: 6px;
+  display: flex; flex-direction: row; gap: 6px; align-items: flex-end;
+  padding-bottom: 3px;
 }
 .loc .slot-pip {
-  width: 24px; height: 24px; border: 2px solid var(--ink); background: rgba(255,252,240,.92);
-  display: flex; align-items: center; justify-content: center;
+  position: relative; width: 24px; height: 34px;
+  display: flex; align-items: flex-end; justify-content: center;
 }
+.loc .slot-pip::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 10px;
+  border-radius: 50%; border: 2px dashed rgba(255,252,240,.65);
+  background: rgba(24,20,14,.35);
+}
+.loc .slot-pip.taken::after {
+  border: 2px solid #221d16; background: var(--house, #888);
+  box-shadow: 0 0 0 1px rgba(255,255,255,.3);
+}
+.loc .slot-pip .spr { position: relative; z-index: 1; margin-bottom: 4px; }
+.loc .slot-pip .spot-perk {
+  position: relative; z-index: 1; font: 16px "VT323", monospace; line-height: 1;
+  color: #ffe9b0; text-shadow: 1px 1px 0 #000; margin-bottom: 0;
+}
+.loc .slot-pip.next::after { border-style: solid; border-color: var(--gold); }
+/* the pulse is reserved for the tile you're considering — six tiles pulsing
+   at once said nothing */
+.loc:hover .slot-pip.next::after, .loc:focus-visible .slot-pip.next::after {
+  animation: spotpulse 1.1s steps(2) infinite;
+}
+@keyframes spotpulse { 50% { box-shadow: 0 0 0 4px rgba(245, 200, 110, .5); } }
+/* placed editors appear INSIDE the room scenes (drawn by loc-art at room
+   scale, in house colors); the pips above remain the at-a-glance readout */
 .loc .special-badge {
-  position: absolute; top: 5px; right: 5px; background: var(--gold); border: 2px solid var(--ink);
-  font-size: 16px; color: var(--ink); padding: 2px 7px; max-width: 60%; z-index: 2;
+  /* docked at the top rail's right edge — never over the scene */
+  margin-left: auto; background: var(--gold); border: 2px solid var(--ink);
+  font-size: 15px; color: var(--ink); padding: 2px 7px; white-space: nowrap;
 }
 
 /* turn & round signaling */
@@ -271,29 +314,17 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 #zoom-root .zoom-cap .zc-note { font-size: 15px; color: #57452c; }
 
 /* people & comics as first-class objects */
-.person {
-  display: flex; align-items: center; gap: 7px; padding: 5px 8px; background: var(--paper);
-  border: 3px solid var(--ink); color: var(--ink); cursor: default; position: relative;
-}
 /* comic speech balloon ("I write WESTERN!") */
-.person .balloon {
+.figure .balloon {
   position: absolute; top: -30px; left: 6px; z-index: 3; white-space: nowrap;
   background: #fff; border: 2px solid var(--ink); border-radius: 10px;
   padding: 2px 9px; font-size: 16px; color: var(--ink); box-shadow: 2px 3px 0 rgba(0,0,0,.25);
 }
-.person .balloon::after {
+.figure .balloon::after {
   content: ""; position: absolute; left: 14px; bottom: -8px;
   border: 5px solid transparent; border-top-color: var(--ink);
 }
 .card-row.balloon-row { padding-top: 28px; row-gap: 38px; }
-.person .p-info { line-height: 1.05; }
-.person .p-name { font-size: 17px; font-weight: bold; white-space: nowrap; }
-.person .p-kind { font-size: 14px; color: #6b5c42; }
-.person .p-val { color: #8a2f22; font-size: 15px; letter-spacing: 1px; }
-.person.pickable { cursor: pointer; }
-.person.pickable:hover { outline: 3px solid var(--gold); }
-.person.selected { outline: 3px solid var(--red); background: #ffdf9e; }
-.person.dimmed { opacity: .4; filter: grayscale(.8); }
 .chip {
   display: inline-block; font-family: "PressStart"; font-size: 8px; padding: 3px 4px;
   border: 2px solid var(--ink); vertical-align: middle; margin-left: 3px;
@@ -301,6 +332,8 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 .comic-tile {
   display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 5px;
   background: var(--paper); border: 3px solid var(--ink); color: var(--ink); max-width: 118px;
+  /* muted genre-color band: the tile wears its genre like the offer plates */
+  border-top: 8px solid color-mix(in srgb, var(--gc, #8a8a8a) 55%, #221d16);
 }
 .comic-tile .ct-info { text-align: center; line-height: 1.15; }
 .comic-tile .ct-title { font-size: 15px; font-weight: bold; }
@@ -347,28 +380,88 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 .dlg-face .spr { border: 2px solid var(--ink); }
 
 /* sidebar chart */
-#sidebar { border-left: 4px solid var(--ink); background: var(--bg2); overflow-y: auto; padding: 10px; }
+#sidebar {
+  grid-column: 3; grid-row: 2; min-height: 0;
+  border-left: 4px solid var(--ink); background: var(--bg2); overflow-y: auto; padding: 10px;
+}
 #chart-panel h3 { font-size: 11px; color: var(--gold); margin: 4px 0 8px; }
 
-/* fan track (10 -> 1) */
-.track {
-  display: grid; gap: 0; border: 3px solid var(--ink); background: var(--paper);
-  margin-bottom: 10px;
+/* the fan track (10 -> 1) as one full-height colored LANE per publishing
+   house — the house is readable at a glance; its head opens the dossier */
+.chart-grid {
+  display: grid; grid-template-columns: 26px repeat(var(--lanes, 4), minmax(0, 1fr));
+  gap: 0; border: 3px solid var(--ink); background: var(--paper); margin-bottom: 10px;
 }
-.track-head {
-  display: flex; align-items: center; justify-content: center; padding: 3px 0;
-  border-bottom: 2px solid var(--ink); border-left: 1px solid #0003;
+.lane-head {
+  position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; padding: 5px 2px; min-height: 52px;
+  border: none; border-bottom: 3px solid var(--ink); border-left: 1px solid #0003;
+  background: var(--lane); color: var(--ink); cursor: pointer; font: inherit;
 }
-.track-money {
-  display: flex; align-items: center; justify-content: space-between; padding: 0 3px;
-  color: var(--ink); font-size: 14px; border-bottom: 1px solid #0002; background: var(--paper-dark);
-  min-height: 25px;
+.lane-head:hover, .lane-head:focus-visible { outline: 3px solid var(--gold); outline-offset: -3px; }
+.lane-head .spr { flex: none; }
+.lane-head span {
+  min-width: 0; max-width: 100%; font-size: 12px; line-height: .95;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
 }
-.track-money b { font-size: 16px; }
-.track-cell {
+/* your house wears a corner ribbon instead of squeezing a third line in */
+.lane-head .you-tag {
+  position: absolute; top: 0; right: 0; padding: 2px 2px 1px;
+  font-family: "PressStart"; font-size: 5px; letter-spacing: 1px;
+  background: var(--gold); color: var(--ink); border: 1px solid var(--ink); border-top: none; border-right: none;
+}
+.chart-corner, .chart-fan {
+  display: flex; align-items: center; justify-content: center; padding: 0 2px;
+  color: var(--ink); background: var(--paper-dark);
+  border-bottom: 1px solid #0002; min-height: 25px;
+}
+.chart-corner { border-bottom: 3px solid var(--ink); font-size: 15px; }
+.chart-fan { flex-direction: column; gap: 0; line-height: 1.1; }
+.chart-fan b { font-family: "PressStart"; font-size: 8px; }
+.chart-fan span { font-size: 11px; color: #57452c; }
+.chart-cell {
   display: flex; align-items: center; gap: 1px; padding: 0 2px; min-height: 25px;
   border-bottom: 1px solid #0002; border-left: 1px solid #0003; overflow: visible;
+  background: color-mix(in srgb, var(--lane) 17%, transparent);
 }
+/* the publisher dossier: everything about one house, under its lane color */
+.chart-detail {
+  border: 3px solid var(--ink); border-top: 6px solid var(--lane);
+  background: var(--paper); color: var(--ink); padding: 7px; margin-bottom: 10px;
+}
+.chart-detail .desk-label { color: #775f3c; }
+.chart-detail-head { display: grid; grid-template-columns: auto 1fr auto; gap: 6px; align-items: center; }
+.chart-detail-head h4 { margin: 0; font-family: "PressStart"; font-size: 8px; line-height: 1.4; }
+.chart-detail-close {
+  font-family: "PressStart"; font-size: 7px; padding: 5px; cursor: pointer;
+  background: var(--gold); color: var(--ink); border: 2px solid var(--ink);
+}
+.chart-detail-close:hover { filter: brightness(1.1); }
+.chart-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; margin: 8px 0; }
+.chart-stat { padding: 5px; background: #dfd0ae; border: 1px solid #9e8963; font-size: 13px; }
+.chart-stat b { display: block; font-family: "PressStart"; font-size: 7px; }
+.chart-books { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+/* the standings ladder: who's winning right now; a row opens the dossier */
+.standings { border: 3px solid var(--ink); background: var(--paper); color: var(--ink); margin-bottom: 10px; }
+.standings-title {
+  font-family: "PressStart"; font-size: 8px; color: #4a3d28; letter-spacing: 1px;
+  padding: 6px 8px 4px; border-bottom: 2px solid var(--ink); background: var(--paper-dark);
+}
+.standing-row {
+  display: grid; grid-template-columns: 32px auto minmax(0, 1fr); gap: 7px; align-items: center;
+  width: 100%; padding: 5px 6px 4px 5px; cursor: pointer; text-align: left;
+  font: inherit; color: var(--ink); background: transparent;
+  border: none; border-top: 2px solid #0002; border-left: 7px solid var(--lane);
+}
+.standing-row:first-of-type { border-top: none; }
+.standing-row:hover, .standing-row:focus-visible { outline: 3px solid var(--gold); outline-offset: -3px; }
+.standing-row.you { background: color-mix(in srgb, var(--lane) 28%, transparent); }
+.st-place { font-family: "PressStart"; font-size: 8px; }
+.st-name { min-width: 0; line-height: 1.05; }
+.st-name b { display: block; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-name small { font-size: 13px; color: #57452c; }
+/* held mastery tokens ride the standings line without inflating it */
+.st-name small .spr { vertical-align: middle; margin: -3px 1px; }
 .track-tile { position: relative; line-height: 0; cursor: help; }
 .track-tile.best { outline: 2px solid var(--gold); z-index: 2; }
 .track-tile.ripoff::after {
@@ -398,42 +491,98 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
   content: "RIP"; position: absolute; top: 2px; right: 0; background: #000c; color: #ff6; font-size: 11px; padding: 0 2px;
 }
 
-/* ------------------------------------------------------ HUD: publisher desk
-   one rule: top bar = global game info, bottom desk = everything YOURS */
-#hud {
-  display: grid; grid-template-columns: 330px minmax(0, 1fr) 372px;
-  grid-template-rows: minmax(0, 1fr) 34px; gap: 6px 10px; padding: 8px 12px 6px;
-  background: var(--bg2); border-top: 4px solid var(--ink); min-height: 0; overflow: hidden;
-}
-#hud > * { min-height: 0; }
-#desk-collections { display: contents; }
-#desk-vitals, #desk-ledger { display: contents; }
-#desk-publisher-mark { display: none; }
-#hud-left { display: flex; min-width: 0; position: relative; }
+/* --------------------------------------------------- the PUBLISHER rail
+   everything YOURS lives on the left, styled as the house letterhead wall
+   (house-color pinstripe + slate) — distinct from the wooden desk below */
 #desk-status {
-  display: flex; flex-direction: column; gap: 3px; position: relative; min-width: 0;
-  background: linear-gradient(180deg, #43301c 0%, #332415 82%, #241a10 82%, #1d150d 100%);
-  border: 3px solid var(--ink); padding: 12px 8px 4px;
-  box-shadow: inset 0 2px 0 rgba(255,255,255,.07);
+  grid-column: 1; grid-row: 2 / 4;
+  display: flex; flex-direction: column; gap: 7px; position: relative; min-width: 0;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--pub, #5ba59f) 55%, #20242f) 0 5px, transparent 5px),
+    linear-gradient(180deg, #2a2f3f 0%, #1c202c 100%);
+  border-right: 4px solid var(--ink); padding: 16px 9px 6px 13px;
   overflow-y: auto; overflow-x: hidden;
 }
 #desk-status::-webkit-scrollbar { width: 9px; }
-#desk-status::-webkit-scrollbar-track { background: #1d150d; }
+#desk-status::-webkit-scrollbar-track { background: #14161f; }
 #desk-status::-webkit-scrollbar-thumb { background: var(--gold); border: 2px solid var(--ink); }
-#desk-status .desk-plate { top: -3px; left: -3px; }
-#hud-resources {
-  display: flex; flex-wrap: wrap; gap: 3px 10px; align-items: center; font-size: 20px;
-  background: rgba(24,20,14,.5); border: 2px solid var(--ink); padding: 3px 8px;
-  min-width: 0;
+#desk-status .desk-plate { top: 0; left: 0; }
+/* the letterhead: house logo, name, live projected score */
+#pub-mark {
+  display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 7px; align-items: center;
+  margin-top: 6px; padding: 7px; color: var(--ink); background: var(--paper);
+  border: 3px solid var(--ink); box-shadow: 0 4px 0 rgba(0,0,0,.38); flex: none;
 }
+.rail-logo {
+  /* the die-cut mark stands on its own — no frame, no backing plate */
+  display: flex; align-items: center; justify-content: center;
+  width: 56px; height: 56px;
+}
+.rail-name { min-width: 0; font-size: 16px; line-height: .95; color: var(--ink); }
+.rail-name b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-name small { display: block; margin-top: 5px; font-family: "PressStart"; font-size: 5px; color: #775f3c; line-height: 1.4; }
+.rail-score {
+  grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between;
+  margin-top: 2px; padding-top: 6px; border-top: 2px dashed #9e8359;
+  font-family: "PressStart"; font-size: 7px; color: #57452c;
+}
+.rail-score b { font-size: 16px; color: #8a2f22; }
+/* the newsroom staff: your editors as people, spent ones grayed out */
+#staff-roster {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; align-items: end;
+  background: rgba(15,17,24,.55); border: 2px solid var(--ink); padding: 8px 6px 3px; flex: none;
+}
+#staff-roster.has-temp { grid-template-columns: repeat(5, 1fr); }
+.staffer {
+  position: relative; display: flex; justify-content: center; align-items: flex-end;
+  border-bottom: 3px solid var(--gold); padding-bottom: 2px; min-width: 0;
+}
+.staffer.spent { filter: grayscale(1) brightness(.55); opacity: .55; border-bottom-color: #555; }
+.staffer.temp::after {
+  content: "+"; position: absolute; top: -4px; right: 0; padding: 1px 3px;
+  font-family: "PressStart"; font-size: 7px; color: var(--ink); background: var(--gold); border: 1px solid var(--ink);
+}
+/* resources: cash up top, then tickets + VP tokens, then the idea shelf */
+#hud-resources { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: none; }
 .res { display: inline-flex; align-items: center; gap: 3px; flex-shrink: 0; }
 .res b { font-family: "PressStart"; font-size: 11px; }
 .res.dim { opacity: .35; }
+.res-cash {
+  display: flex; align-items: center; gap: 8px; font-size: 22px;
+  background: rgba(15,17,24,.55); border: 2px solid var(--ink); padding: 5px 9px;
+}
+.res-cash b { font-family: "PressStart"; font-size: 16px; color: var(--gold); }
+.rail-duo { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.rail-duo .res {
+  display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 18px;
+  background: rgba(15,17,24,.55); border: 2px solid var(--ink); padding: 4px 7px;
+}
+.idea-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.idea-grid .res {
+  display: flex; align-items: center; justify-content: center; gap: 4px; min-width: 0;
+  background: rgba(15,17,24,.55); border: 2px solid var(--ink); padding: 3px 2px; font-size: 16px;
+}
 .desk-label {
   font-family: "PressStart"; font-size: 7px; color: #c8b087; letter-spacing: 1px;
-  margin: 2px 0 1px;
+  margin: 2px 0 1px; flex: none;
 }
-#desk-orders, #desk-awards { display: flex; flex-wrap: wrap; gap: 3px 8px; align-items: center; font-size: 18px; min-height: 0; }
+
+/* ------------------------------------------------------ HUD: the desk
+   the bottom band is the wooden desk: your TEAM & PROJECTS + the newsstand */
+#hud {
+  grid-column: 2 / -1; grid-row: 3;
+  display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+  gap: 6px 10px; padding: 8px 12px 6px;
+  background: var(--bg2); border-top: 4px solid var(--ink); min-height: 0; overflow: hidden;
+}
+#hud > * { min-height: 0; }
+#hud-left { display: flex; min-width: 0; position: relative; }
+#desk-orders { display: flex; flex-wrap: wrap; gap: 3px 8px; align-items: center; font-size: 18px; min-height: 0; }
+/* two tidy rows of three: one socket per genre, always the same place */
+#desk-awards {
+  display: grid; grid-template-columns: repeat(3, 34px); gap: 5px 10px;
+  justify-content: start; align-items: center; font-size: 18px; flex: none;
+}
 #desk-orders .res { background: rgba(24,20,14,.4); border: 2px solid var(--ink); padding: 1px 5px; }
 #desk-orders i, #desk-awards i { color: #b09a72; font-size: 15px; }
 .award-socket {
@@ -444,16 +593,19 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 .award-socket.flash, .order-chip.flash { animation: sockflash .5s steps(2) 3; }
 @keyframes sockflash { 50% { box-shadow: 0 0 0 4px var(--gold); } }
 #hud-mat {
-  display: flex; gap: 9px; flex-wrap: nowrap; align-items: flex-end; font-size: 16px; flex: 1;
+  /* everything visible at once: covers wrap onto a second shelf instead of
+     scrolling; each cover opens its own detail pane on click */
+  display: flex; gap: 6px 9px; flex-wrap: wrap; align-items: flex-start; align-content: flex-start;
+  font-size: 16px; flex: 1;
   background: linear-gradient(180deg, #43301c 0%, #332415 82%, #241a10 82%, #1d150d 100%);
-  border: 3px solid var(--ink); padding: 8px 10px 4px; position: relative; min-height: 74px;
+  border: 3px solid var(--ink); padding: 16px 10px 4px; position: relative; min-height: 74px;
+  overflow-x: hidden; overflow-y: auto;
   box-shadow: inset 0 2px 0 rgba(255,255,255,.07);
-  overflow-x: auto; overflow-y: hidden;
 }
-/* the published catalog scrolls with a VISIBLE rail, never a hidden one */
-#hud-mat::-webkit-scrollbar { height: 11px; }
-#hud-mat::-webkit-scrollbar-track { background: #1d150d; border-top: 2px solid var(--ink); }
+#hud-mat::-webkit-scrollbar { width: 9px; }
+#hud-mat::-webkit-scrollbar-track { background: #1d150d; }
 #hud-mat::-webkit-scrollbar-thumb { background: var(--gold); border: 2px solid var(--ink); }
+.press-item:hover, .press-item:focus-visible { outline: 3px solid var(--gold); z-index: 5; }
 #mat-nav { position: absolute; top: -3px; right: -3px; z-index: 3; display: flex; gap: 2px; }
 #mat-nav[hidden] { display: none; }
 #mat-nav button {
@@ -471,21 +623,45 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
   transform: rotate(-9deg); z-index: 4; animation: newtag 1s steps(2) infinite;
 }
 @keyframes newtag { 50% { transform: rotate(-9deg) scale(1.15); } }
-/* the hand sits on the same publisher desk as the printed catalog */
+/* the hand sits on the same publisher desk as the printed catalog,
+   organised by trade: WRITERS | ARTISTS | PROJECTS */
 #hud-hand {
-  /* "safe" centering: falls back to start when the hand overflows, so the
-     first card is never clipped off the left edge */
-  display: flex; gap: 10px; align-items: center; justify-content: safe center; min-width: 0;
+  display: flex; gap: 8px; align-items: stretch; min-width: 0;
   background: linear-gradient(180deg, #43301c 0%, #332415 82%, #241a10 82%, #1d150d 100%);
-  border: 3px solid var(--ink); position: relative; padding: 16px 10px 8px;
+  border: 3px solid var(--ink); position: relative; padding: 18px 10px 6px;
   box-shadow: inset 0 2px 0 rgba(255,255,255,.07);
   overflow-x: auto; overflow-y: hidden;
 }
 #hud-hand::before {
-  content: "\2605 ON YOUR DESK \2605"; position: absolute; top: -3px; left: -3px;
+  content: "\2605 TEAM & PROJECTS \2605"; position: absolute; top: -3px; left: -3px;
   background: var(--gold); color: var(--ink); border: 2px solid var(--ink);
   font-family: "PressStart"; font-size: 7px; padding: 3px 6px; z-index: 2;
 }
+.hand-group { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.hand-group + .hand-group { border-left: 2px dashed #6b543a; padding-left: 8px; }
+.hand-group h4 {
+  font-family: "PressStart"; font-size: 6px; color: #c8b087; letter-spacing: 1px;
+  margin: 0 0 3px; flex: none;
+}
+.hand-group-body {
+  /* compact chips that WRAP — no scrolling; each chip opens a detail pane */
+  display: flex; gap: 6px; align-items: center; align-content: center; flex-wrap: wrap;
+  flex: 1; min-height: 0; min-width: 0; overflow-y: auto; padding: 2px;
+}
+.hand-group-body::-webkit-scrollbar { width: 8px; }
+.hand-group-body::-webkit-scrollbar-track { background: #1d150d; }
+.hand-group-body::-webkit-scrollbar-thumb { background: var(--gold); border: 2px solid var(--ink); }
+.hand-group-empty { color: #8a765a; font-size: 16px; padding: 0 6px; }
+/* team member / project chips: face or cover + the two facts that matter */
+.team-chip, .project-chip {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 4px 5px 3px; cursor: pointer; flex-shrink: 0;
+  background: rgba(24,20,14,.4); border: 2px solid var(--ink);
+}
+.team-chip:hover, .team-chip:focus-visible,
+.project-chip:hover, .project-chip:focus-visible { outline: 3px solid var(--gold); z-index: 5; }
+.team-chip .spr, .project-chip .spr { border: 2px solid var(--ink); }
+.tc-meta { display: flex; align-items: center; gap: 3px; font-size: 14px; color: #ffd75e; line-height: 1; }
 #hud-hand::-webkit-scrollbar { height: 11px; }
 #hud-hand::-webkit-scrollbar-track { background: #1d150d; border-top: 2px solid var(--ink); }
 #hud-hand::-webkit-scrollbar-thumb { background: var(--gold); border: 2px solid var(--ink); }
@@ -497,62 +673,42 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
   font-family: "PressStart"; font-size: 9px; padding: 2px 4px; z-index: 3;
 }
 
-/* -------------- press wire: routine news off a teleprinter; major beats
-   open as THE DAILY SPINNER (bottom sheet with the whole archive) */
+/* -------------- press wire: a teleprinter on the news desk (topbar).
+   Its paper tongue tickers the latest dispatch; clicking prints the whole
+   archive as THE DAILY SPINNER, feeding out from under the machine. */
 #wire-strip {
-  grid-column: 1 / -1; display: flex; align-items: stretch; gap: 0; min-width: 0;
-  background: linear-gradient(180deg, #23242a 0%, #17181d 100%);
-  color: var(--ink); border: 3px solid var(--ink);
-  padding: 0; font-size: 17px; text-align: left; cursor: pointer; overflow: hidden;
+  display: flex; align-items: stretch; gap: 0; min-width: 110px;
+  flex: 0 1 330px; height: 44px; align-self: flex-end; position: relative;
+  background: transparent; border: none;
+  padding: 0; font-size: 16px; text-align: left; cursor: pointer; overflow: hidden;
 }
 #wire-strip:hover .wire-paper { background: #fffbef; }
-/* a Model-15-style black cast-metal teleprinter, in profile */
-#wire-strip .wire-machine {
-  position: relative; flex-shrink: 0; width: 46px; margin: 2px 0 0 6px;
-  background: linear-gradient(180deg, #3a3b42 0%, #232329 55%, #141418 100%);
-  border: 2px solid #000; border-bottom: none; border-radius: 7px 7px 0 0;
-  box-shadow: inset 0 2px 0 rgba(255,255,255,.14);
-}
-#wire-strip .wm-slot {
-  position: absolute; top: 5px; left: 6px; right: 6px; height: 3px;
-  background: #000; border-radius: 2px;
-}
-#wire-strip .wm-keys {
-  position: absolute; bottom: 2px; left: 7px; right: 7px; height: 8px;
-  background:
-    repeating-linear-gradient(90deg, #55565e 0 4px, #1a1a1f 4px 8px);
-  border-radius: 2px;
-}
-#wire-strip .ws-label {
-  font-family: "PressStart"; font-size: 7px; color: #c8b087; flex-shrink: 0;
-  display: flex; align-items: center; padding: 0 6px;
-}
-/* continuous paper emerging from the machine */
+/* the Model-15 teleprinter sprite (assets/machine.png, drawn from the real
+   thing); it chatters away between dispatches */
+#wire-strip .wire-machine { flex-shrink: 0; align-self: flex-end; line-height: 0; }
+#wire-strip .wire-machine .spr { animation: wm-chatter 1.15s steps(2) infinite; }
+@keyframes wm-chatter { 50% { transform: translateY(1px); } }
+/* the paper tongue: latest headline emerging from the machine, torn edge */
 #wire-strip .wire-paper {
   flex: 1; min-width: 0; display: flex; align-items: center; overflow: hidden;
-  background: var(--paper); border-left: 3px solid var(--ink); border-right: 3px solid var(--ink);
-  margin: 2px 0; padding: 0 8px; position: relative;
+  background: var(--paper); border: 2px solid var(--ink); border-right: none;
+  margin: 8px 0 10px -3px; padding: 0 10px 0 8px; position: relative; color: var(--ink);
+  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 28%, calc(100% - 5px) 52%, 100% 76%, calc(100% - 6px) 100%, 0 100%);
 }
-#wire-strip .wire-paper::before, #wire-strip .wire-paper::after {
-  content: ""; position: absolute; top: 0; bottom: 0; width: 4px;
-  background: repeating-linear-gradient(180deg, transparent 0 3px, var(--paper-dark) 3px 6px);
-}
-#wire-strip .wire-paper::before { left: 0; }
-#wire-strip .wire-paper::after { right: 0; }
 #wire-strip .ws-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #wire-strip .wire-paper.feed .ws-text { animation: wirefeed .22s steps(3); }
 @keyframes wirefeed { from { transform: translateY(10px); opacity: .35; } }
-#wire-strip .ws-more {
-  font-family: "PressStart"; font-size: 8px; flex-shrink: 0; color: var(--gold);
-  display: flex; align-items: center; padding: 0 8px;
-}
 #wire-panel {
-  position: absolute; left: 12px; right: 12px; bottom: 268px; max-height: 52%;
+  position: absolute; top: 58px; left: 50%; transform: translateX(-50%);
+  width: min(760px, 94%); max-height: 56%;
   display: flex; flex-direction: column; z-index: 44;
   background: var(--paper); color: var(--ink); border: 4px solid var(--ink);
   box-shadow: 0 10px 0 rgba(0,0,0,.45);
 }
 #wire-panel[hidden] { display: none; }
+/* the archive prints: revealed top-down in chunky teletype steps */
+#wire-panel.printing { animation: wp-print .5s steps(9); }
+@keyframes wp-print { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }
 #wire-panel .wp-head {
   display: flex; align-items: center; gap: 12px;
   padding: 8px 12px; border-bottom: 4px double var(--ink); background: var(--paper);
@@ -601,10 +757,6 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
   /* stays reachable while long dialog content scrolls beneath */
   position: sticky; bottom: -16px; background: var(--paper); padding: 8px 0; z-index: 5;
 }
-.modal .scene-banner {
-  height: 92px; background-size: cover; background-position: center 25%; border: 3px solid var(--ink); margin: -4px -4px 4px;
-}
-
 .card-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .pick-card { position: relative; cursor: pointer; border: 4px solid transparent; padding: 2px; background: transparent; }
 .pick-card:hover { border-color: var(--gold); }
@@ -620,7 +772,111 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 .token-btn:hover { border-color: var(--gold); }
 .token-btn.selected { border-color: var(--red); background: #ffdf9e; }
 .token-btn.dimmed { opacity: .35; cursor: not-allowed; }
-.count-badge { font-family: "PressStart"; font-size: 9px; background: var(--ink); color: var(--paper); padding: 2px 4px; }
+/* coin counts sit quietly under the bare coin; they only shout when > 0 */
+.count-badge { font: bold 16px "VT323", monospace; color: #9b8a68; padding: 0 3px; line-height: 1; }
+.count-badge.has { background: var(--gold); color: var(--ink); border: 2px solid var(--ink); font-family: "PressStart"; font-size: 9px; padding: 2px 4px; }
+
+/* the founding vault: six identical card footprints — the caption block is
+   reserved on every card so the match note can't warp the row */
+.pick-card.vault-card { width: 128px; display: flex; flex-direction: column; align-items: center; }
+.pick-card.vault-card .pc-label { width: 100%; max-width: none; min-height: 40px; }
+.match-tag {
+  display: inline-block; margin-top: 3px; font-family: "PressStart"; font-size: 7px;
+  background: var(--gold); color: var(--ink); border: 2px solid var(--ink); padding: 2px 4px;
+}
+
+/* ----------------------------------------------- shared action-panel anatomy
+   vignette-emblem header + tagline, labeled sections, live COST & RESULT
+   footer — every action dialog is built from these */
+.panel-head { display: flex; gap: 14px; align-items: center; border-bottom: 3px solid var(--ink); padding-bottom: 10px; }
+.ph-emblem {
+  flex: none; width: 118px; height: 90px; display: flex; align-items: center; justify-content: center;
+  background: radial-gradient(circle at 50% 38%, #fff6e0, var(--paper-dark) 85%);
+  border: 3px solid var(--ink); box-shadow: 0 3px 0 rgba(0,0,0,.25);
+}
+.ph-emblem.bare { border: none; background: none; box-shadow: none; }
+.ph-text { min-width: 0; }
+.panel-head h2 { margin: 0; }
+.ph-tag { font-size: 18px; font-style: italic; color: #57452c; margin-top: 6px; line-height: 1.15; }
+.ps-label {
+  font-family: "PressStart"; font-size: 9px; color: #4a3d28; letter-spacing: 1px;
+  display: flex; align-items: center; gap: 8px; margin-bottom: 7px;
+}
+.ps-label::after { content: ""; flex: 1; border-top: 2px dotted #b3a488; }
+.panel-footer {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--paper-dark); border: 2px dashed var(--ink);
+  padding: 7px 10px; font-size: 18px;
+}
+
+/* a creative as a free-standing person — face, name, trade tag, genre icon,
+   value stars; card frames stay in the board-game box */
+.figure { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 5px 7px; position: relative; outline: 3px solid transparent; }
+/* bare sticker heads (no circle frame): fixed-height box, bottom-aligned so
+   a row of different-shaped heads stands on one line like people */
+.figure .fig-face { line-height: 0; height: 58px; display: flex; align-items: flex-end; justify-content: center; }
+.figure .fig-face .spr { filter: drop-shadow(0 2px 0 rgba(0,0,0,.22)); }
+.figure .fig-name { font-size: 16px; font-weight: bold; white-space: nowrap; max-width: 118px; overflow: hidden; text-overflow: ellipsis; }
+.figure .fig-meta { display: flex; align-items: center; gap: 4px; }
+/* value stars: one standard everywhere — gold with an ink outline (the
+   outline is what keeps them legible on paper backgrounds) */
+.figure .fig-val { color: #ffd75e; font-size: 16px; letter-spacing: 1px; text-shadow: 1px 1px 0 #221d16, -1px 1px 0 #221d16, 1px -1px 0 #221d16, -1px -1px 0 #221d16; }
+.figure .fig-extra { font-size: 13px; line-height: 1.1; color: #57452c; }
+.figure.pickable { cursor: pointer; }
+.figure.pickable:hover { outline-color: var(--gold); }
+.figure.selected { outline-color: var(--red); background: rgba(255, 223, 158, .6); }
+.figure.dimmed { opacity: .4; filter: grayscale(.8); }
+/* the blind deck draw: the generic-trade disc, sealed with a gold "?" */
+.fig-face.mystery { position: relative; line-height: 0; }
+.fig-face.mystery b {
+  position: absolute; right: -7px; bottom: -2px; z-index: 1;
+  font-family: "PressStart"; font-size: 11px; color: var(--ink);
+  background: var(--gold); border: 2px solid var(--ink); padding: 1px 3px;
+}
+
+/* the IDEAS panel: a café table with the six genre coins physically on it;
+   picked coins leave a chalk ghost, the tray below shows your haul */
+.cafe-table {
+  /* sized so the six coins seat 3 + 3 around the ellipse */
+  width: min(470px, 100%); margin: 2px auto 8px; padding: 22px 40px 30px;
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(255,255,255,.16), transparent 60%),
+    radial-gradient(ellipse at 50% 45%, #9a683c, #7a4e2c 72%, #5d3a1f);
+  border: 4px solid var(--ink); border-radius: 50% / 40%;
+  box-shadow: 0 7px 0 rgba(0,0,0,.35), inset 0 -6px 0 rgba(0,0,0,.25);
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 24px;
+}
+.table-coin {
+  display: flex; flex-direction: column; align-items: center; gap: 0;
+  padding: 4px 7px; border: 3px solid transparent; border-radius: 12px; cursor: pointer;
+}
+.cafe-table .table-coin { width: 27%; } /* exactly 3 seats per side of the table */
+.table-coin span { font-size: 15px; color: #ffe9c8; text-shadow: 1px 1px 0 #000; line-height: 1.05; }
+.table-coin:hover { border-color: var(--gold); }
+.table-coin.taken { opacity: .3; filter: grayscale(.75); cursor: not-allowed; }
+.table-coin.picked { border-color: rgba(255,252,240,.65); border-style: dashed; }
+.table-coin.picked .spr { opacity: .25; }
+/* the supply counter is ordinary shelf space — same coin buttons on wood */
+.counter-row {
+  display: flex; justify-content: center; gap: 14px; flex-wrap: wrap;
+  background: linear-gradient(180deg, #6e4526, #5d3a1f); border: 3px solid var(--ink);
+  padding: 8px 12px;
+}
+.counter-row .table-coin span { color: #ffe9c8; }
+.pick-tray {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: #3a3126; border: 3px solid var(--ink); border-radius: 10px;
+  box-shadow: inset 0 4px 0 rgba(0,0,0,.4); padding: 9px 14px;
+  color: #d8cdb4; font-size: 15px;
+}
+.pick-tray .tray-group { display: flex; align-items: center; gap: 7px; }
+.pick-tray .tray-cap { font-family: "PressStart"; font-size: 8px; color: #b6a888; margin-right: 3px; }
+.tray-slot {
+  width: 40px; height: 40px; border: 2px dashed rgba(255,250,235,.45); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.tray-slot.filled { border-style: solid; border-color: var(--gold); background: rgba(0,0,0,.3); cursor: pointer; }
+.tray-slot.filled:hover { box-shadow: 0 0 0 3px rgba(245,200,110,.4); }
 
 /* map modal */
 #map-canvas { border: 4px solid var(--ink); background: #0f1118; cursor: pointer; }
@@ -651,6 +907,8 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 .score-table .total { font-family: "PressStart"; font-size: 11px; }
 
 .genre-dot { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--ink); vertical-align: middle; }
+.genre-mark .spr { vertical-align: middle; }
+.spr.round-spr { border-radius: 50%; }
 .ctx-strip {
   display: flex; align-items: center; gap: 5px; flex-wrap: wrap;
   background: var(--paper-dark); border: 2px dashed var(--ink); padding: 6px 8px; font-size: 14px;
@@ -694,6 +952,37 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 .fx-celebrate .fx-sub { font-size: 21px; text-align: center; max-width: 380px; }
 .fx-celebrate.out { animation: celeb-out .3s forwards; }
 @keyframes celeb-out { to { opacity: 0; } }
+/* the blind-draw reveal: a "?" shutter snaps open on the real face/cover */
+.fx-reveal .rev-row { position: relative; display: flex; gap: 30px; }
+.rev-card { position: relative; min-width: 150px; min-height: 170px; }
+.rev-card .rev-front, .rev-card .rev-back {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 7px;
+  border: 5px solid var(--ink); padding: 10px 16px;
+}
+.rev-card .rev-front { background: #3a3126; box-shadow: 0 10px 0 rgba(0,0,0,.45); }
+.rev-card .rev-front b { font-family: "PressStart"; font-size: 40px; color: var(--gold); text-shadow: 4px 4px 0 #000; }
+/* when the pick's face-down form is shown, the "?" shrinks to a corner seal */
+.rev-card .rev-front.has-back .spr { border: 3px solid var(--ink); }
+.rev-card .rev-front.has-back .spr.round-spr { border: none; }
+.rev-card .rev-front.has-back b {
+  position: absolute; right: 10px; bottom: 10px; font-size: 16px;
+  color: var(--ink); background: var(--gold); border: 2px solid var(--ink);
+  padding: 2px 5px; text-shadow: none;
+}
+.rev-card .rev-back {
+  background: var(--paper); color: var(--ink); transform: scaleX(0);
+  box-shadow: 0 0 0 4px var(--gold), 0 10px 0 rgba(0,0,0,.45);
+}
+.rev-card .rev-back .spr { border: 3px solid var(--ink); }
+/* sticker cutouts (faces, mystery tools) carry their own edge — no frame */
+.rev-card .rev-back .spr.round-spr { border: none; }
+.rev-card .fx-title { font-size: 12px; }
+.rev-card .fx-sub { font-size: 18px; max-width: 220px; }
+.rev-card.flip .rev-front { animation: revshut .16s steps(2) forwards; }
+.rev-card.flip .rev-back { animation: revopen .16s steps(2) .16s forwards; }
+@keyframes revshut { to { transform: scaleX(0); } }
+@keyframes revopen { to { transform: scaleX(1); } }
 .fx-fly {
   position: absolute; z-index: 96; pointer-events: none;
   transition: all .75s cubic-bezier(.5, -0.2, .7, .4);
@@ -714,13 +1003,14 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 .swap-book .spr { border: 2px solid var(--ink); }
 .swap-arrow { font-size: 30px; font-weight: bold; color: #57452c; }
 .swap-cr {
+  /* de-carded: a small free-standing person, not a paper chip */
   display: flex; flex-direction: column; align-items: center; gap: 2px; position: relative;
-  background: var(--paper-dark); border: 3px solid var(--ink); padding: 4px 7px 3px;
+  padding: 4px 7px 3px; outline: 3px solid transparent;
 }
-.swap-cr .spr { border: 2px solid var(--ink); background: var(--paper); }
-.swap-cr .sc-meta { display: flex; align-items: center; gap: 3px; font-size: 16px; color: #8a2f22; line-height: 1; }
+.swap-cr > .spr { filter: drop-shadow(0 2px 0 rgba(0,0,0,.22)); }
+.swap-cr .sc-meta { display: flex; align-items: center; gap: 3px; font-size: 16px; color: #ffd75e; line-height: 1; text-shadow: 1px 1px 0 #221d16, -1px 1px 0 #221d16, 1px -1px 0 #221d16, -1px -1px 0 #221d16; }
 .swap-cr .sc-label { font-size: 14px; color: #57452c; line-height: 1.1; font-weight: bold; }
-.swap-cr.spec { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
+.swap-cr.spec { outline-color: var(--gold); }
 .swap-cr.pickable { cursor: pointer; }
 .swap-cr.pickable:hover { outline: 3px solid var(--gold); }
 .swap-cr.dimmed { opacity: .4; cursor: not-allowed; }
@@ -745,20 +1035,60 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 [role="button"], [role="radio"] { cursor: pointer; }
 [aria-disabled="true"] { cursor: not-allowed; }
 
-/* sales run DOM panel (keyboard/low-vision twin of the canvas map) */
-.sales-workspace, .sales-map-pane { display: contents; }
-.sales-panel {
-  display: flex; flex-direction: column; gap: 4px; margin-top: 6px;
-  border: 3px solid var(--ink); background: #efe6d0; padding: 6px 8px;
-  font-size: 13px; color: var(--ink);
+/* sales run: the dispatch desk sits BESIDE the wide map, control-room style
+   (the modal width comes via openModal opts — inline style wins over rules) */
+.sales-workspace {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 330px);
+  gap: 6px 12px; align-items: start;
 }
-.sales-panel .sp-status { font-size: 12px; }
-.sales-panel .sp-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
-.sales-panel .sp-lab { font-family: "PressStart"; font-size: 7px; width: 52px; flex: none; opacity: .7; }
-.sales-panel .sp-none { font-style: italic; opacity: .7; }
-.sales-panel .btn.btn-small { padding: 3px 7px; font-size: 7px; }
-.sales-panel select { font: 12px monospace; border: 2px solid var(--ink); background: var(--paper); padding: 2px; }
-.sales-panel .btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; }
+.sales-workspace .map-hud, .sales-workspace .modal-buttons { grid-column: 1 / -1; }
+.sales-workspace .dispatch-col { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.sales-map-pane { display: flex; flex-direction: column; min-width: 0; }
+#map-canvas { max-width: 100%; height: auto; }
+@media (max-width: 1100px) {
+  .sales-workspace { grid-template-columns: 1fr; }
+}
+/* the map region takes direct keyboard control; a visible focus frame says
+   "the arrows work here" */
+.sales-map-pane:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+/* the run's reference pane: your chart books (with fans — what an order
+   would push up the lanes), the rival to beat, the orders you carry */
+.run-ref {
+  display: flex; flex-direction: column; gap: 3px;
+  border: 3px solid var(--ink); background: #efe6d0; color: var(--ink);
+  padding: 6px 8px; font-size: 14px;
+}
+.run-ref h3 { margin: 2px 0; }
+.run-ref .rr-book {
+  display: flex; align-items: center; gap: 6px;
+  border: 2px solid #cbbfa4; background: var(--paper); padding: 2px 5px;
+}
+.run-ref .rr-bk-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.run-ref .rr-bk-info b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.run-ref .rr-bk-info small { font-size: 12px; }
+.run-ref .rr-fans { font-family: "PressStart"; font-size: 10px; color: #8a2f26; flex: none; }
+.run-ref .rr-lead { font-size: 13px; border-top: 2px dashed #cbbfa4; padding-top: 3px; }
+.run-ref .rr-empty { font-style: italic; opacity: .75; font-size: 13px; }
+.run-ref .rr-row { display: flex; align-items: center; gap: 6px; }
+.run-ref .rr-orders { flex-wrap: wrap; gap: 4px; }
+.run-ref .rr-chip { border: 2px solid var(--ink); background: var(--paper); padding: 1px 5px; font-size: 13px; }
+.run-ref.horizontal {
+  flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 12px;
+  justify-content: center; margin: 4px 0;
+}
+.run-ref.horizontal h3 { margin: 0 4px 0 0; }
+.run-ref.horizontal .rr-bk-info b { max-width: 150px; }
+
+/* a parked sales run: the Manhattan Map space becomes the resume button */
+.loc.resume-run { outline: 4px solid var(--gold); cursor: pointer; }
+.loc.resume-run .resume-plate {
+  position: absolute; top: 42%; left: 50%; transform: translate(-50%, -50%); z-index: 3;
+  font-family: "PressStart"; font-size: 9px; background: var(--ink); color: var(--gold);
+  padding: 7px 11px; border: 2px solid var(--gold); white-space: nowrap;
+  animation: resumepulse 1.3s steps(2) infinite;
+}
+@keyframes resumepulse { 50% { box-shadow: 0 0 0 5px rgba(245, 200, 110, .5); } }
 
 /* endgame front page */
 .eg-headline {
@@ -802,38 +1132,68 @@ h1, h2, h3, .btn, #top-logo { font-family: "PressStart", monospace; }
 /* --------------------------------- laptop widths: chart drawer + summary */
 #chart-mini { display: none; }
 @media (max-width: 1359px) {
-  #cityhub { grid-template-columns: 1fr; }
+  /* the chart yields first: it collapses into a drawer; the Publisher rail
+     (your own state) narrows but never leaves the table */
+  #screen-game.active { grid-template-columns: 218px minmax(0, 1fr); }
   #sidebar {
-    position: fixed; top: 62px; right: 0; bottom: 266px; width: 364px; z-index: 40;
+    position: fixed; top: 62px; right: 0; bottom: 244px; width: 364px; z-index: 40;
     transform: translateX(103%); transition: transform .18s;
     background: var(--bg2); border: 4px solid var(--ink); border-right: none;
     box-shadow: -8px 0 0 rgba(0,0,0,.35); overflow-y: auto; padding: 6px;
   }
   #sidebar.open { transform: translateX(0); }
+  /* the chart's topbar home while collapsed: a real button among the others,
+     never floating over the board */
   #chart-mini {
-    display: block; position: absolute; top: 64px; right: 12px; z-index: 41;
-    font-family: "PressStart"; font-size: 8px; padding: 7px 9px;
-    background: var(--gold); color: var(--ink); border: 3px solid var(--ink);
-    box-shadow: 0 3px 0 var(--ink); cursor: pointer;
+    display: inline-block;
+    background: var(--gold); color: var(--ink);
+    max-width: 260px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
   }
-  #hud { grid-template-columns: 292px minmax(0, 1fr) 316px; }
+  #locations { gap: 8px; padding: 10px; }
+  #pub-mark { grid-template-columns: 56px minmax(0, 1fr); }
+  .rail-logo { width: 48px; height: 48px; }
 }
 @media (max-width: 1100px) {
-  #hud { grid-template-columns: 252px minmax(0, 1fr) 276px; }
-  #hud-resources { font-size: 17px; gap: 2px 7px; }
+  #screen-game.active { grid-template-columns: 196px minmax(0, 1fr); }
+  #hud { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  #hud-resources { font-size: 17px; }
+  .res-cash { font-size: 18px; }
+  .res-cash b { font-size: 12px; }
   .award-socket { width: 28px; height: 28px; }
+  #desk-awards { grid-template-columns: repeat(3, 28px); }
   #desk-orders, #desk-awards { font-size: 16px; }
+  .loc .loc-verb { font-size: 9px; padding: 3px 5px; letter-spacing: 0; }
+  .loc .loc-offer { font-size: 17px; }
+  .loc .loc-offer.dense { font-size: 14px; gap: 3px; }
+  .loc .slots { gap: 4px; }
+  .loc .slot-pip { width: 21px; }
 }
 
-/* ------------------------------------------------- post-action review bar */
+/* -------------------------------------------- post-action review proof slip
+   center stage over the board, which dims behind it: the world is holding
+   for your say-so, so covering the rooms costs nothing */
 #review-bar {
-  position: absolute; bottom: 270px; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 10px; align-items: center; z-index: 45;
+  position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%);
+  display: flex; flex-direction: column; gap: 10px; align-items: center; z-index: 45;
   background: var(--paper); color: var(--ink); border: 4px solid var(--ink);
-  box-shadow: 0 0 0 3px var(--gold), 0 8px 0 rgba(0,0,0,.5); padding: 8px 14px;
+  box-shadow: 0 0 0 3px var(--gold), 0 12px 0 rgba(0,0,0,.55);
+  padding: 12px 22px 8px;
+}
+#review-bar::before {
+  /* proof-slip perforation along the top */
+  content: ""; position: absolute; top: 3px; left: 8px; right: 8px; height: 3px;
+  background: repeating-linear-gradient(90deg, var(--paper-dark) 0 6px, transparent 6px 12px);
 }
 #review-bar[hidden] { display: none; }
-#review-bar .rb-text { font-family: "PressStart"; font-size: 9px; }
+#review-bar .rb-text { font-family: "PressStart"; font-size: 11px; color: #8a2f22; }
+#review-bar .rb-buttons { display: flex; gap: 12px; align-items: center; }
+#review-bar .rb-keys { font-size: 14px; color: #57452c; }
+/* the six rooms hold their breath behind the slip */
+#screen-game.reviewing #locations { position: relative; }
+#screen-game.reviewing #locations::after {
+  content: ""; position: absolute; inset: 0; z-index: 5;
+  background: rgba(10, 10, 18, .58);
+}
 
 /* ------------------------------------------------- file:// launch guard */
 .file-guard {

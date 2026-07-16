@@ -66,14 +66,22 @@ for (const g of GENRES) {
   for (let i = 1; i <= count; i++) need.add(`rip_${g}_${i}`).add(`cover_rip_${g}_${i}`);
   need.add("back_orig_" + g).add("idea_" + g).add("mastery_" + g).add(GENRE_INFO[g].icon);
 }
-for (const c of CREATIVES) need.add(c.sprite).add("face_" + c.sprite);
+for (const c of CREATIVES) need.add(c.sprite).add("face_" + c.sprite).add("facebig_" + c.sprite);
 for (const v of [1, 2, 3]) need.add("back_writer_" + v).add("back_artist_" + v);
-for (const col of PLAYER_COLORS)
-  need.add(PUBLISHERS[col].logo).add("meeple_" + col).add("boss_" + col).add("bossbig_" + col);
+for (const col of PLAYER_COLORS) {
+  need.add(PUBLISHERS[col].logo).add("meeple_" + col).add("boss_" + col).add("bossbig_" + col).add("bosssm_" + col);
+  for (let i = 0; i < 4; i++) need.add(`staff_${col}_${i}`); // publisher-rail editors
+}
 for (const a of ACTIONS) need.add(ACTION_INFO[a].scene).add(ACTION_INFO[a].scene + "_b").add("port_" + a);
 for (const k of ["coin_1", "coin_2", "coin_5", "coin_10", "vp_1", "vp_2", "vp_3", "ticket", "hype",
-  "bettercolor", "calendar", "title", "icon_typewriter", "icon_brushes", "scene_newsstand", "scene_newsstand_b"])
+  "bettercolor", "calendar", "title", "teletype", "icon_typewriter", "icon_brushes", "scene_newsstand", "scene_newsstand_b"])
   need.add(k);
+// user-drawn cutouts (game/assets/custom pipeline): per-genre trade icons,
+// tag ribbons + micro glyphs, genre symbols, and the panel-header vignettes
+for (const g of GENRES) need.add(`wicon_${g}`).add(`aicon_${g}`).add(`genreicon_${g}`);
+for (const a of ACTIONS) need.add("vig_" + a);
+for (const k of ["vig_hype", "tag_writer", "tag_artist", "micro_writer", "micro_artist",
+  "mystery_writer", "mystery_artist", "mysterybig_writer", "mysterybig_artist"]) need.add(k);
 for (const k of need) if (!ATLAS[k]) fail(`missing atlas sprite: ${k}`);
 console.log(`  ok  ${need.size} data-derived sprites checked against ATLAS`);
 
@@ -85,10 +93,11 @@ for (const cssRef of refs.filter((r) => r.endsWith(".css"))) {
   for (const m of css.matchAll(/url\(["']?([^)"']+)["']?\)/g))
     if (!m[1].startsWith("data:")) refs.push(path.join(path.dirname(cssRef), m[1]));
 }
-// UI V2 paints its source cutouts into canvases at runtime, so those paths
-// live in JavaScript rather than CSS and need the same missing-file guard.
-const v2 = fs.readFileSync(path.join(GAME, "js", "ui-v2.js"), "utf8");
-for (const m of v2.matchAll(/["'](assets\/[^"']+\.(?:png|jpg|jpeg|webp))["']/gi)) refs.push(m[1]);
+// runtime art referenced from JavaScript needs the same missing-file guard
+for (const jsFile of fs.readdirSync(path.join(GAME, "js")).filter((f) => f.endsWith(".js"))) {
+  const js = fs.readFileSync(path.join(GAME, "js", jsFile), "utf8");
+  for (const m of js.matchAll(/["'](assets\/[^"']+\.(?:png|jpg|jpeg|webp))["']/gi)) refs.push(m[1]);
+}
 const uniqueRefs = [...new Set(refs.map((r) => path.normalize(r)))];
 for (const r of uniqueRefs)
   if (!fs.existsSync(path.join(GAME, r))) fail(`referenced file missing: ${r}`);

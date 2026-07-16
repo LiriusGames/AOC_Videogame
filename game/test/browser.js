@@ -325,7 +325,7 @@ function check(cond, name) {
       const b = [...document.querySelectorAll("#modal-root button")].find((x) => /START THE RUN/.test(x.textContent || ""));
       b.click();
     });
-    await page.waitForFunction(() => !!document.querySelector(".sales-panel") && !!UI.engine.state.salesSession);
+    await page.waitForFunction(() => !!document.querySelector(".sales-run-modal") && !!UI.engine.state.salesSession);
     const cvMove = await page.evaluate(() => {
       // a real canvas interaction: synthesize a click through the map's own
       // hit test at a legal destination node
@@ -342,17 +342,111 @@ function check(cond, name) {
     });
     check(cvMove.at === cvMove.target, "canvas click moves the agent");
     check(jsErrors.length === errsBefore, "no page error from the canvas interaction");
-    const panelMove = await page.evaluate(() => {
-      const b = document.querySelector('.sales-panel [data-pkey^="dest-"]:not([aria-disabled="true"])');
-      if (!b) return null;
-      const before = UI.engine.player(UI.humanId).agentNode;
-      b.click();
-      return { before, after: UI.engine.player(UI.humanId).agentNode,
-        hud: (document.querySelector(".map-hud") || {}).textContent || "" };
+    // reference pane: the player's chart books (with fans) ride the dispatch
+    // column — the facts an order decision hangs on
+    const refInfo = await page.evaluate(() => {
+      const s = UI.engine.state;
+      // deterministic: give the human one book on the chart, then re-render
+      window.__refSnapChart = s.chart.filter((c) => c.owner === UI.humanId).length;
+      if (!window.__refSnapChart) {
+        const cd = COMICS[0];
+        s.chart.push({
+          idx: s.chart.length, cardId: cd.id, owner: UI.humanId, title: cd.title,
+          genre: cd.genre, value: 4, fans: 3, isRipoff: false, bettercolor: false,
+          everOnChart: true, masteryFanApplied: false,
+          creatives: {
+            writer: { id: "writer_" + cd.genre + "_2", genre: cd.genre, baseValue: 2, curValue: 2, name: "T W" },
+            artist: { id: "artist_" + cd.genre + "_2", genre: cd.genre, baseValue: 2, curValue: 2, name: "T A" },
+          },
+        });
+      }
+      const pane = document.querySelector(".sales-run-modal .run-ref");
+      if (!pane) return null;
+      return { paneText: pane.textContent || "", books: pane.querySelectorAll(".rr-book").length };
     });
-    check(panelMove && panelMove.after !== panelMove.before, "DOM panel destination moves the agent");
-    check(panelMove && /CASH/.test(panelMove.hud), "post-action HUD refresh completed (code after the old crash point ran)");
-    check(jsErrors.length === errsBefore, "no page error from the DOM panel interaction");
+    check(refInfo && /YOUR BOOKS ON THE CHART/.test(refInfo.paneText),
+      "run modal pins the player's chart books in the dispatch column");
+
+    // minimize: the run parks into the Manhattan Map space and resumes from it
+    await page.evaluate(() => {
+      const b = [...document.querySelectorAll("#modal-root button")].find((x) => /MINIMIZE/.test(x.textContent || ""));
+      b.click();
+    });
+    await page.waitForFunction(() => !document.querySelector("#modal-root .modal"), { timeout: 10000 });
+    const parked = await page.evaluate(() => {
+      const sales = document.querySelector('#locations .loc[data-action="sales"]');
+      const other = document.querySelector('#locations .loc[data-action="print"]');
+      return {
+        session: !!UI.engine.state.salesSession,
+        resume: sales && sales.classList.contains("resume-run") &&
+          /resume your sales run/i.test(sales.getAttribute("aria-label") || ""),
+        plate: sales && !!sales.querySelector(".resume-plate"),
+        othersLocked: other && other.getAttribute("aria-disabled") === "true" &&
+          /finish your sales run/i.test(other.getAttribute("aria-label") || ""),
+      };
+    });
+    check(parked.session, "minimized run keeps the sales session alive");
+    check(parked.resume && parked.plate, "the Manhattan Map space becomes the pulsing resume button");
+    check(parked.othersLocked, "other action spaces are locked (with the reason) while the run is parked");
+    // regression: a queued advance() used to auto-reopen the parked run —
+    // fire one deliberately and make sure the modal stays closed
+    await page.evaluate(() => Main.advance());
+    await new Promise((r) => setTimeout(r, 700));
+    check(await page.evaluate(() => !document.querySelector("#modal-root .modal") && !!UI.engine.state.salesSession),
+      "the parked run stays parked even when advance() fires");
+    await page.$eval('#locations .loc[data-action="sales"]', (b) => b.click());
+    await page.waitForFunction(() => !!document.querySelector(".sales-run-modal") && !!UI.engine.state.salesSession,
+      { timeout: 10000 });
+    const resumed2 = await page.evaluate(() => {
+      const pane = document.querySelector(".sales-run-modal .run-ref");
+      return { hud: (document.querySelector(".map-hud") || {}).textContent || "",
+        books: pane ? pane.querySelectorAll(".rr-book").length : 0 };
+    });
+    check(/FLIPS/.test(resumed2.hud), "clicking the space resumes the run where it left off");
+    check(resumed2.books > 0, "the reference pane lists the player's chart books after resume");
+    check(jsErrors.length === errsBefore, "no page error from the minimize/resume round trip");
+
+    // mastery ownership reads in THE STANDINGS, not on the personal shelf
+    const standingsTok = await page.evaluate(() => {
+      const s = UI.engine.state;
+      const rival = s.players.find((p) => !p.human);
+      s.mastery.western = rival.id;
+      renderChart();
+      renderHUD();
+      const row = [...document.querySelectorAll(".standing-row")]
+        .find((r) => (r.getAttribute("aria-label") || "").includes(UI.engine.player(rival.id).pubName));
+      const sock = document.querySelector('#desk-awards .award-socket[data-genre="western"]');
+      const out = {
+        inRow: row && !!row.querySelector(".st-name .spr"),
+        rowLabel: row ? /mastery token/.test(row.getAttribute("aria-label") || "") : false,
+        // the empty socket shows a dim genre-mark placeholder (a nested
+        // .spr) — only a DIRECT .spr child is an actual mastery token
+        shelfClean: sock && !sock.classList.contains("won") && !sock.querySelector(":scope > .spr"),
+      };
+      delete s.mastery.western;
+      renderChart(); renderHUD();
+      return out;
+    });
+    check(standingsTok.inRow && standingsTok.rowLabel, "a rival's mastery token shows in their standings row");
+    check(standingsTok.shelfClean, "the personal awards shelf never shows a rival's token");
+    // direct keyboard control: the arrows drive the agent (no dispatch list)
+    const kbBefore = await page.evaluate(() => {
+      document.querySelector(".sales-map-pane").focus();
+      return UI.engine.player(UI.humanId).agentNode;
+    });
+    for (const k of ["ArrowRight", "ArrowLeft", "ArrowUp", "ArrowDown"]) {
+      if (await page.evaluate((nb) => UI.engine.player(UI.humanId).agentNode !== nb, kbBefore)) break;
+      await page.keyboard.press(k);
+    }
+    const kbAfter = await page.evaluate(() => ({
+      node: UI.engine.player(UI.humanId).agentNode,
+      hud: (document.querySelector(".map-hud") || {}).textContent || "",
+      live: document.getElementById("aria-status").textContent || "",
+    }));
+    check(kbAfter.node !== kbBefore, "arrow keys move the agent directly");
+    check(/CASH/.test(kbAfter.hud), "post-action HUD refresh completed (code after the old crash point ran)");
+    check(kbAfter.live.length > 0, "the move is narrated to the live region");
+    check(jsErrors.length === errsBefore, "no page error from the keyboard interaction");
     await page.evaluate(() => {
       const b = [...document.querySelectorAll("#modal-root button")].find((x) => /END SALES RUN/.test(x.textContent || ""));
       b.click();
@@ -362,13 +456,53 @@ function check(cond, name) {
     await page.$eval("#btn-review-confirm", (b) => b.click());
     check(true, "UI-driven sales run completes through review");
 
-    // --------------- 11. publisher desk unification + published-catalog overflow
+    // -------- 10b. placement flight: the staffer travels to the white square
+    await page.waitForFunction(() => UI.engine.currentPlayerId() === UI.humanId && !UI.busy &&
+      !!UI.undoSnap && !UI.engine.state.pending && !document.querySelector("#modal-root .modal"), { timeout: 30000 });
+    const flight = await page.evaluate(() => {
+      const e = UI.engine, p = e.player(UI.humanId);
+      // keep 2 editors so this placement can never END the round (a round end
+      // clears the action spaces and would legitimately empty the pip mid-flight)
+      p.editorsLeft = Math.max(2, p.editorsLeft);
+      e.state.actionSpaces.royalties = []; // deterministic: a free desk, no dialog
+      UI.undoSnap = e.snapshot();
+      const slot = e.state.actionSpaces.royalties.length;
+      e.actRoyalties(UI.humanId);
+      Main.afterHumanMove(); // flushes placeEditor -> launches the flight
+      const pip = document.querySelector('#locations .loc[data-action="royalties"]')
+        .querySelectorAll(".slot-pip")[slot];
+      return {
+        slot,
+        gated: !!(UI.placeFlight && Object.keys(UI.placeFlight).length),
+        pipEmpty: pip && !pip.querySelector(".spr"),
+        flying: !!document.querySelector(".fx-token"),
+      };
+    });
+    check(flight.gated && flight.pipEmpty, "the white square stays empty while the staffer is en route");
+    check(flight.flying, "the staffer sprite visibly travels to the action space");
+    await page.waitForFunction((slot) => {
+      const pip = document.querySelector('#locations .loc[data-action="royalties"]')
+        .querySelectorAll(".slot-pip")[slot];
+      return pip && !!pip.querySelector(".spr") && !(UI.placeFlight && Object.keys(UI.placeFlight).length);
+    }, { timeout: 10000 }, flight.slot);
+    check(true, "the staffer lands: pip filled, flight flag cleared");
+    await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 15000 });
+    await page.$eval("#btn-review-confirm", (b) => b.click());
+
+    // --------------- 11. publisher rail unification + published-catalog overflow
     check(await page.evaluate(() => !document.querySelector("#topbar #hud-resources") &&
-      !!document.querySelector("#hud #hud-resources") &&
-      !!document.querySelector("#hud #desk-orders") && !!document.querySelector("#hud #desk-awards")),
-      "personal resources/orders/awards live in the bottom desk, not the top bar");
-    check(await page.evaluate(() => !/\$\d/.test(document.getElementById("topbar").textContent)),
-      "top bar carries no personal cash figure");
+      !!document.querySelector("#desk-status #hud-resources") &&
+      !!document.querySelector("#desk-status #desk-orders") && !!document.querySelector("#desk-status #desk-awards") &&
+      document.querySelectorAll("#desk-status #staff-roster .staffer").length >= 4),
+      "personal resources/staff/orders/awards live in the Publisher rail, not the top bar");
+    check(await page.evaluate(() => {
+      // the press-wire tongue tickers NEWS (which may quote dollar amounts);
+      // the check is that no personal cash READOUT lives in the top bar
+      const bar = document.getElementById("topbar").cloneNode(true);
+      const wire = bar.querySelector("#wire-strip");
+      if (wire) wire.remove();
+      return !/\$\d/.test(bar.textContent);
+    }), "top bar carries no personal cash figure (news headlines aside)");
     check(await page.evaluate(() =>
       document.querySelectorAll("#desk-awards .award-socket").length === GENRES.length),
       "awards shelf shows one persistent socket per genre");

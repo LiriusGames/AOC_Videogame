@@ -344,6 +344,9 @@ class Engine {
     const slot = this.nextSlot(action);
     s.actionSpaces[action].push(pid);
     p.editorsLeft--;
+    // the placement diary, in TIME order: the UI derives WHICH staffer went
+    // where from it (the roster grays right-to-left as placements happen)
+    (s.placeSeq = s.placeSeq || []).push({ player: pid, action, slot });
     this.emit("placeEditor", { player: pid, action, slot });
     return slot;
   }
@@ -393,26 +396,28 @@ class Engine {
     const s = this.state, p = this.player(pid);
     if (!this.canAct(pid, "hire")) return false;
     this.placeEditor(pid, "hire");
-    const got = [];
+    const got = [], blind = []; // blind = drawn unseen (the UI reveals those)
     for (const kind of ["writer", "artist"]) {
       const key = kind + "s";
       let cardId = picks[kind];
-      if (cardId === "deck") cardId = this.drawCard(key);
+      let wasBlind = false;
+      if (cardId === "deck") { cardId = this.drawCard(key); wasBlind = true; }
       else {
         const di = s.display[key].indexOf(cardId);
         if (di >= 0) s.display[key].splice(di, 1);
-        else cardId = this.drawCard(key); // safety
+        else { cardId = this.drawCard(key); wasBlind = true; } // safety
       }
       if (cardId) {
         p.hand.push(cardId);
         got.push(cardId);
+        if (wasBlind) blind.push(cardId);
         if (this.card(cardId).value === 1) {
           p.ideas[this.card(cardId).genre]++;
           this.emit("gainIdea", { player: pid, genre: this.card(cardId).genre, from: "rookie" });
         }
       }
     }
-    this.emit("hire", { player: pid, cards: got });
+    this.emit("hire", { player: pid, cards: got, blind });
     this.enforceHandLimitPending(pid);
     this.afterAction(pid, "hire");
     return true;
@@ -442,7 +447,8 @@ class Engine {
       else cardId = this.drawCard("comics");
     }
     if (cardId) p.hand.push(cardId);
-    this.emit("develop", { player: pid, cardId, searched: !!pick.searchGenre });
+    this.emit("develop", { player: pid, cardId, searched: !!pick.searchGenre,
+      blind: !pick.searchGenre && pick.comic === "deck" });
     this.enforceHandLimitPending(pid);
     this.afterAction(pid, "develop");
     return true;
@@ -1069,6 +1075,7 @@ class Engine {
 
     // 5. editors return to the players
     ACTIONS.forEach((a) => (s.actionSpaces[a] = []));
+    s.placeSeq = [];
     // 6. refresh display
     this.refillDisplay();
 

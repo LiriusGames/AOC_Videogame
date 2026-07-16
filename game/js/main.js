@@ -101,11 +101,14 @@ const Main = (() => {
   }
   function updatePreview() {
     const rivals = PLAYER_COLORS.filter((c) => c !== setup.color).slice(0, setup.rivals);
+    // one non-breaking chip per rival, icon + boss only — the cards above
+    // already pair each boss with their house, and the short form keeps all
+    // three rivals on a single line (house name stays in the tooltip)
     document.getElementById("setup-preview").innerHTML =
       "<b>YOUR RIVALS:</b> " + rivals.map((c) => {
         const pub = PUBLISHERS[c];
-        return `${sprHTML("boss_" + c, 0.6)} <b>${pub.boss}</b> (${pub.name})`;
-      }).join(" &nbsp;&middot;&nbsp; ");
+        return `<span class="rival-chip" title="${pub.boss} — ${pub.name}">${sprHTML("bosssm_" + c, 1)} <b>${pub.boss}</b></span>`;
+      }).join("");
   }
 
   // --------------------------------------------------------------- new game
@@ -216,8 +219,13 @@ const Main = (() => {
       } else { AI.settle(e, s.awaitingSpecial.player); queueAdvance(Math.max(250, delay)); }
       return;
     }
-    // resume an open human sales run (e.g. after an order-choice interrupted it)
-    if (s.salesSession && isHuman(s.salesSession.player)) { Scenes.salesScene(true); return; }
+    // resume an open human sales run (e.g. after an order-choice interrupted
+    // it) — unless the player parked it with MINIMIZE: then the board waits
+    // and only the Manhattan Map space brings the run back
+    if (s.salesSession && isHuman(s.salesSession.player)) {
+      if (!UI.salesParked) Scenes.salesScene(true);
+      return;
+    }
 
     // the completed action holds here until the human confirms or undoes;
     // results (hero presentations) finish playing before the bar appears
@@ -265,11 +273,11 @@ const Main = (() => {
           UI.lastTurnKey = key;
           UI.undoSnap = e.snapshot();
           renderTopbar();
-          // show the whole editor pool: bright = still to place, ghost = spent
+          // show the whole newsroom: bright = still to assign, ghost = spent
           const p = e.player(pid);
           const total = p.editors + (p.extraEditorUsed ? 1 : 0);
           const pips = Array.from({ length: total }, (_, i) =>
-            `<span class="bb-meeple${i < p.editorsLeft ? "" : " spent"}">${sprHTML("meeple_" + p.color, 1.5)}</span>`).join("");
+            `<span class="bb-meeple${i < p.editorsLeft ? "" : " spent"}">${sprHTML(`staff_${p.color}_${i % 4}`, 1)}</span>`).join("");
           showBanner("YOUR TURN", `${pips}<br>round ${s.round} &middot; ${p.editorsLeft} of ${total} editors left`);
           SFX.play("turn");
         }
@@ -313,11 +321,13 @@ const Main = (() => {
     UI.busy = false;
     setAIStatus(null);
     bar.hidden = false;
+    document.getElementById("screen-game").classList.add("reviewing");
     announce("Action complete. Confirm to continue, or undo.");
     document.getElementById("btn-review-confirm").focus();
   }
   function hideReview() {
     document.getElementById("review-bar").hidden = true;
+    document.getElementById("screen-game").classList.remove("reviewing");
   }
   function confirmReview() {
     UI.pendingReview = false;
@@ -377,6 +387,9 @@ const Main = (() => {
       document.body.appendChild(d);
     };
     initTitle();
+    // the topbar teleprinter is a drawn sprite (assets/machine.png)
+    const machineSlot = document.querySelector("#wire-strip .wire-machine");
+    if (machineSlot) machineSlot.appendChild(spr("teletype", 1));
     // ?autoplay: AI plays the human seat too (UI smoke test / spectator mode)
     if (location.search.includes("autoplay")) {
       UI.autoplay = true;
@@ -420,12 +433,18 @@ const Main = (() => {
       if (ev.key === "Escape" && !modalIsOpen() &&
           document.getElementById("sidebar").classList.contains("open")) setDrawer(false);
     });
-    // the event-feed strip opens the full log as a bottom sheet
+    // the teleprinter prints the full archive below the topbar
     const wirePanel = document.getElementById("wire-panel");
     const setWire = (open) => {
       wirePanel.hidden = !open;
       document.getElementById("wire-strip").setAttribute("aria-expanded", String(open));
       if (open) {
+        // the panel feeds out of the machine in chunky teletype steps
+        wirePanel.classList.remove("printing");
+        if (!REDUCED_MOTION()) {
+          void wirePanel.offsetWidth; // restart the print animation
+          wirePanel.classList.add("printing");
+        }
         const dlg = document.getElementById("dialogue");
         dlg.scrollTop = dlg.scrollHeight;
         document.getElementById("wire-close").focus();
@@ -433,7 +452,7 @@ const Main = (() => {
     };
     document.getElementById("wire-strip").onclick = () => {
       const opening = wirePanel.hidden;
-      SFX.play(opening ? "wire" : "paper");
+      SFX.play(opening ? "teletype" : "paper");
       setWire(opening);
     };
     document.getElementById("wire-close").onclick = () => setWire(false);

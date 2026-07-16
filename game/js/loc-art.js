@@ -772,7 +772,15 @@ const LocArt = (() => {
     const shD = tone(shirt, .74), shL = tone(shirt, 1.14);
     cMask(x, y - 72, o);
     R(x - 14, y - 71, 28, 34, INK);
-    if (d && o.step) { // stride
+    if (o.dress) { // '50s skirt to the knee, stockinged calves, little heels
+      const sk = o.skirtC || tone(shirt, .9);
+      R(x - 11, y - 40, 22, 9, sk); R(x - 13, y - 32, 26, 7, sk);
+      R(x - 11, y - 40, 22, 1, tone(sk, 1.25)); R(x - 13, y - 26, 26, 1, tone(sk, .7));
+      R(x - 6, y - 25, 4, 23, skin); R(x + 3, y - 25, 4, 23, skin);
+      R(x - 4, y - 25, 1, 23, tone(skin, .8)); R(x + 5, y - 25, 1, 23, tone(skin, .8));
+      R(x - 7, y - 2, 6, 2, "#16130e"); R(x + 2, y - 2, 6, 2, "#16130e");
+      P1(x - 1, y - 1, "#16130e"); P1(x + 8, y - 1, "#16130e"); // heels
+    } else if (d && o.step) { // stride
       const f1 = o.step === 1;
       const nx = x + (f1 ? d * 4 : -d), fx = x + (f1 ? -d * 5 : d * 2);
       R(fx - 3, y - 37, 6, 34, tone(pants, .72)); R(fx - 3 + d, y - 4, 7, 2, "#111318");
@@ -785,6 +793,13 @@ const LocArt = (() => {
     R(x - 11, y - 68, 22, 30, shirt);
     R(x - 11, y - 41, 22, 3, shD); R(x + 8, y - 68, 3, 28, shD);
     R(x - 10, y - 67, 2, 26, shL); R(x - 9, y - 68, 18, 1, tone(shirt, 1.2));
+    // wardrobe details that make the four staffers unmistakable
+    if (o.susp) { R(x - 8, y - 67, 3, 26, o.susp); R(x + 5, y - 67, 3, 26, o.susp); }
+    if (o.tie) {
+      R(x - 3, y - 67, 6, 18, "#f4eede"); // shirt placket under the jacket
+      R(x - 1, y - 66, 2, 12, o.tie); R(x - 2, y - 55, 4, 5, o.tie);
+    }
+    if (o.belt) R(x - 11, y - 41, 22, 3, o.belt);
     if (!o.noArmB) {
       R(x - 15, y - 66 - B, 5, 22, shirt); R(x - 15, y - 66 - B, 1, 22, shL);
       R(x - 15, y - 47 - B, 5, 4, skin);
@@ -820,6 +835,13 @@ const LocArt = (() => {
     R(x - 11, y - 50, 22, 26, shirt);
     R(x - 11, y - 26, 22, 2, shD); R(x + 8, y - 50, 3, 24, shD);
     R(x - 10, y - 49, 2, 22, shL); R(x - 9, y - 50, 18, 1, tone(shirt, 1.2));
+    // wardrobe details (same set as the standing figure)
+    if (o.susp) { R(x - 8, y - 49, 3, 22, o.susp); R(x + 5, y - 49, 3, 22, o.susp); }
+    if (o.tie) {
+      R(x - 3, y - 49, 6, 15, "#f4eede");
+      R(x - 1, y - 48, 2, 10, o.tie); R(x - 2, y - 39, 4, 4, o.tie);
+    }
+    if (o.belt) R(x - 11, y - 27, 22, 3, o.belt);
     if (o.desk) { // both arms forward to the work surface
       R(x + d * 4 - 2, y - 48 - B, 6, 14, shirt);
       R(x + d * 8 - 2, y - 38 - B, 8, 4, shirt); R(x + d * 13 - 2, y - 38 - B, 5, 4, skin);
@@ -842,8 +864,9 @@ const LocArt = (() => {
     const f1 = o.step === 1;
     const nx = x + (f1 ? d * 3 : -d), fx = x + (f1 ? -d * 4 : d * 2);
     if (o.dress) { // swing skirt, stockinged calves, heels
-      R(x - 10, y - 28, 20, 6, coat); R(x - 11, y - 23, 22, 4, coat);
-      R(x - 11, y - 20, 22, 1, tone(coat, .7));
+      const sk = o.skirtC || coat;
+      R(x - 10, y - 28, 20, 6, sk); R(x - 11, y - 23, 22, 4, sk);
+      R(x - 11, y - 20, 22, 1, tone(sk, .7));
       R(fx - 2, y - 17, 3, 14, tone(skin, .82)); P1(fx - 2 + d, y - 3, "#111318");
       R(nx - 2, y - 19, 4, 17, skin); R(nx - 2 + d, y - 2, 5, 2, "#16130e"); P1(nx + d * 3, y - 1, "#16130e");
     } else {
@@ -853,6 +876,10 @@ const LocArt = (() => {
     R(x - 8, y - 44, 16, 22, coat);
     R(x - 8, y - 25, 16, 3, tone(coat, .74)); R(x + 5, y - 44, 3, 20, tone(coat, .74));
     R(x - 7, y - 43, 2, 18, tone(coat, 1.14));
+    // wardrobe details, street scale
+    if (o.susp) { R(x - 5, y - 43, 2, 19, o.susp); R(x + 3, y - 43, 2, 19, o.susp); }
+    if (o.tie) { R(x - 2, y - 43, 4, 12, "#f4eede"); R(x - 1, y - 42, 2, 9, o.tie); }
+    if (o.belt) R(x - 8, y - 30, 16, 2, o.belt);
     R(x + (f1 ? -d * 3 : d * 2) - 2, y - 42, 4, 15, tone(coat, .88)); // swinging arm
     P1(x + (f1 ? -d * 3 : d * 2) - 1, y - 27, skin);
     R(x - 3, y - 48, 6, 5, skin);
@@ -862,6 +889,13 @@ const LocArt = (() => {
     R(x + d * 2 - 1, y - 50, 3, 1, tone(skin, .62)); // mouth
     R(x - 6, y - 62, 12, 3, hair); R(x - d * 6, y - 60, 2, 8, hair);
     if (o.bob) { R(x - d * 7, y - 60, 3, 11, hair); P1(x - d * 7 + (d > 0 ? 0 : 2), y - 49, hair); } // curled bob
+    if (o.bun) { R(x - 3, y - 66, 6, 5, hair); R(x - 2, y - 67, 4, 1, tone(hair, 1.3)); } // victory-roll updo
+    if (o.mo) R(x + d * 2 - 2, y - 52, 6, 2, "#4a3a2c"); // walrus mustache
+    if (o.talk && o.mo) R(x + d * 2 - 1, y - 49, 3, 2, "#5a3a30"); // chatting under it
+    if (o.cap) { // low flat cap, brim toward where he's looking
+      R(x - 6, y - 66, 12, 4, o.cap); R(x - 6, y - 63, 12, 1, tone(o.cap, .6));
+      R(x + d * 3 - 1, y - 62, 6, 2, o.cap);
+    }
     if (o.hat) {
       R(x - 6, y - 67, 12, 5, o.hat); R(x - 6, y - 63, 12, 2, tone(o.hat, .55));
       R(x - 9, y - 61, 18, 2, o.hat);
@@ -896,8 +930,8 @@ const LocArt = (() => {
     COOL(302, 132, 34, 24, .05); // cool wash below the window
     SH(0, 132, 24, 92, .09); SH(0, 200, HDW, 24, .06); // dark corner + foreground falloff
     SH(14, 132, 132, 6, .3); dith(14, 138, 132, 3, "rgba(0,0,0,.2)"); // under the bar
-    SH(178, 146, 38, 6, .12); SH(182, 148, 30, 4, .18); // under the table
-    SH(142, 148, 38, 5, .16); SH(210, 148, 38, 5, .16); // under the regulars
+    SH(178, 132, 38, 6, .12); SH(182, 134, 30, 4, .18); // under the table (lifted with it)
+    SH(142, 134, 38, 5, .16); SH(210, 134, 38, 5, .16); // under the regulars
     // hanging pendant lamps
     for (const lx of [80, 192]) {
       R(lx - 5, 0, 12, 4, "#14110d"); R(lx - 5, 3, 12, 1, "#2a251d"); // ceiling rose
@@ -1018,10 +1052,31 @@ const LocArt = (() => {
     GLOW(305, 41, 6, 4, .06); GLOW(307, 42, 3, 2, .12);
     R(252, 76, 72, 4, "#6b4626"); R(252, 76, 72, 1, "#8a5f33"); R(252, 80, 72, 1, INK); // sill
     SH(252, 81, 72, 2, .22); SH(254, 74, 68, 2, .12); // AO under the sill and the rebate
-    // café table: two regulars arguing over steaming coffee, drawn at room
-    // scale (their chairs are part of their painters)
-    cafeWriter(f);
-    cafeEditor();
+    // café table with two bentwood chairs: the seats belong to whoever
+    // placed an editor here (the barista is the house's own man and stays).
+    // The whole tableau sits 14px higher than it used to — the tile's
+    // bottom overlays were cropping the chairs and the sitters' laps.
+    g.save();
+    g.translate(0, -14);
+    for (const [chx, chd] of [[162, 1], [230, -1]]) {
+      R(chx - chd * 13, 116, 3, 33, "#5f3f24"); // bentwood back
+      R(chx - 9, 146, 18, 3, "#5f3f24");        // seat edge
+      R(chx - 8, 149, 2, 12, "#3f2a18"); R(chx + 6, 149, 2, 12, "#3f2a18");
+    }
+    const cafeOcc = roomOccupants("ideas");
+    [[162, 150, 1], [230, 150, -1]].forEach(([sx, sy, sd], i) => {
+      const o2 = cafeOcc[i];
+      if (!o2) return;
+      worker(sx, sy, o2.pid, {
+        sit: true, dir: sd, desk: true, char: staffCharFor("ideas", o2.slot),
+        armF: (f % 2) * 4, talk: (f + i) % 4 < 2,
+      });
+    });
+    // the rest lean on the bar, trading gossip for ideas
+    [[54, 178, -1], [88, 182, -1], [266, 178, 1]].forEach(([sx, sy, sd], i) => {
+      const o2 = cafeOcc[2 + i];
+      if (o2) worker(sx, sy, o2.pid, { dir: sd, armB: 3, talk: (f + i) % 3 < 1, char: staffCharFor("ideas", o2.slot) });
+    });
     // cast-iron pedestal + grained top (drawn over their knees, like the 1x room)
     R(194, 116, 4, 32, "#3a3f4a"); R(194, 116, 1, 32, "#4c525e"); COOL(197, 118, 1, 28, .16);
     R(193, 120, 6, 2, "#2f333d"); // collar
@@ -1055,6 +1110,7 @@ const LocArt = (() => {
       R(150, 64, 2, 2, "#ffe38a"); R(166, 64, 2, 2, "#ffe38a"); R(158, 54, 2, 2, "#ffe38a");
       P1(159, 55, "#fff");
     }
+    g.restore(); // end of the lifted café-table tableau
     // cake stand on the bar
     R(52, 52, 16, 8, "#e5977a"); R(52, 52, 3, 8, "#f0ab8e"); R(64, 52, 4, 8, "#cf8168");
     R(53, 56, 14, 1, "#c9755f"); // sponge seam
@@ -1152,15 +1208,27 @@ const LocArt = (() => {
     R(230, 46, 32, 4, "#8a2f22"); R(230, 52, 32, 2, "#9a8f77");
     R(230, 58, 24, 2, "#9a8f77"); R(230, 64, 28, 2, "#9a8f77"); R(230, 70, 20, 2, "#9a8f77");
     SH(226, 81, 44, 2, .15);
-    // the agent at reception (desk hides her from the waist down)
-    cSitGuy(252, 140, {
-      dir: 1, desk: true, style: "rolls", hair: "#181818", shirt: "#8a5a9e",
-      skin: "#efc7a0", armF: (f % 2) * 4, armB: ((f + 1) % 2) * 4,
+    // the reception side of the desk belongs to whoever placed an editor:
+    // the publisher's own people do the interviewing (the hopefuls on the
+    // bench ARE the offer, so they stay)
+    // YOUR editors interview the prospects: the first takes the desk chair,
+    // the others review portfolios standing (rivals never share this office)
+    const hireOcc = roomOccupants("hire");
+    [
+      [252, 140, { sit: true, dir: 1, desk: true }],
+      [222, 140, { sit: true, dir: 1, desk: true }],
+      [288, 140, { sit: true, dir: 1, desk: true }],
+      [186, 196, { dir: -1, armF: 6 }],
+      [148, 202, { dir: -1, armB: 3 }],
+    ].forEach(([sx, sy, so], i) => {
+      const o2 = hireOcc[i];
+      if (!o2) return;
+      worker(sx, sy, o2.pid, {
+        char: staffCharFor("hire", o2.slot),
+        armF: ((f + i) % 2) * 4, armB: ((f + i + 1) % 2) * 4, talk: (f + i) % 4 < 2,
+        ...so,
+      });
     });
-    R(250, 90, 4, 1, "#b5443a"); // lipstick
-    P1(244, 81, "#f5c86e"); // earring
-    P1(248, 96, "#efe6d0"); P1(251, 97, "#efe6d0"); P1(254, 96, "#efe6d0"); // pearls
-    R(246, 92, 3, 3, "#efe6d0"); // blouse collar
     // reception desk: paneled front, grained top
     box(208, 100, 108, 36, "#8a5c33");
     SH(208, 100, 108, 3, .3);
@@ -1189,14 +1257,14 @@ const LocArt = (() => {
     R(22, 128, 4, 14, "#3f2a18"); R(118, 128, 4, 14, "#3f2a18");
     R(26, 132, 92, 2, "#4a3018"); // stretcher
     SH(18, 128, 112, 4, .14);
-    cSitGuy(36, 140, { style: "rolls", hair: "#8a2f22", shirt: "#3f8f7a", skin: "#efc7a0", dress: true });
+    cSitGuy(36, 140, { style: "rolls", hair: "#8a2f22", shirt: "#5b6a8a", skin: "#efc7a0", dress: true }); // civilian slate — house colors are reserved for placed workers
     R(34, 82, 5, 1, "#b5443a"); // lipstick
     P1(27, 80, "#f5c86e"); P1(44, 80, "#f5c86e"); // earrings
     P1(32, 89, "#efe6d0"); P1(35, 90, "#efe6d0"); P1(38, 89, "#efe6d0"); // pearls
     R(22, 107, 5, 4, "#efe6d0"); R(45, 107, 5, 4, "#efe6d0"); // white gloves
     if (f % 2) R(28, 136, 5, 2, "#16130e"); // the nervous heel taps
     cSitGuy(70, 140, {
-      style: "slick", hair: "#181818", shirt: "#c9973b", skin: "#c98d68",
+      style: "slick", hair: "#181818", shirt: "#6e6a3f", skin: "#c98d68",
       armF: f % 4 < 2 ? 8 : 0, talk: f % 4 < 2,
     });
     R(64, 116, 12, 6, "#efe6d0"); R(66, 118, 8, 1, "#9a8f77"); // clutched pages
@@ -1298,8 +1366,8 @@ const LocArt = (() => {
     if (lampLit) R(102, 79, 12, 1, "#ffe38a"); // bulb line under the shade
     // the artist at the drafting board, strokes appearing line by line
     cSitGuy(262, 132, {
-      dir: -1, desk: true, style: "cap", hatC: "#8a3f34", hair: "#181818",
-      shirt: "#3f8f7a", skin: "#c98d68", armF: (f % 2) * 6,
+      dir: -1, desk: true, style: "cap", hatC: "#3e5f88", hair: "#181818",
+      shirt: "#4d5a6e", skin: "#c98d68", armF: (f % 2) * 6,
     });
     box(200, 104, 88, 28, "#8a5c33");
     SH(200, 104, 88, 3, .3);
@@ -1311,14 +1379,15 @@ const LocArt = (() => {
     P1(208, 70, "#9aa3ad"); P1(247, 70, "#9aa3ad"); // board clips
     R(210, 96, 4, 6, "#5a4028"); R(242, 96, 4, 6, "#5a4028"); // its stand
     for (let k = 0; k <= f % 4; k++) R(212 + k * 4, 74 + k * 6, 24 - k * 4, 2, "#4a505c");
-    // crumpled drafts, the stack of finished pages
-    R(144, 152, 8, 6, "#efe6d0"); P1(146, 153, "#c9bfa4"); P1(149, 155, "#c9bfa4");
-    R(132, 172, 6, 6, "#ddd0b0"); P1(134, 174, "#b9ae92");
-    R(160, 184, 8, 6, "#efe6d0"); P1(163, 186, "#c9bfa4");
+    // the stack of finished pages (the crumpled floor drafts are gone — they
+    // read as noise, not flavor)
     box(160, 120, 24, 16, "#efe6d0"); R(161, 124, 22, 1, "#d6c9ab"); R(161, 130, 22, 1, "#d6c9ab");
     R(164, 124, 16, 1, "#9a8f77"); R(164, 130, 16, 1, "#9a8f77");
     SH(161, 136, 24, 3, .16);
-    // the office cat, sitting up asleep; only the tail keeps working
+    // the office cat, sitting up asleep atop the reference shelf; only the
+    // tail keeps working
+    g.save();
+    g.translate(-24, -159);
     SH(180, 191, 28, 3, .14);
     R(176 - (f % 2) * 4, 189, 16 + (f % 2) * 4, 3, "#3a3a42"); P1(174 - (f % 2) * 4, 188, "#3a3a42"); // tail
     R(183, 180, 14, 12, "#3a3a42"); R(181, 184, 4, 8, "#3a3a42"); // haunch
@@ -1332,9 +1401,114 @@ const LocArt = (() => {
     P1(195, 172, "#e5977a"); // nose
     P1(187, 172, "#9aa3ad"); P1(203, 172, "#9aa3ad"); // whiskers
     R(191, 190, 10, 2, "#4a4a54"); P1(196, 190, "#2e2e36"); // front paws together
+    g.restore(); // the cat's perch
+    // visiting editors look over the work in progress (the writer and the
+    // artist are the room's own people — they're MAKING the projects on offer)
+    const devOcc = roomOccupants("develop");
+    const devStations = [
+      [166, 198, -1, { armF: 8 }],           // reading the finished stack
+      [128, 204, 1, { armB: 3 }],            // over the writer's shoulder
+      [242, 206, -1, { armF: 4 }],           // checking the drafting board
+      [64, 210, 1, {}],
+      [300, 208, -1, {}],
+    ];
+    devOcc.forEach((o2, k) => {
+      if (!devStations[k]) return;
+      const [sx, sy, sd, so] = devStations[k];
+      worker(sx, sy, o2.pid, { dir: sd, talk: (f + k) % 4 < 2, char: staffCharFor("develop", o2.slot), ...so });
+    });
   }
 
   // ======================================================== PRINT FLOOR (2x)
+  // ------------------------------------------------ visiting workers (2x)
+  // Placed editors appear IN the rooms doing the room's job, wearing their
+  // house colors. Same quartet identity as the small staff sprites: fedora
+  // man / updo woman / slick man / auburn woman, chosen by player id.
+  // Room logic: venue professionals (pressman, barista, accountant, vendor)
+  // and people who ARE the offer (waiting creatives) stay; the ACTOR seat is
+  // what the placed worker fills.
+  const WORKER_LOOKS = [
+    { style: "fedora", skin: "#ecbc94", hair: "#4a3222" },
+    { style: "rolls",  skin: "#966442", hair: "#1c1818" },
+    { style: "slick",  skin: "#c48e60", hair: "#201c1c" },
+    { style: "curly",  skin: "#f0c4a0", hair: "#924a2a" },
+  ];
+  // which placed workers are visible INSIDE a room. The café and the street
+  // are public — rivals mingle there. Every other room is your company's own
+  // session (writers' room, print floor, accounting, the agency interview):
+  // rivals stay on the queue outside (the slot pips); only your people enter.
+  // Returned compacted as {pid, slot} so your workers take the prime stations
+  // first, while `slot` keeps the true identity via staffCharFor.
+  const PUBLIC_ROOMS = { ideas: true, sales: true };
+  function roomOccupants(action) {
+    if (typeof UI === "undefined" || !UI.engine) return [];
+    const arr = UI.engine.state.actionSpaces[action] || [];
+    const out = [];
+    arr.forEach((pid, i) => {
+      if (pid === undefined) return;
+      if (UI.placeFlight && UI.placeFlight[action + ":" + i]) return; // still walking over
+      if (!PUBLIC_ROOMS[action] && pid !== UI.humanId) return;        // private session
+      out.push({ pid, slot: i });
+    });
+    return out;
+  }
+  // WHICH of the player's four staffers went to this particular slot: the
+  // rail roster grays its people from the right AS PLACEMENTS HAPPEN, so a
+  // player's k-th placement (in TIME order, from the engine's placement
+  // diary) is staffer editors-k. Rooms, slot pips, the rail and the map
+  // agent all agree on who exactly left the office — and identities never
+  // reshuffle retroactively when a later placement lands in an earlier room.
+  function staffCharFor(action, slot) {
+    const s = UI.engine.state, counts = {};
+    if (s.placeSeq) {
+      for (const e of s.placeSeq) {
+        counts[e.player] = (counts[e.player] || 0) + 1;
+        if (e.action === action && e.slot === slot)
+          return ((UI.engine.player(e.player).editors - counts[e.player]) % 4 + 4) % 4;
+      }
+    }
+    // no diary entry (old save, or state injected directly by tests):
+    // canonical ACTIONS-order counting, from a fresh tally
+    const c2 = {};
+    for (const a of ACTIONS) {
+      const arr = s.actionSpaces[a] || [];
+      for (let i = 0; i < arr.length; i++) {
+        const pid = arr[i];
+        if (pid === undefined) continue;
+        c2[pid] = (c2[pid] || 0) + 1;
+        if (a === action && i === slot)
+          return ((UI.engine.player(pid).editors - c2[pid]) % 4 + 4) % 4;
+      }
+    }
+    return 0;
+  }
+  // one wardrobe per staffer, copied from the rail sprites so the room render
+  // is unmistakably the SAME person, just closer:
+  // 0 fedora man — house suit over white shirt, dark tie
+  // 1 updo woman — white blouse, house pencil skirt
+  // 2 slick man  — white shirtsleeves, house suspenders, house trousers
+  // 3 bob woman  — house day dress with a dark belt
+  const WORKER_WHITE = "#f4eede";
+  function workerAttire(ch, pub) {
+    return [
+      { shirt: pub.color, pants: pub.dark, tie: pub.dark },
+      { shirt: WORKER_WHITE, dress: true, skirtC: pub.color },
+      { shirt: WORKER_WHITE, pants: pub.color, susp: pub.color },
+      { shirt: pub.color, dress: true, skirtC: pub.color, belt: pub.dark },
+    ][ch];
+  }
+  function worker(x, y, pid, o = {}) {
+    const p = UI.engine.player(pid), pub = PUBLISHERS[p.color];
+    const ch = o.char !== undefined ? o.char : pid % 4;
+    const look = WORKER_LOOKS[ch];
+    const opts = {
+      hatC: pub.dark, skin: look.skin, hair: look.hair, style: look.style,
+      ...workerAttire(ch, pub), ...o,
+    };
+    if (!o.sit) SH(x - 15, y - 3, 30, 4, .16);
+    (o.sit ? cSitGuy : cGuy)(x, y, opts);
+  }
+
   function drawPrintHD(f) {
     // brick wall, greasy and warm only under the two work lamps
     R(0, 0, HDW, 128, "#5a332c");
@@ -1420,6 +1594,19 @@ const LocArt = (() => {
     R(314, 168, 8, 5, "#e5dcc2"); P1(316, 170, "#c9b98f");
     // sparks off the gearbox now and then
     if (f % 5 === 0) { R(190, 80, 4, 4, "#ffd75e"); R(198, 88, 2, 2, "#fff"); R(186, 92, 2, 2, "#ffd75e"); }
+    // the visiting editors run their print jobs (the pressman is the shop's
+    // own man; each placed publisher works a station in house colors)
+    const stations = [
+      { x: 116, y: 174, o: (fr) => ({ dir: 1, armF: fr % 2 ? 12 : 8 }) },        // checking the web
+      { x: 298, y: 188, o: (fr) => ({ dir: -1, armF: fr % 2 ? 3 : 9 }) },        // stacking fresh comics
+      { x: 152, y: 216, o: (fr) => ({ dir: 0, talk: fr % 4 < 2 }) },             // fronting the press
+      { x: 66, y: 214, o: (fr) => ({ dir: 1, armF: fr % 2 ? 6 : 2 }) },          // minding the ink drums
+      { x: 206, y: 216, o: (fr) => ({ dir: 1, armB: 4 }) },                      // waiting on the run
+    ];
+    roomOccupants("print").forEach((o2, k) => {
+      if (!stations[k]) return;
+      worker(stations[k].x, stations[k].y, o2.pid, { char: staffCharFor("print", o2.slot), ...stations[k].o(f) });
+    });
   }
   function drumHD(cx, cy, r, f) {
     R(cx - r - 2, cy - r + 4, 2 * r + 4, 2 * r - 8, INK);
@@ -1540,17 +1727,49 @@ const LocArt = (() => {
       R(sx - 2, 30, 10, 6, lit ? "#ffe38a" : "#8a7a4a");
       if (lit) { P1(sx + 2, 31, "#fff6d8"); GLOW(sx - 6, 28, 18, 12, .18); }
     }
+    // the publishers' people queue to collect (the accountant is the house's
+    // own — he counts, they pocket)
+    const royOcc = roomOccupants("royalties");
+    const royStations = [
+      [258, 202, -1, { armF: 10 }],          // hand out for the payout
+      [206, 206, 1, { armB: 2 }],            // next in line
+      [154, 210, 1, {}],
+      [104, 212, 1, {}],
+      [58, 210, 1, {}],
+    ];
+    royOcc.forEach((o2, k) => {
+      if (!royStations[k]) return;
+      const [sx, sy, sd, so] = royStations[k];
+      worker(sx, sy, o2.pid, { dir: sd, talk: (f + k) % 5 < 2, char: staffCharFor("royalties", o2.slot), ...so });
+    });
   }
 
   // ========================================================== NEWSSTAND (2x)
   function drawSalesHD(f) {
-    // morning sky, clouds drifting on the old beat
-    R(0, 0, HDW, 52, "#7fb2d4");
-    R(0, 0, HDW, 10, "#6ca4cb"); dith(0, 10, HDW, 4, "#6ca4cb");
-    R(0, 44, HDW, 8, "#93bfdc"); dith(0, 40, HDW, 4, "#93bfdc", 1);
+    // a slim ribbon of morning sky — the street is the star, not the weather
+    R(0, 0, HDW, 26, "#7fb2d4");
+    R(0, 0, HDW, 6, "#6ca4cb"); dith(0, 6, HDW, 3, "#6ca4cb");
+    R(0, 20, HDW, 6, "#93bfdc"); dith(0, 17, HDW, 3, "#93bfdc", 1);
     const cx = ((f * 4) % (HDW + 80)) - 40;
-    R(cx, 14, 32, 8, "#eef4f8"); R(cx + 8, 10, 20, 6, "#fff"); R(cx + 2, 20, 28, 2, "#dfe9f0");
-    R(cx - 120 + 168, 28, 24, 6, "#e4edf3"); R(cx - 116 + 168, 32, 16, 2, "#d5e2ec");
+    R(cx, 4, 32, 6, "#eef4f8"); R(cx + 8, 1, 20, 5, "#fff"); R(cx + 2, 10, 28, 2, "#dfe9f0");
+    R(cx + 48, 12, 24, 5, "#e4edf3"); R(cx + 52, 15, 16, 2, "#d5e2ec");
+    // the city runs on behind the block: two hazy skyline layers + the spires
+    // (same silhouette language as the map's horizon)
+    for (let i = 0; i < 14; i++) {
+      const sx = (i * 47 + 11) % (HDW + 20) - 10, sw = 14 + (i * 13) % 18, sh = 7 + (i * 11) % 10;
+      R(sx, 26 - sh, sw, sh, "#9db9cc");
+    }
+    for (let i = 0; i < 12; i++) {
+      const sx = (i * 61 + 27) % (HDW + 20) - 10, sw = 12 + (i * 17) % 16, sh = 4 + (i * 7) % 7;
+      R(sx, 26 - sh, sw, sh, "#84a4bb");
+    }
+    R(96, 6, 8, 20, "#84a4bb"); R(98, 2, 4, 4, "#84a4bb"); R(99, 0, 2, 2, "#84a4bb");    // Empire State
+    R(258, 10, 7, 16, "#9db9cc"); R(260, 6, 3, 4, "#9db9cc"); R(261, 2, 1, 4, "#9db9cc"); // Chrysler
+    // the whole street block rides 26px HIGHER (the space the sky gave up):
+    // the skyline stays visible over the two-storey roofline, and the
+    // newsstand action clears the tile's bottom overlays
+    g.save();
+    g.translate(0, -26);
     // the brownstone block
     R(0, 52, HDW, 80, "#8a5643"); R(0, 52, HDW, 2, INK);
     for (let y = 60; y < 124; y += 8) R(0, y, HDW, 1, "#82503e");
@@ -1577,9 +1796,13 @@ const LocArt = (() => {
     for (let x = 4; x < HDW; x += 12) P1(x, 126, "#5c3a2c"); // dentils
     R(0, 130, HDW, 2, INK);
     R(254, 124, 24, 3, "#8f897a"); R(252, 127, 28, 3, "#7f7a6c"); // the stoop's two steps
-    // sidewalk, curb, asphalt — afternoon sun coming from the left
+    // sidewalk, curb, asphalt — afternoon sun coming from the left.
+    // Slab joints fan outward toward the viewer: the ground reads as a
+    // receding plane instead of a flat band
     R(0, 132, HDW, 60, "#a09a8a");
-    for (let x = 40; x < HDW; x += 52) R(x, 132, 2, 60, "#7f7a6c");
+    for (let x0 = 40; x0 < HDW; x0 += 52)
+      for (let s = 0; s < 6; s++)
+        R(Math.round(168 + (x0 - 168) * (1 + s * 0.045)), 132 + s * 10, 2, 10, "#7f7a6c");
     R(0, 162, HDW, 1, "#8f897a"); // slab midline
     SH(0, 132, HDW, 7, .16);
     R(0, 132, HDW, 2, INK);
@@ -1596,17 +1819,24 @@ const LocArt = (() => {
     SH(298, 184, 12, 4, .15);
     R(296, 96, 4, 92, "#2b2f38"); R(296, 96, 1, 92, "#454c5a");
     R(294, 184, 8, 6, "#2b2f38"); box(288, 84, 20, 12, "#2b2f38"); R(292, 88, 12, 4, "#c9b06a");
-    // the newsstand: striped awning, vendor, racks bursting with comics
-    SH(224, 136, 30, 34, .1); // its shadow falls away from the sun
+    // the newsstand: striped awning, vendor, racks bursting with comics.
+    // Its cast shadow skews away from the sun in steps — a flat blob read
+    // as a smudge, a raked one reads as depth
+    for (let s = 0; s < 5; s++) SH(226 + s * 5, 136 + s * 7, 26, 7, .09);
     box(116, 88, 108, 84, "#3f6f4f");
     R(118, 90, 2, 80, "#4f8560"); R(220, 90, 3, 80, "#2f5540"); // sun side / shade side
     for (let x = 128; x < 216; x += 12) R(x, 92, 1, 76, "#356047"); // slats
-    // the vendor in his window
+    // cabinet-projected east face: the booth is a BOX, not a flat
+    for (let s = 0; s < 8; s++) R(224 + s, 88 - (s >> 1), 1, 84 + (s >> 1), s < 2 ? "#2f5540" : "#26473a");
+    R(224, 86, 8, 2, "#356047"); // roof edge running back
+    // the vendor in his window — STREET scale, like everyone outdoors:
+    // flat cap, walrus mustache, chatting with whoever stops by
     R(150, 100, 40, 30, "#1d232e");
-    R(158, 102, 14, 4, "#3a2a1c"); R(157, 105, 16, 11, "#e8b48c"); // flat hair, long face
-    P1(160, 109, "#2b2018"); P1(167, 109, "#2b2018"); R(163, 110, 2, 3, "#c9926b");
-    R(161, 114, 6, 2, "#3a2a1c"); // mustache
-    R(152, 116, 26, 14, "#c9973b"); R(152, 116, 26, 1, "#e0b45e"); R(160, 118, 8, 3, "#efe6d0"); // shirt + rag
+    streetGuy(170, 170, {
+      dir: 1, coat: "#5b6a8a", skin: "#e8b48c", hair: "#3a2a1c",
+      cap: "#3a3f4a", mo: true, talk: f % 4 < 2,
+    });
+    R(158, 126, 8, 3, "#efe6d0"); // his polishing rag on the counter
     R(124, 100, 26, 30, "#1d232e"); R(190, 100, 26, 30, "#1d232e"); // the dim ends of the booth
     R(126, 102, 8, 26, "#3a3f4a"); R(192, 102, 8, 26, "#3a3f4a"); // stacked bundles
     R(124, 128, 92, 4, "#2c5a3f"); R(124, 128, 92, 1, "#3f7a54"); // the counter ledge
@@ -1617,6 +1847,7 @@ const LocArt = (() => {
       R(108 + i * 16, 88 + (f % 2 && i % 2 ? 2 : 0), 16, 4, i % 2 ? "#a83730" : "#cfc4a6"); // hems flap
     }
     R(108, 72, 124, 2, INK);
+    for (let s = 0; s < 6; s++) R(232 + s, 74 - (s >> 1), 1, 16, "#a83730"); // awning side flap, receding
     SH(118, 92, 104, 5, .22); // awning shade on the booth
     P1(112, 88, "#2b2f38"); P1(228, 88, "#2b2f38"); // support arms
     g.fillStyle = "#efe6d0"; // NEWS on the fascia
@@ -1658,7 +1889,11 @@ const LocArt = (() => {
     P1(px0 + 12, 183 + (f % 5 === 0 ? 4 : 0), "#c9973b"); P1(px0 + 9, 183 + (f % 5 === 0 ? 4 : 0), "#221d16");
     P1(px0 + 2, 190, "#6e747c"); P1(px0 + 6, 190, "#6e747c"); // feet
     // a checker cab rumbles past, close to the camera — big as life
-    const cb = ((f * 14) % (HDW + 160)) - 80;
+    // (scaled 1.4x around its road line: next to a 62px person a checker
+    // cab is LONG — the unscaled one read as a toy)
+    const cb = ((f * 14) % (HDW + 200)) - 100;
+    g.save();
+    g.translate(cb + 50, 224); g.scale(1.4, 1.4); g.translate(-(cb + 50), -224);
     SH(cb + 2, 219, 98, 5, .28);
     R(cb, 198, 100, 16, "#e8b93c"); R(cb, 198, 100, 2, "#f5d271"); // body
     R(cb + 2, 209, 96, 1, "#f5d271"); R(cb, 212, 100, 2, "#c9973b"); // belt line + rocker
@@ -1679,6 +1914,44 @@ const LocArt = (() => {
     R(cb + 94, 202, 4, 6, "#9aa3ad"); // grille
     P1(cb + 98, 200, "#fff6d8"); P1(cb + 99, 201, "#ffe38a"); // headlight
     P1(cb - 8, 206, "#565961"); P1(cb - 12, 210, "#565961"); P1(cb - 7, 213, "#565961"); // dust
+    g.restore();
+    // the publishers' agents talk shop with the vendor at his window — at
+    // STREET scale (~62px): this is an exterior, and the interior painter
+    // made them tower over the newsstand
+    const salesOcc = roomOccupants("sales");
+    const salesStations = [
+      [100, 172, 1],             // at the booth's west window
+      [236, 174, -1],            // by the lamppost side
+      [78, 190, 1],
+      [258, 192, -1],
+      [48, 188, 1],
+    ];
+    salesOcc.forEach((o2, k) => {
+      if (!salesStations[k]) return;
+      const [sx, sy, sd] = salesStations[k];
+      streetWorker(sx, sy + ((f + k) % 2), o2.pid, { dir: sd, char: staffCharFor("sales", o2.slot) });
+    });
+    g.restore();
+    // the lift exposes 26 fresh rows at the bottom — more asphalt, which the
+    // tile's queue rail mostly covers anyway
+    R(0, 198, HDW, 26, "#3c3f46");
+    R(126, 204, 24, 4, "#565961"); R(250, 210, 24, 4, "#565961");
+    dith(0, 210, HDW, 14, "#33363c");
+  }
+  // a placed worker at exterior street scale: same person, same house
+  // wardrobe as the rail sprite and the interior render, ~62px tall
+  function streetWorker(x, y, pid, o = {}) {
+    const p = UI.engine.player(pid), pub = PUBLISHERS[p.color];
+    const ch = o.char !== undefined ? o.char : pid % 4;
+    const look = WORKER_LOOKS[ch];
+    const attire = [
+      { coat: pub.color, pants: pub.dark, hat: pub.dark, tie: pub.dark },
+      { coat: WORKER_WHITE, dress: true, skirtC: pub.color, bun: true },
+      { coat: WORKER_WHITE, pants: pub.color, susp: pub.color },
+      { coat: pub.color, dress: true, skirtC: pub.color, belt: pub.dark, bob: true },
+    ][ch];
+    SH(x - 10, y - 2, 20, 3, .16);
+    streetGuy(x, y, { dir: o.dir || 1, skin: look.skin, hair: look.hair, ...attire, ...o });
   }
 
   const HD_PAINTERS = {
@@ -1734,5 +2007,5 @@ const LocArt = (() => {
     if (SPECIAL_P[key]) start(cv, SPECIAL_P[key]);
   }
 
-  return { attach, attachClassic, attachSpecial };
+  return { attach, attachClassic, attachSpecial, staffCharFor };
 })();

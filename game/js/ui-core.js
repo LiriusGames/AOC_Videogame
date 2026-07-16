@@ -13,6 +13,9 @@ const UI = {
   eventCursor: 0,
   busy: false,
   autoplay: false,
+  // map animation pace: the cab ride is worth watching by default; players
+  // in a hurry flip this in the sales run (persisted)
+  animFast: (() => { try { return !!localStorage.getItem("aoc-anim-fast"); } catch (_e) { return false; } })(),
 };
 
 // ------------------------------------------------------------------ helpers
@@ -38,6 +41,11 @@ function sprHTML(name, scale = 1) { return spr(name, scale).outerHTML; }
 function genreDot(g) {
   return `<span class="genre-dot" style="background:${GENRE_INFO[g].color}" title="${GENRE_INFO[g].name}"></span>`;
 }
+// the user-drawn genre symbol (gun/heart/boot/…) — reads at a glance where
+// the little color dot needed squinting
+function genreMark(g, scale = 0.6) {
+  return `<span class="genre-mark" title="${GENRE_INFO[g].name}">${sprHTML("genreicon_" + g, scale)}</span>`;
+}
 function fmtGenre(g) { return `${genreDot(g)} ${GENRE_INFO[g].name}`; }
 function P(pid) { return UI.engine.player(pid); }
 function isHuman(pid) { return P(pid).human; }
@@ -51,6 +59,8 @@ function comicSprite(entry) {
 }
 function coverOf(cardId) { return "cover_" + cardId; }
 function faceOf(creativeId) { return "face_" + creativeId; }
+// the high-res twin for any use ≥ ~50px on screen (panels, reveals, zooms)
+function faceBigOf(creativeId) { return "facebig_" + creativeId; }
 function cardSprite(cardId) {
   const c = CARD_BY_ID[cardId];
   return c.kind ? c.sprite : coverOf(cardId);
@@ -74,30 +84,97 @@ function bonusChip(bonus) {
 function comicTile(cardId, opts = {}) {
   const card = CARD_BY_ID[cardId];
   const d = el("div", "comic-tile" + (opts.cls ? " " + opts.cls : ""));
+  d.style.setProperty("--gc", GENRE_INFO[card.genre].color); // genre top band
   d.appendChild(spr(coverOf(cardId), opts.scale || 1.2));
   const info = el("div", "ct-info");
   info.innerHTML = `<div class="ct-title">${esc(card.title)}</div>` +
-    `<div>${genreDot(card.genre)} ${bonusChip(card.bonus)}${opts.extra || ""}</div>`;
+    `<div>${genreMark(card.genre)} ${bonusChip(card.bonus)}${opts.extra || ""}</div>`;
   d.appendChild(info);
   if (opts.onpick) d.onclick = () => { SFX.play("click"); opts.onpick(d); };
   if (opts.dimmed) d.classList.add("dimmed");
   attachZoom(d, coverOf(cardId));
   return d;
 }
-// a creative: caricature face + name + genre + value pips
-function personChip(creativeId, opts = {}) {
+// (creatives render via personFigure — the panel-system person; the old
+// paper-framed personChip is gone with the de-carding)
+
+// ------------------------------------------------------------ panel system
+// Every action dialog shares one anatomy: a vignette-emblem header (title +
+// tagline), labeled sections (ON OFFER / YOUR PICK / …), a COST & RESULT
+// live footer, and the common button bar (modalButtons).
+function panelHead(m, action, title, tagline) {
+  const h = el("div", "panel-head");
+  const em = el("div", "ph-emblem");
+  const a = ATLAS["vig_" + action];
+  em.appendChild(spr("vig_" + action, Math.min(112 / a.w, 84 / a.h)));
+  h.appendChild(em);
+  const t = el("div", "ph-text");
+  t.appendChild(el("h2", "", title));
+  if (tagline) t.appendChild(el("div", "ph-tag", tagline));
+  h.appendChild(t);
+  m.appendChild(h);
+  return h;
+}
+function panelSection(m, label, cls = "") {
+  const s = el("div", "panel-section" + (cls ? " " + cls : ""));
+  if (label) s.appendChild(el("div", "ps-label", label));
+  const body = el("div", "ps-body");
+  s.appendChild(body);
+  m.appendChild(s);
+  return body;
+}
+// the live cost&benefit strip — a COST & RESULT section whose text follows
+// the current selection (aria-live keeps screen readers in the loop)
+function panelFooter(m) {
+  const body = panelSection(m, "COST &amp; RESULT", "panel-costs");
+  const f = el("div", "panel-footer");
+  f.setAttribute("aria-live", "polite");
+  body.appendChild(f);
+  return f;
+}
+// a creative is a PERSON, not a card: face + name + trade tag + genre icon
+// + value stars, standing free — no paper frame
+function personFigure(creativeId, opts = {}) {
   const c = CARD_BY_ID[creativeId];
-  const d = el("div", "person" + (opts.cls ? " " + opts.cls : ""));
-  d.appendChild(spr(faceOf(creativeId), opts.scale || 1.6));
-  const info = el("div", "p-info");
-  info.innerHTML = `<div class="p-name">${esc(c.name)}</div>` +
-    `<div>${genreDot(c.genre)} <span class="p-kind">${c.kind}</span> <b class="p-val">${"&#10022;".repeat(opts.value !== undefined ? opts.value : c.value)}</b>` +
-    `${c.value === 1 && !opts.noRookie ? " <span class='chip' style='background:#5ba59f;color:#fff' title='Rookie: comes with a free idea token'>+IDEA</span>" : ""}</div>`;
-  d.appendChild(info);
+  const d = el("div", "figure" + (opts.cls ? " " + opts.cls : ""));
+  const face = el("div", "fig-face");
+  face.appendChild(spr(faceBigOf(creativeId), opts.scale || 1)); // 56px native
+  d.appendChild(face);
+  d.appendChild(el("div", "fig-name", esc(c.name)));
+  const meta = el("div", "fig-meta");
+  meta.appendChild(spr("tag_" + c.kind, 0.7));
+  meta.appendChild(spr("genreicon_" + c.genre, 0.8));
+  meta.appendChild(el("b", "fig-val", "&#10022;".repeat(opts.value !== undefined ? opts.value : c.value)));
+  d.appendChild(meta);
+  if (c.value === 1 && !opts.noRookie)
+    d.appendChild(el("div", "fig-extra", `<span class="chip" style="background:#33716c;color:#fff">+IDEA</span> rookie`));
+  if (opts.extra) d.appendChild(el("div", "fig-extra", opts.extra));
+  d.setAttribute("aria-label", `${c.name} — ${GENRE_INFO[c.genre].name} ${c.kind}, value ${c.value}` +
+    (c.value === 1 && !opts.noRookie ? ", rookie: signs with a free idea" : ""));
   if (opts.balloon) d.appendChild(el("div", "balloon", opts.balloon));
   if (opts.onpick) d.onclick = () => { SFX.play("click"); opts.onpick(d); };
   if (opts.dimmed) d.classList.add("dimmed");
-  attachZoom(d, c.sprite); // hover: the vintage trading card, as a collectible
+  // hover: the face up close + the facts — no trading card at runtime
+  attachZoom(d, faceBigOf(creativeId),
+    `<b>${esc(c.name)}</b><br>${GENRE_INFO[c.genre].name} ${c.kind} &middot; ${"&#10022;".repeat(c.value)}`);
+  return d;
+}
+// a blind deck draw: the same cream disc as every real face, holding the
+// generic trade tools (baked in the pipeline from the user's detailed
+// icons) with a gold "?" seal — homogeneous with its neighbors
+function mysteryFigure(kind, value, opts = {}) {
+  const d = el("div", "figure mystery" + (opts.cls ? " " + opts.cls : ""));
+  const face = el("div", "fig-face mystery");
+  face.appendChild(spr("mysterybig_" + kind, 1)); // 56px native
+  face.appendChild(el("b", "", "?"));
+  d.appendChild(face);
+  d.appendChild(el("div", "fig-name", opts.name || "Classified ad"));
+  const meta = el("div", "fig-meta");
+  meta.appendChild(spr("tag_" + kind, 0.7));
+  meta.appendChild(el("b", "fig-val", "&#10022;".repeat(value)));
+  d.appendChild(meta);
+  d.setAttribute("aria-label", `Classified ad — mystery ${kind} of value ${value}, signed blind from the deck`);
+  if (opts.onpick) d.onclick = () => { SFX.play("click"); opts.onpick(d); };
   return d;
 }
 
@@ -243,19 +320,8 @@ function modalButtons(m, buttons) {
   m.appendChild(bar);
   return bar;
 }
-function sceneBanner(m, action) {
-  const info = ACTION_INFO[action];
-  const a = ATLAS[info.scene], sh = SHEETS[a.sheet];
-  const b = el("div", "scene-banner");
-  const scale = 2.2;
-  b.style.backgroundImage = `url(${sh.file})`;
-  b.style.backgroundPosition = `${-a.x * scale}px ${-(a.y + 10) * scale}px`;
-  b.style.backgroundSize = `${sh.w * scale}px ${sh.h * scale}px`;
-  b.style.width = Math.round(a.w * scale) + "px";
-  b.style.maxWidth = "100%";
-  b.style.alignSelf = "center";
-  m.appendChild(b);
-}
+// (the wide scene-banner strip is gone: action dialogs open with the shared
+// panelHead vignette emblem instead)
 
 // ------------------------------------------------------------------- toasts
 function toast(msg, big = false) {
@@ -451,55 +517,64 @@ function renderTopbar() {
   });
 }
 
-function benefitText(action) {
-  const e = UI.engine;
-  const slot = e.nextSlot(action);
-  if (slot < 0) return "FULL";
-  switch (action) {
-    case "hire": return "writer + artist";
-    case "develop": return "new comic";
-    case "ideas": return `${IDEAS_SLOTS[slot]}+2 ideas`;
-    case "print": return slot === 0 ? "PRINT x2!" : "print";
-    case "royalties": return `$${ROYALTIES_SLOTS[slot]}`;
-    case "sales": return `${SALES_SLOTS[slot]} order${SALES_SLOTS[slot] === 1 ? "" : "s"}`;
-  }
-}
+// (the old benefit chips are gone — the offer band IS the benefit for hire
+// and develop, and the queue markers price the other four actions)
 
 const ACTION_HUE = {
   hire: "#4a7fb5", develop: "#8a5a9e", ideas: "#3f8f7a",
   print: "#b5443a", royalties: "#c9973b", sales: "#d97f35",
 };
 // what's openly available at each location right now (the board's open info)
+// what the k-th seat of an action space is worth — written on the empty
+// floor marker so "what do I get if I go now?" reads at a glance
+function slotPerk(action, i) {
+  switch (action) {
+    case "royalties": return "$" + ROYALTIES_SLOTS[i];
+    case "sales": return String(SALES_SLOTS[i]);
+    case "ideas": return "+" + (IDEAS_SLOTS[i] + 2);
+    case "print": return i === 0 ? "&times;2" : "";
+    default: return "";
+  }
+}
+function spotTitle(action, i) {
+  switch (action) {
+    case "royalties": return `Open spot — this desk pays $${ROYALTIES_SLOTS[i]}`;
+    case "sales": return `Open spot — this seat flips and collects up to ${SALES_SLOTS[i]} orders`;
+    case "ideas": return `Open spot — this chair takes ${IDEAS_SLOTS[i]} café token${IDEAS_SLOTS[i] === 1 ? "" : "s"} (+2 from the supply)`;
+    default: return "Open spot";
+  }
+}
+
 function offerStrip(action) {
   const e = UI.engine, s = e.state;
   const strip = el("div", "loc-offer");
-  const add = (sprite, scale, title) => {
-    const d = spr(sprite, scale);
-    if (title) d.title = title;
-    strip.appendChild(d);
-  };
   switch (action) {
     case "hire": {
-      // faces WITH the two facts that matter: genre + value
+      // the caricature discs (user-preferred over icon chips) with the two
+      // facts that matter under each: genre mark + value stars
       const mk = (c, kind) => {
         const card = CARD_BY_ID[c];
         const d = el("div", "offer-person");
-        d.appendChild(spr(faceOf(c), 1.15));
-        d.appendChild(el("span", "op-meta", `${genreDot(card.genre)}<b>${"&#10022;".repeat(card.value)}</b>`));
+        d.appendChild(spr(faceBigOf(c), 0.5));
+        d.appendChild(el("span", "op-meta",
+          `${sprHTML("genreicon_" + card.genre, 0.42)}<b>${"&#10022;".repeat(card.value)}</b>`));
         d.title = `${card.name} — ${GENRE_INFO[card.genre].name} ${kind} v${card.value}`;
         strip.appendChild(d);
       };
       s.display.writers.forEach((c) => mk(c, "writer"));
-      strip.appendChild(el("span", "loc-offer-sep", "&#9998;"));
+      strip.appendChild(el("span", "loc-offer-sep")); // thin rule, not a pencil
       s.display.artists.forEach((c) => mk(c, "artist"));
       break;
     }
     case "develop":
       s.display.comics.forEach((c) => {
         const card = CARD_BY_ID[c];
+        // cover + genre icon share ONE muted genre-colored plate: the icon
+        // reads as this comic's attribute, not a separate object
         const d = el("div", "offer-comic");
-        d.appendChild(spr(coverOf(c), 0.5));
-        d.appendChild(el("span", "oc-dot", genreDot(card.genre)));
+        d.style.setProperty("--gc", GENRE_INFO[card.genre].color);
+        d.appendChild(spr(coverOf(c), 0.38));
+        d.appendChild(el("span", "oc-dot", genreMark(card.genre, 0.5)));
         d.title = `${card.title} (${GENRE_INFO[card.genre].name})`;
         strip.appendChild(d);
       });
@@ -507,7 +582,7 @@ function offerStrip(action) {
     case "ideas":
       // all six shown; taken ones fade instead of vanishing
       GENRES.forEach((g) => {
-        const d = spr("idea_" + g, 0.95);
+        const d = spr("idea_" + g, 0.7);
         if (s.boardIdeas[g] > 0) d.title = GENRE_INFO[g].name + " idea on the table";
         else { d.classList.add("taken"); d.title = GENRE_INFO[g].name + " idea already taken (back next round)"; }
         strip.appendChild(d);
@@ -515,23 +590,56 @@ function offerStrip(action) {
       break;
     case "print": {
       const p = P(UI.humanId);
-      const w = p.hand.some((c) => CARD_BY_ID[c].kind === "writer");
-      const a = p.hand.some((c) => CARD_BY_ID[c].kind === "artist");
+      const vals = (kind) => p.hand.filter((c) => CARD_BY_ID[c].kind === kind)
+        .map((c) => CARD_BY_ID[c].value).sort((x, y) => x - y);
+      const ws = vals("writer"), as2 = vals("artist");
       const comic = p.hand.some((c) => !CARD_BY_ID[c].kind) || p.hyped.length > 0;
-      strip.innerHTML = `<i>you need:</i> <b style="${w ? "" : "color:#ffd75e"}">writer${w ? " &#10004;" : ""}</b> ` +
-        `<b style="${a ? "" : "color:#ffd75e"}">artist${a ? " &#10004;" : ""}</b> ` +
-        `<b style="${comic ? "" : "color:#ffd75e"}">comic${comic ? " &#10004;" : ""}</b>`;
+      // cash = the team's total value; show the cheapest pair you could field
+      const minCost = ws.length && as2.length ? ws[0] + as2[0] : 0;
+      const cash = minCost > 0 && p.money >= minCost;
+      // originals also burn 2 ideas of the comic's genre (rip-offs don't)
+      const ideasOk = [...p.hand, ...p.hyped.map((h) => h.cardId)].some((c) => {
+        const card = CARD_BY_ID[c];
+        return card && !card.kind && p.ideas[card.genre] >= 2;
+      });
+      // five requirements on one 46px line: dense type, checkmarks glued
+      // to their labels — the loose version clipped at the tile edge
+      strip.classList.add("dense");
+      const need = (label, ok, title) => {
+        const b = el("b", "", `${label}${ok ? "&#10004;" : ""}`);
+        if (!ok) b.style.color = "#ffd75e";
+        if (title) b.title = title;
+        strip.appendChild(b);
+        strip.appendChild(document.createTextNode(" "));
+      };
+      // no "you need:" prefix — the checkmarks say it, and the full list
+      // must fit the one 46px line
+      need("writer", ws.length > 0);
+      need("artist", as2.length > 0);
+      need("comic", comic);
+      need(minCost > 0 ? `$${minCost}+` : "$&mdash;", cash,
+        minCost > 0 ? `Cash equal to the team's total value — your cheapest pair costs $${minCost}`
+          : "Cash equal to the team's total value (you need a writer and an artist first)");
+      need("2 ideas", ideasOk, "An ORIGINAL needs 2 idea tokens of its genre (rip-offs need none)");
       break;
     }
     case "royalties":
-      strip.innerHTML = `<i>next desks pay:</i> <b>${ROYALTIES_SLOTS.slice(Math.max(0, e.nextSlot(action)), e.slotsAvailable(action)).map((v) => "$" + v).join(" ")}</b>`;
+      // the queue markers below already price every desk — no need to repeat
+      strip.innerHTML = `<i>the early desks pay better</i>`;
       break;
     case "sales": {
       const up = s.mapSlots.filter((t) => t.takenBy === null && t.faceUp);
       const down = s.mapSlots.filter((t) => t.takenBy === null && !t.faceUp).length;
       const byGenre = {};
       up.forEach((t) => (byGenre[t.genre] = (byGenre[t.genre] || 0) + 1));
-      GENRES.forEach((g) => { if (byGenre[g]) add("gicon_" + g, 0.85, `${byGenre[g]} ${GENRE_INFO[g].name} order${byGenre[g] > 1 ? "s" : ""} face-up`); });
+      GENRES.forEach((g) => {
+        if (!byGenre[g]) return;
+        const d = el("span", "offer-genre");
+        d.appendChild(spr("genreicon_" + g, 0.8));
+        if (byGenre[g] > 1) d.appendChild(el("b", "", "&times;" + byGenre[g]));
+        d.title = `${byGenre[g]} ${GENRE_INFO[g].name} order${byGenre[g] > 1 ? "s" : ""} face-up`;
+        strip.appendChild(d);
+      });
       strip.appendChild(el("span", "", `<i>+${down} hidden</i>`));
       break;
     }
@@ -544,40 +652,67 @@ function renderLocations() {
   const wrap = document.getElementById("locations");
   const focusedAction = wrap.contains(document.activeElement) ? document.activeElement.dataset.action : null;
   wrap.innerHTML = "";
-  const myTurn = s.phase === "actions" && e.currentPlayerId() === UI.humanId && !UI.busy && !s.pending && !s.awaitingSpecial;
+  // a minimized sales run freezes the board: everything stays inspectable,
+  // but the only legal move is returning to Manhattan
+  const runParked = !!(s.salesSession && P(s.salesSession.player).human);
+  const myTurn = s.phase === "actions" && e.currentPlayerId() === UI.humanId && !UI.busy &&
+    !s.pending && !s.awaitingSpecial && !runParked;
   for (const action of ACTIONS) {
     const info = ACTION_INFO[action];
     const canGo = myTurn && e.canAct(UI.humanId, action);
     const loc = el("div", "loc" + (canGo ? "" : " disabled"));
     loc.style.setProperty("--ac", ACTION_HUE[action]);
-    // the whole space is a drawn, animated scene (see loc-art.js)
-    const cv = document.createElement("canvas");
-    cv.className = "loc-scene";
-    loc.appendChild(cv);
-    LocArt.attach(cv, action);
-    // verb marquee
-    loc.appendChild(el("div", "loc-verb", info.verb.replace("!", "")));
-    // action spaces
+    // action spaces: placed staffers on house-color plinths, open spots as
+    // chalked markers carrying the spot's payout; the next free spot pulses
     const slots = el("div", "slots");
     const nAvail = e.slotsAvailable(action);
+    const nextFree = e.nextSlot(action);
     for (let i = 0; i < nAvail; i++) {
-      const pip = el("div", "slot-pip");
       const occ = s.actionSpaces[action][i];
-      if (occ !== undefined) pip.appendChild(spr("meeple_" + P(occ).color, 0.9));
-      if (action === "print" && i === 0) pip.title = "First editor here may print 2 books";
+      // a staffer still walking over (placement flight) hasn't arrived yet
+      const inFlight = UI.placeFlight && UI.placeFlight[action + ":" + i];
+      const filled = occ !== undefined && !inFlight;
+      const pip = el("div", "slot-pip" + (filled ? " taken" : "") +
+        (canGo && i === nextFree ? " next" : ""));
+      if (filled) {
+        // the exact staffer who left the roster — pip, room and rail agree
+        pip.style.setProperty("--house", PUBLISHERS[P(occ).color].color);
+        pip.appendChild(spr(`staff_${P(occ).color}_${LocArt.staffCharFor(action, i)}`, 0.45));
+        pip.title = `${P(occ).pubName} works here`;
+      } else {
+        // an empty next-spot with no payout still needs to read as "a place
+        // to stand", not a stray gold ring
+        const perk = slotPerk(action, i) || (canGo && i === nextFree ? "&#8250;&#8250;" : "");
+        if (perk) pip.appendChild(el("span", "spot-perk", perk));
+        pip.title = spotTitle(action, i);
+      }
+      if (action === "print" && i === 0) pip.title = (pip.title ? pip.title + "\n" : "") + "First editor here may print 2 books";
       slots.appendChild(pip);
     }
-    loc.appendChild(slots);
-    // special cube badge
+    // TOP RAIL (opaque, per the user's mockup): [name plate][queue spots]…
+    // [★ badge] — identity and placement state read as one line, and the
+    // scene below keeps its whole composition
+    const head = el("div", "loc-head");
+    head.appendChild(el("div", "loc-verb", info.verb.replace("!", "")));
+    head.appendChild(slots);
     const sp = e.cubeSpecialFor(UI.humanId, action);
-    if (sp) loc.appendChild(el("div", "special-badge", "&#9733; " + SPECIALS[sp].name));
-    // live "on offer" strip + name plaque + benefit chip
-    loc.appendChild(offerStrip(action));
-    loc.appendChild(el("div", "loc-name", `<span>${info.name}</span>`));
-    loc.appendChild(el("div", "loc-chip", benefitText(action)));
+    if (sp) {
+      const badge = el("div", "special-badge", "&#9733; " + SPECIALS[sp].name);
+      badge.title = SPECIALS[sp].desc;
+      head.appendChild(badge);
+    }
+    loc.appendChild(head);
+    // the scene, with the single offer band overlaying its foot
+    const stage = el("div", "loc-stage");
+    const cv = document.createElement("canvas");
+    cv.className = "loc-scene";
+    stage.appendChild(cv);
+    LocArt.attach(cv, action);
+    stage.appendChild(offerStrip(action));
+    loc.appendChild(stage);
     // keyboard/screen-reader semantics, with the reason when unavailable
     let reason = "";
-    if (!myTurn) reason = "waiting for your turn";
+    if (!myTurn) reason = runParked ? "finish your sales run first" : "waiting for your turn";
     else if (P(UI.humanId).editorsLeft <= 0) reason = "no editors left";
     else if (e.nextSlot(action) < 0) reason = "all spaces taken";
     loc.title = info.desc + (reason ? `\nUnavailable: ${reason}.` : "");
@@ -591,6 +726,16 @@ function renderLocations() {
       SFX.play("click");
       Scenes.open(action);
     };
+    if (runParked && action === "sales") {
+      // the parked run lives here: the space itself is the resume button
+      loc.classList.remove("disabled");
+      loc.removeAttribute("aria-disabled");
+      loc.classList.add("resume-run");
+      loc.appendChild(el("div", "resume-plate", "&#9654; RESUME THE RUN"));
+      loc.title = "Your sales agent is waiting mid-run — click to return to Manhattan.";
+      loc.setAttribute("aria-label", "Manhattan Map — resume your sales run in progress");
+      loc.onclick = () => { SFX.play("click"); Scenes.salesScene(true); };
+    }
     wrap.appendChild(loc);
   }
   if (focusedAction) {
@@ -600,12 +745,14 @@ function renderLocations() {
 }
 
 const TRACK_MONEY = { 10: 6, 9: 4, 8: 4, 7: 4, 6: 3, 5: 3, 4: 3, 3: 2, 2: 2, 1: 1 };
+let inspectedPublisher = null; // which house's dossier is open in the chart
 
 function renderChart() {
   const e = UI.engine, s = e.state;
   const panel = document.getElementById("chart-panel");
   panel.innerHTML = "<h3>&#9733; THE COMIC BOOK CHART &#9733;</h3>";
   const order = s.players.map((p) => p.id).sort((a, b) => e.bestComicFans(b) - e.bestComicFans(a));
+  if (inspectedPublisher !== null && !order.includes(inspectedPublisher)) inspectedPublisher = null;
   // compact summary chip (laptop widths, where the sidebar becomes a drawer)
   const mini = document.getElementById("chart-mini");
   if (mini) {
@@ -617,22 +764,37 @@ function renderChart() {
       `Open the comic book chart. ${leader.pubName} leads${leader.human ? " (you)" : `, you are ${meRank}${sfx}`}.`);
   }
 
-  const track = el("div", "track");
-  track.style.gridTemplateColumns = `30px repeat(${s.players.length}, 1fr)`;
-  track.appendChild(el("div", "track-money", "$"));
+  // one full-height colored lane per house; the head opens its dossier
+  const grid = el("div", "chart-grid");
+  grid.style.setProperty("--lanes", order.length);
+  grid.appendChild(el("div", "chart-corner", "$"));
   for (const pid of order) {
-    const p = P(pid);
-    const h = el("div", "track-head");
-    h.style.background = PUBLISHERS[p.color].color;
-    h.appendChild(spr(PUBLISHERS[p.color].logo, 0.55));
-    h.title = p.pubName + (p.human ? " (you)" : ` — ${p.name}`);
-    track.appendChild(h);
+    const p = P(pid), pub = PUBLISHERS[p.color];
+    const head = el("button", "lane-head");
+    head.type = "button";
+    head.dataset.player = pid;
+    head.style.setProperty("--lane", pub.color);
+    head.setAttribute("aria-expanded", String(inspectedPublisher === pid));
+    head.setAttribute("aria-label",
+      `${p.pubName}${p.human ? ", your publishing house" : `, ${p.name}`}. Open publisher details.`);
+    head.appendChild(spr(pub.logo, 0.5));
+    head.appendChild(el("span", "", esc(p.pubName.split(" ")[0])));
+    if (p.human) head.appendChild(el("span", "you-tag", "YOU"));
+    head.onclick = () => {
+      SFX.play("paper");
+      inspectedPublisher = inspectedPublisher === pid ? null : pid;
+      renderChart();
+      const focus = panel.querySelector(`[data-player="${pid}"]`);
+      if (focus) focus.focus();
+    };
+    grid.appendChild(head);
   }
   for (let fans = 10; fans >= 1; fans--) {
-    track.appendChild(el("div", "track-money", `<span>$${TRACK_MONEY[fans]}</span><b>${fans}</b>`));
+    grid.appendChild(el("div", "chart-fan", `<b>${fans}</b><span>$${TRACK_MONEY[fans]}</span>`));
     for (const pid of order) {
-      const cell = el("div", "track-cell");
-      cell.style.background = fans % 2 ? "" : PUBLISHERS[P(pid).color].color + "33";
+      const p = P(pid);
+      const cell = el("div", "chart-cell");
+      cell.style.setProperty("--lane", PUBLISHERS[p.color].color);
       const best = e.bestComicFans(pid);
       const comics = s.chart.filter((c) => c.owner === pid && Math.min(10, c.fans) === fans && c.fans >= 1);
       for (const c of comics) {
@@ -643,79 +805,164 @@ function renderChart() {
         cc.title = `${c.title}${c.isRipoff ? " (RIP-OFF)" : ""} — ${c.fans} fans, value ${c.value}` +
           (c.fans === best ? " — chart leader for this house" : "");
         attachZoom(cc, comicSprite(c),
-          `<b>${esc(c.title)}</b><br>${genreDot(c.genre)} v${c.value} &middot; ${c.fans}&#9829; &middot; ${esc(P(c.owner).pubName)}`);
+          `<b>${esc(c.title)}</b><br>${genreMark(c.genre, 0.45)} v${c.value} &middot; ${c.fans}&#9829; &middot; ${esc(P(c.owner).pubName)}`);
         cell.appendChild(cc);
       }
-      track.appendChild(cell);
+      grid.appendChild(cell);
     }
   }
-  panel.appendChild(track);
+  panel.appendChild(grid);
   const offChart = s.chart.filter((c) => c.fans < 1);
   if (offChart.length)
     panel.appendChild(el("div", "modal-sub", `<span style="color:#9aa;font-size:15px">off-chart: ${offChart.map((c) => esc(c.title)).join(" &middot; ")}</span>`));
-
-  for (const pid of order) {
-    const p = P(pid);
-    const pub = PUBLISHERS[p.color];
-    const cp = el("div", "chart-player");
-    const head = el("div", "cp-head");
-    head.style.background = pub.color;
-    head.appendChild(spr(bossSprite(pid), 0.55));
-    head.appendChild(el("span", "", esc(p.human ? p.pubName + " (YOU)" : p.pubName)));
-    head.appendChild(el("span", "money", `$${p.money}&nbsp; &#9733;${p.vpTokens}`));
-    cp.appendChild(head);
-    const badges = el("div", "cp-badges");
-    GENRES.forEach((g) => {
-      if (s.mastery[g] === pid) {
-        const b = spr("mastery_" + g, 0.55);
-        b.title = GENRE_INFO[g].name + " Mastery (+1 fan per book of the genre, 2 VP)";
-        badges.appendChild(b);
-      }
-    });
-    for (let i = 0; i < p.tickets; i++) badges.appendChild(spr("ticket", 0.5));
-    badges.appendChild(el("span", "", `<span style="font-size:15px">&#128218; ${p.printedCount} printed</span>`));
-    cp.appendChild(badges);
-    panel.appendChild(cp);
-  }
-  // cafe table supply
-  const sup = el("div", "chart-player");
-  sup.appendChild(el("div", "cp-head", "<span style='font-size:15px'>CAFE TABLE (ideas)</span>"));
-  const row = el("div", "chart-comics");
-  GENRES.forEach((g) => {
-    const t = spr("idea_" + g, 0.8);
-    if (s.boardIdeas[g] > 0) t.title = GENRE_INFO[g].name + " idea available at Cafe Bizarre";
-    else {
-      t.style.cssText = "opacity:.25;filter:grayscale(1)";
-      t.title = GENRE_INFO[g].name + " idea taken this round";
-    }
-    row.appendChild(t);
+  if (inspectedPublisher !== null) panel.appendChild(renderChartDetail(inspectedPublisher));
+  // the standings ladder: the projected finish, always visible — a row
+  // opens the same dossier as its lane head
+  const ladder = el("div", "standings");
+  ladder.appendChild(el("div", "standings-title", "&#9733; THE STANDINGS &#9733;"));
+  e.scorePreview().forEach((sc, i) => {
+    const p = P(sc.player), pub = PUBLISHERS[p.color];
+    const row = el("button", "standing-row" + (p.human ? " you" : ""));
+    row.type = "button";
+    row.style.setProperty("--lane", pub.color);
+    row.setAttribute("aria-expanded", String(inspectedPublisher === sc.player));
+    const place = `${i + 1}${["st", "nd", "rd", "th"][Math.min(i, 3)]}`;
+    // mastery tokens live HERE, per holder (the rail shelf is yours only);
+    // a token mid-flight stays hidden until the animation lands it
+    const held = GENRES.filter((g) =>
+      s.mastery[g] === sc.player && !(UI.masteryFlight && UI.masteryFlight[g]));
+    row.setAttribute("aria-label",
+      `${place} place: ${p.pubName}${p.human ? " (you)" : ""}, ${sc.total} projected victory points` +
+      (held.length ? `, holds ${held.length} mastery token${held.length === 1 ? "" : "s"}` : "") +
+      `. Open publisher details.`);
+    row.appendChild(el("span", "st-place", place.toUpperCase()));
+    row.appendChild(spr(pub.logo, 0.42));
+    const bestFans = Math.max(0, e.bestComicFans(sc.player));
+    row.appendChild(el("span", "st-name",
+      `<b>${esc(p.pubName)}${p.human ? " (YOU)" : ""}</b>` +
+      `<small>${sc.total} VP &middot; ${bestFans}&#9829; best &middot; ${p.printedCount} book${p.printedCount === 1 ? "" : "s"}` +
+      (held.length ? ` &middot; ${held.map((g) => sprHTML("mastery_" + g, 0.3)).join("")}` : "") +
+      `</small>`));
+    row.onclick = () => {
+      SFX.play("paper");
+      inspectedPublisher = inspectedPublisher === sc.player ? null : sc.player;
+      renderChart();
+    };
+    ladder.appendChild(row);
   });
-  sup.appendChild(row);
-  panel.appendChild(sup);
+  panel.appendChild(ladder);
+}
+
+// the dossier: everything public about one publishing house, opened from
+// its chart lane and closed from the BACK button (focus round-trips)
+function renderChartDetail(pid) {
+  const e = UI.engine, s = e.state, p = P(pid), pub = PUBLISHERS[p.color];
+  const score = e.scorePlayer(pid);
+  const detail = el("section", "chart-detail");
+  detail.style.setProperty("--lane", pub.color);
+  detail.setAttribute("aria-label", `${p.pubName} publisher details`);
+  const head = el("div", "chart-detail-head");
+  head.appendChild(spr(bossSprite(pid), 0.7));
+  head.appendChild(el("h4", "", `${esc(p.pubName)}${p.human ? "<br>(YOU)" : `<br>${esc(p.name)}`}`));
+  const close = el("button", "chart-detail-close", "BACK");
+  close.type = "button";
+  close.onclick = () => {
+    SFX.play("paper");
+    inspectedPublisher = null;
+    renderChart();
+    const lane = document.querySelector(`#chart-panel .lane-head[data-player="${pid}"]`);
+    if (lane) lane.focus();
+  };
+  head.appendChild(close);
+  detail.appendChild(head);
+  const held = GENRES.filter((g) => s.mastery[g] === pid);
+  const unfulfilled = p.orders.map((id) => s.mapSlots[id]).filter((o) => !o.fulfilled).length;
+  const stats = el("div", "chart-stats");
+  const stat = (label, value) => stats.appendChild(el("div", "chart-stat", `<b>${label}</b>${value}`));
+  stat("PROJECTED VP", score.total);
+  stat("BEST COMIC", `${Math.max(0, e.bestComicFans(pid))}&#9829;`);
+  stat("CASH / TICKETS", `$${p.money} / ${p.tickets}`);
+  stat("EDITORS LEFT", `${p.editorsLeft}`);
+  stat("PUBLISHED", p.printedCount);
+  // the actual tokens, not a count — you can see WHICH genres they've locked
+  stat("MASTERY / ORDERS",
+    `${held.length ? held.map((g) => sprHTML("mastery_" + g, 0.35)).join("") : "&mdash;"} / ${unfulfilled} open`);
+  detail.appendChild(stats);
+  detail.appendChild(el("div", "desk-label", "PUBLISHED COMICS"));
+  const books = el("div", "chart-books");
+  for (const c of s.chart.filter((item) => item.owner === pid)) {
+    const cover = spr(comicSprite(c), 0.45);
+    cover.title = `${c.title}: value ${c.value}, ${c.fans} fans`;
+    attachZoom(cover, comicSprite(c), `<b>${esc(c.title)}</b><br>v${c.value} &middot; ${c.fans}&#9829;`);
+    books.appendChild(cover);
+  }
+  if (!books.children.length) books.appendChild(el("i", "", "No comics published yet"));
+  detail.appendChild(books);
+  return detail;
 }
 
 function renderHUD() {
   const e = UI.engine, s = e.state;
   const p = P(UI.humanId);
-  const compactDesk = typeof UIV2 !== "undefined" && UIV2.active();
-  // publisher desk: stable resource sockets (dim at zero, never vanishing —
-  // a persistent home the eye can always return to)
+  const pub = PUBLISHERS[p.color];
+
+  // ---- the PUBLISHER rail: letterhead with the house mark and the score
+  // you'd post if the presses stopped right now (recomputed every render)
+  const rail = document.getElementById("desk-status");
+  const score = e.scorePlayer(UI.humanId);
+  rail.style.setProperty("--pub", pub.color);
+  rail.setAttribute("aria-label",
+    `Your publisher: ${p.pubName}. Projected score ${score.total} victory points, ${p.editorsLeft} editors available.`);
+  const mark = document.getElementById("pub-mark");
+  mark.innerHTML = "";
+  const logo = el("span", "rail-logo");
+  logo.appendChild(spr(pub.logo, 1.25)); // fills the 56px square box
+  mark.appendChild(logo);
+  mark.appendChild(el("span", "rail-name", `<b>${esc(p.pubName)}</b><small>YOUR PUBLISHING HOUSE</small>`));
+  const scoreCard = el("div", "rail-score", `<span>PROJECTED VP</span><b>${score.total}</b>`);
+  scoreCard.title = `If the game ended now: ${score.fans} fans - ${score.orderPenalty} order penalties + ` +
+    `${score.vpTokens} VP tokens + ${score.masteryVP} mastery + ${score.bcVP} better colors + ` +
+    `${score.moneyVP} money + ${score.ideasVP} ideas + ${score.origVP + score.extraVP} published comics`;
+  mark.appendChild(scoreCard);
+
+  // the staff: editors as PEOPLE of the house, spent ones grayed in place
+  const roster = document.getElementById("staff-roster");
+  roster.innerHTML = "";
+  const totalStaff = p.editors + (p.extraEditorUsed ? 1 : 0);
+  roster.classList.toggle("has-temp", totalStaff > 4);
+  for (let i = 0; i < totalStaff; i++) {
+    const available = i < p.editorsLeft;
+    const staff = el("span", "staffer" + (available ? "" : " spent") + (i >= p.editors ? " temp" : ""));
+    staff.appendChild(spr(`staff_${p.color}_${i % 4}`, 1.2));
+    staff.setAttribute("role", "img");
+    const who = i >= p.editors ? "Extra editor" : `Editor ${i + 1}`;
+    staff.setAttribute("aria-label", `${who} — ${available ? "available" : "already assigned"}`);
+    staff.title = `${who}: ${available ? "available this round" : "already assigned"}`;
+    roster.appendChild(staff);
+  }
+
+  // resources: stable sockets (dim at zero, never vanishing — a persistent
+  // home the eye can always return to)
   const res = document.getElementById("hud-resources");
   res.innerHTML = "";
-  const chip = (parent, sprite, scale, html, title, dim = false) => {
-    const r = el("span", "res" + (dim ? " dim" : ""));
+  const chip = (parent, sprite, scale, html, title, dim = false, cls = "res") => {
+    const r = el("span", cls + (dim ? " dim" : ""));
     r.appendChild(spr(sprite, scale));
     r.innerHTML += html;
     if (title) r.title = title;
     parent.appendChild(r);
     return r;
   };
-  chip(res, "coin_1", compactDesk ? 0.55 : 0.9, ` <b>$${p.money}</b>`, "Cash");
-  chip(res, "meeple_" + p.color, compactDesk ? 0.62 : 1, ` <b>x${p.editorsLeft}</b>`, "Editors left this round");
-  chip(res, "vp_1", compactDesk ? 0.44 : 0.65, ` <b>${p.vpTokens}</b>`, "Victory point tokens", p.vpTokens === 0);
-  chip(res, "ticket", compactDesk ? 0.4 : 0.6, `<b>${p.tickets}</b>`, "Super-transport tickets", p.tickets === 0);
+  chip(res, "coin_1", 0.95, ` <b>$${p.money}</b>`, "Cash", false, "res res-cash");
+  const duo = el("div", "rail-duo");
+  chip(duo, "ticket", 0.55, `<b>${p.tickets}</b>`, "Super-transport tickets", p.tickets === 0);
+  chip(duo, "vp_1", 0.6, ` <b>${p.vpTokens}</b>`, "Victory point tokens", p.vpTokens === 0);
+  res.appendChild(duo);
+  res.appendChild(el("div", "desk-label", "IDEAS"));
+  const ideaGrid = el("div", "idea-grid");
   GENRES.forEach((g) =>
-    chip(res, "idea_" + g, compactDesk ? 0.5 : 0.75, `<b>${p.ideas[g]}</b>`, GENRE_INFO[g].name + " ideas", p.ideas[g] === 0));
+    chip(ideaGrid, "idea_" + g, 0.6, `<b>${p.ideas[g]}</b>`, GENRE_INFO[g].name + " ideas", p.ideas[g] === 0));
+  res.appendChild(ideaGrid);
 
   // collected orders: shown openly so you always know what you must deliver
   const ord = document.getElementById("desk-orders");
@@ -739,56 +986,52 @@ function renderHUD() {
   // here and STAY visible (this is also the fly-to destination)
   const aw = document.getElementById("desk-awards");
   aw.innerHTML = "";
+  // the shelf shows YOUR trophies only (who holds the rest lives in THE
+  // STANDINGS); a token still flying in stays hidden until it lands
   GENRES.forEach((g) => {
     const holder = s.mastery[g];
-    const sock = el("span", "award-socket" + (holder === UI.humanId ? " won" : ""));
+    const inFlight = UI.masteryFlight && UI.masteryFlight[g];
+    const mine = holder === UI.humanId && !inFlight;
+    const sock = el("span", "award-socket" + (mine ? " won" : ""));
     sock.dataset.genre = g;
-    if (holder === UI.humanId) {
+    sock.setAttribute("role", "img");
+    if (mine) {
       sock.appendChild(spr("mastery_" + g, 0.55));
-      sock.title = GENRE_INFO[g].name + " Mastery: +1 fan per book of the genre, 2 VP";
+      sock.title = GENRE_INFO[g].name + " Mastery — yours: +1 fan per book of the genre, 2 VP";
     } else {
-      sock.innerHTML = `<span style="opacity:.5">${genreDot(g)}</span>`;
-      sock.title = GENRE_INFO[g].name + " Mastery — " +
-        (holder === undefined || holder === null ? "unclaimed" : `held by ${P(holder).pubName}`);
+      sock.innerHTML = `<span style="opacity:.45">${genreMark(g, 0.6)}</span>`;
+      sock.title = `${GENRE_INFO[g].name} Mastery — ` +
+        (holder === undefined || holder === null || inFlight
+          ? "unclaimed: first original of the genre takes it (+1 fan per book, 2 VP)"
+          : `held by ${P(holder).pubName} (see THE STANDINGS)`);
     }
+    sock.setAttribute("aria-label", sock.title);
     aw.appendChild(sock);
   });
 
-  // published catalog: every printed comic with the team working on it
+  // published catalog: every printed comic as a compact cover — the whole
+  // newsstand stays visible at once; clicking a cover opens its dossier
+  // (team, value, fans) as a detail pane
   const mat = document.getElementById("hud-mat");
   mat.innerHTML = "<div class='mat-plate'>&#9733; ON THE STANDS &#9733;</div>";
   s.chart.filter((c) => c.owner === UI.humanId).forEach((c) => {
     const d = el("div", "press-item" + (c.isRipoff ? " ripoff" : ""));
     d.dataset.chartIdx = c.idx;
-    d.setAttribute("role", "group");
-    d.setAttribute("aria-label", `${c.title}${c.isRipoff ? " (rip-off)" : ""}: value ${c.value}, ${c.fans} fans`);
+    d.setAttribute("role", "button");
+    d.tabIndex = 0;
+    d.setAttribute("aria-label",
+      `${c.title}${c.isRipoff ? " (rip-off)" : ""}: value ${c.value}, ${c.fans} fans. Open details.`);
     if (c.idx === UI.lastPrintIdx) d.appendChild(el("div", "new-tag", "NEW!"));
     const cover = el("div", "pi-cover");
-    cover.appendChild(spr(comicSprite(c), 0.66));
+    cover.appendChild(spr(comicSprite(c), 0.6));
     cover.appendChild(el("div", "fans-badge", `${c.fans}&#9829;`));
-    cover.appendChild(el("div", "pi-genre", genreDot(c.genre)));
+    cover.appendChild(el("div", "pi-genre", genreMark(c.genre, 0.42)));
     d.appendChild(cover);
     // the current total value, unmistakable and always up to date
     const vp = el("div", "val-plate", "VALUE " + c.value);
     vp.dataset.val = c.value;
     d.appendChild(vp);
-    const team = el("div", "pi-team");
-    for (const kind of ["writer", "artist"]) {
-      const cr = c.creatives[kind];
-      const mCr = el("div", "pi-cr" + (cr.genre === c.genre ? " spec" : ""));
-      mCr.appendChild(spr(faceOf(cr.id), 0.85));
-      mCr.appendChild(el("span", "pi-val", `${genreDot(cr.genre)}<b>${"&#10022;".repeat(cr.curValue)}</b>`));
-      // hover: their vintage trading card, like everywhere else
-      attachZoom(mCr, CARD_BY_ID[cr.id].sprite,
-        `<b>${esc(cr.name)}</b><br>${genreDot(cr.genre)} ${GENRE_INFO[cr.genre].name} ${kind} &middot; v${cr.curValue}` +
-        (cr.genre === c.genre ? `<br><span class="zc-note">&#9733; specialized: +1 fan at print, can train</span>` : ""));
-      team.appendChild(mCr);
-    }
-    d.appendChild(team);
-    attachZoom(cover, comicSprite(c),
-      `<b>${esc(c.title)}</b>${c.isRipoff ? " (RIP-OFF)" : ""}<br>` +
-      `${genreDot(c.genre)} <b>${GENRE_INFO[c.genre].name}</b> &middot; book value <b>v${c.value}</b> &middot; ${c.fans}&#9829;<br>` +
-      `<span class="zc-note">fulfills ${GENRE_INFO[c.genre].name} orders up to min. value ${c.value}</span>`);
+    d.onclick = () => comicInfoModal(c);
     mat.appendChild(d);
   });
   const nP = p.printedCount;
@@ -796,29 +1039,147 @@ function renderHUD() {
   if (nxt) mat.appendChild(el("span", "", `<i style="font-size:14px;color:#9aa;flex-shrink:0">&larr; ${nxt}</i>`));
   updateMatNav();
 
-  // hand: comics as covers, creatives as people
+  // hand: the TEAM & PROJECTS bench, organised by trade — comics as covers,
+  // creatives as people
   const hand = document.getElementById("hud-hand");
   hand.innerHTML = "";
   const entries = p.hand.map((c) => ({ id: c, hyped: false }))
     .concat(p.hyped.map((h) => ({ id: h.cardId, hyped: true, tokens: h.tokens })));
-  for (const c of entries) {
-    const card = CARD_BY_ID[c.id];
-    const hc = el("div", "hand-card");
-    if (card.kind) {
-      hc.appendChild(personChip(c.id, { scale: 1.3 }));
-    } else {
-      const ct = el("div", "hand-comic");
-      ct.appendChild(spr(coverOf(c.id), 0.9));
-      ct.appendChild(el("div", "hc-chips", `${genreDot(card.genre)}${bonusChip(card.bonus)}`));
-      hc.appendChild(ct);
-      hc.title = `${card.title} — ${GENRE_INFO[card.genre].name}. Needs 2 ${GENRE_INFO[card.genre].name} ideas + a team to print.`;
-      attachZoom(hc, coverOf(c.id));
+  const groups = [
+    { kind: "writer", label: "WRITERS", list: [] },
+    { kind: "artist", label: "ARTISTS", list: [] },
+    { kind: "project", label: "PROJECTS", list: [] },
+  ];
+  for (const c of entries)
+    groups.find((g) => g.kind === (CARD_BY_ID[c.id].kind || "project")).list.push(c);
+  if (!entries.length) hand.innerHTML = "<i style='color:#9aa;align-self:center'>your desk is empty</i>";
+  else for (const group of groups) {
+    const sec = el("section", "hand-group");
+    sec.appendChild(el("h4", "", group.label));
+    // the shelf scrolls when crowded — it must be reachable from the keyboard
+    const body = el("div", "hand-group-body");
+    body.tabIndex = 0;
+    body.setAttribute("role", "group");
+    body.setAttribute("aria-label", group.label.toLowerCase());
+    for (const c of group.list) {
+      const card = CARD_BY_ID[c.id];
+      // compact chips so the whole bench fits without scrolling; the full
+      // card (name, stats, needs) opens as a detail pane on click
+      let hc;
+      if (card.kind) {
+        hc = el("div", "team-chip");
+        hc.appendChild(spr(faceBigOf(c.id), 0.55));
+        hc.appendChild(el("span", "tc-meta", `${genreMark(card.genre, 0.45)}<b>${"&#10022;".repeat(card.value)}</b>`));
+        hc.title = `${card.name} — ${GENRE_INFO[card.genre].name} ${card.kind} v${card.value}`;
+        hc.setAttribute("aria-label",
+          `${card.name}: ${GENRE_INFO[card.genre].name} ${card.kind}, value ${card.value}. Open details.`);
+      } else {
+        hc = el("div", "project-chip");
+        hc.appendChild(spr(coverOf(c.id), 0.55));
+        hc.appendChild(el("span", "tc-meta", `${genreMark(card.genre, 0.45)}${bonusChip(card.bonus)}`));
+        hc.title = `${card.title} — ${GENRE_INFO[card.genre].name}. Needs 2 ${GENRE_INFO[card.genre].name} ideas + a team to print.`;
+        hc.setAttribute("aria-label",
+          `${card.title}: ${GENRE_INFO[card.genre].name} comic project. Open details.`);
+      }
+      hc.dataset.card = c.id; // reveal/fly effects land on the exact chip
+      hc.setAttribute("role", "button");
+      hc.tabIndex = 0;
+      hc.onclick = () => handCardInfoModal(c);
+      if (c.hyped) hc.appendChild(el("div", "hype-badge", "HYPE +" + c.tokens * 2));
+      body.appendChild(hc);
     }
-    if (c.hyped) hc.appendChild(el("div", "hype-badge", "HYPE +" + c.tokens * 2));
-    hand.appendChild(hc);
+    if (!group.list.length) body.appendChild(el("i", "hand-group-empty", "&mdash;"));
+    sec.appendChild(body);
+    hand.appendChild(sec);
   }
-  if (!entries.length) hand.innerHTML = "<i style='color:#9aa'>your desk is empty</i>";
-  if (compactDesk) UIV2.afterRender();
+}
+
+// ------------------------------------------------- desk detail panes
+// The desk shows compact chips; these dismissable panes carry the full story.
+function comicInfoModal(c) {
+  SFX.play("paper");
+  openModal((m) => {
+    // panel anatomy like every other pane: cover as the emblem
+    const head = el("div", "panel-head");
+    const em = el("div", "ph-emblem bare");
+    em.appendChild(spr(comicSprite(c), 0.85));
+    head.appendChild(em);
+    const t = el("div", "ph-text");
+    t.appendChild(el("h2", "", esc(c.title) +
+      (c.isRipoff ? ' <span style="font-size:12px;color:#8a2f22">(RIP-OFF)</span>' : "")));
+    t.appendChild(el("div", "ph-tag", `${genreMark(c.genre, 0.7)} ${GENRE_INFO[c.genre].name} &middot; on the stands`));
+    head.appendChild(t);
+    m.appendChild(head);
+    const row = panelSection(m, "THE LEDGER");
+    row.appendChild(el("div", "modal-sub",
+      `BOOK VALUE <b>${c.value}</b> &middot; <b>${c.fans}</b>&#9829; fans` +
+      (c.bettercolor ? "<br>&#9733; Better Colors (+2 VP at the end)" : "") +
+      `<br><span style="font-size:15px;color:#57452c">delivers ${GENRE_INFO[c.genre].name} orders of minimum value up to ${c.value}</span>`));
+    const team = panelSection(m, "THE TEAM ON THIS BOOK");
+    const teamRow = el("div", "card-row");
+    for (const kind of ["writer", "artist"]) {
+      const cr = c.creatives[kind];
+      const chip = el("div", "swap-cr" + (cr.genre === c.genre ? " spec" : ""));
+      chip.appendChild(spr(faceBigOf(cr.id), 0.7));
+      chip.appendChild(el("span", "sc-meta", `${genreMark(cr.genre, 0.45)} <b>${"&#10022;".repeat(cr.curValue)}</b>`));
+      chip.appendChild(el("span", "sc-label", `${esc(cr.name)}<br>${kind}` +
+        (cr.genre === c.genre ? " &middot; &#9733; specialized" : "")));
+      attachZoom(chip, faceBigOf(cr.id),
+        `<b>${esc(cr.name)}</b><br>${GENRE_INFO[cr.genre].name} ${kind} &middot; v${cr.curValue}`);
+      teamRow.appendChild(chip);
+    }
+    team.appendChild(teamRow);
+    modalButtons(m, [{ label: "CLOSE", fn: () => closeModal() }]);
+  }, { onDismiss: () => {} });
+}
+
+function handCardInfoModal(entry) {
+  SFX.play("paper");
+  const card = CARD_BY_ID[entry.id];
+  openModal((m) => {
+    if (card.kind) {
+      // a PERSON sheet, not a card: big face disc + the facts (de-carding
+      // applies here too — the trading card never appears at runtime)
+      const head = el("div", "panel-head");
+      const em = el("div", "ph-emblem bare");
+      em.appendChild(spr(faceBigOf(entry.id), 1.5));
+      head.appendChild(em);
+      const t = el("div", "ph-text");
+      t.appendChild(el("h2", "", esc(card.name)));
+      t.appendChild(el("div", "ph-tag",
+        `${sprHTML("tag_" + card.kind, 0.8)} ${genreMark(card.genre, 0.8)} ` +
+        `<b>${GENRE_INFO[card.genre].name}</b> ${card.kind} &middot; ` +
+        `<b class="fig-val" style="font-style:normal">${"&#10022;".repeat(card.value)}</b>` +
+        (card.value === 1 ? ` &middot; rookie` : "")));
+      head.appendChild(t);
+      m.appendChild(head);
+      const body = panelSection(m, "THE CONTRACT");
+      body.appendChild(el("div", "modal-sub",
+        `Printing a book with them costs their value (<b>$${card.value}</b>) as part of the team fee.<br>` +
+        `<span style="font-size:15px;color:#57452c">On a ${GENRE_INFO[card.genre].name} book they are &#9733; specialized: ` +
+        `+1 fan at print, and they can train during Creative Development.</span>` +
+        (card.value === 1 ? `<br><span style="font-size:15px;color:#33716c"><b>Rookie:</b> signed with a free ${GENRE_INFO[card.genre].name} idea.</span>` : "")));
+    } else {
+      // same anatomy as the creative sheet: cover emblem + facts section
+      const head = el("div", "panel-head");
+      const em = el("div", "ph-emblem bare");
+      em.appendChild(spr(coverOf(entry.id), 0.85));
+      head.appendChild(em);
+      const t = el("div", "ph-text");
+      t.appendChild(el("h2", "", esc(card.title)));
+      t.appendChild(el("div", "ph-tag",
+        `${genreMark(card.genre, 0.7)} ${GENRE_INFO[card.genre].name} comic project` +
+        (entry.hyped ? ` &middot; <b style="color:#8a2f22">HYPED +${entry.tokens * 2}</b>` : "")));
+      head.appendChild(t);
+      m.appendChild(head);
+      const body = panelSection(m, "COST &amp; RESULT");
+      body.appendChild(el("div", "modal-sub",
+        `PRINT BONUS: ${bonusChip(card.bonus)}<br>` +
+        `<span style="font-size:15px;color:#57452c">COST TO PRINT: 2 ${GENRE_INFO[card.genre].name} ideas + a writer + an artist</span>` +
+        (entry.hyped ? `<br><b style="color:#8a2f22">HYPED: +${entry.tokens * 2} fans when printed</b>` : "")));
+    }
+    modalButtons(m, [{ label: "CLOSE", fn: () => closeModal() }]);
+  }, { onDismiss: () => {} });
 }
 
 // the published catalog can outgrow its column: show the nudge buttons whenever
@@ -859,6 +1220,22 @@ function animateEvent(ev) {
       if (ev.player !== UI.humanId) quip(ev.player, "hire", { names });
       else toast(`${ev.cards.map((c) => sprHTML(faceOf(c), 0.7)).join("")} Signed: <b>${esc(names)}</b>`);
       SFX.play("click");
+      // blind signings get the theatrical flip: who actually answered the ad?
+      if (ev.player === UI.humanId && ev.blind && ev.blind.length) {
+        FX.reveal(ev.blind.map((c) => {
+          const cd = CARD_BY_ID[c];
+          return {
+            sprite: faceBigOf(c), scale: 1.15, round: true,
+            front: "mysterybig_" + cd.kind, frontRound: true, frontScale: 1.15,
+            title: cd.name.toUpperCase(),
+            sub: `${GENRE_INFO[cd.genre].name} ${cd.kind} &middot; <b>${"&#10022;".repeat(cd.value)}</b>` +
+              (cd.value === 1 ? " &middot; rookie (+1 idea)" : ""),
+            toRef: () => document.querySelector(`#hud-hand [data-card="${c}"]`) ||
+              document.getElementById("hud-hand"),
+          };
+        }));
+        return 1500 + (ev.blind.length - 1) * 650 + 350;
+      }
       return 500;
     }
     case "develop":
@@ -866,12 +1243,25 @@ function animateEvent(ev) {
       else if (ev.cardId) toast(`${sprHTML(coverOf(ev.cardId), 0.5)} ${ev.searched ? "Commissioned" : "Optioned"}: <b>${esc(CARD_BY_ID[ev.cardId].title)}</b>`);
       else toast("The slush pile came up empty!");
       SFX.play("paper");
+      // the slush pile pays off face-down — flip it over center stage
+      if (ev.player === UI.humanId && ev.blind && ev.cardId) {
+        const cd = CARD_BY_ID[ev.cardId];
+        FX.reveal([{
+          sprite: coverOf(ev.cardId), scale: 1.5,
+          front: "back_orig_" + cd.genre,
+          title: cd.title.toUpperCase(),
+          sub: `${GENRE_INFO[cd.genre].name} original &middot; prints with ${BONUS_CHIP[cd.bonus][0]}`,
+          toRef: () => document.querySelector(`#hud-hand [data-card="${ev.cardId}"]`) ||
+            document.getElementById("hud-hand"),
+        }]);
+        return 1850;
+      }
       return 450;
     case "ideas":
       if (ev.player !== UI.humanId) quip(ev.player, "ideas");
       else {
         const all = (ev.board || []).concat(ev.supply || []);
-        toast(`Brainstormed: ${all.map((g) => sprHTML("idea_" + g, 0.6)).join("")}`);
+        toast(`Brainstormed: ${all.map((g) => sprHTML("idea_" + g, 0.45)).join("")}`);
       }
       return 400;
     case "royalties":
@@ -879,6 +1269,30 @@ function animateEvent(ev) {
       if (ev.player === UI.humanId) FX.burstEl(document.getElementById("hud-resources"), ["#f5c86e", "#c9973b", "#fff"], 12);
       SFX.play("cash");
       return 450;
+    case "placeEditor": {
+      // the very staffer leaves the rail (or the rival's chip) and travels to
+      // the white square; the pip and the room seat them on landing. When a
+      // dialog is up (e.g. the sales run) the flight would fly over it — skip
+      // the trip and let the state show instantly.
+      if (document.getElementById("modal-root").classList.contains("active")) return 0;
+      const key = ev.action + ":" + ev.slot;
+      (UI.placeFlight = UI.placeFlight || {})[key] = true;
+      const reveal = () => {
+        if (UI.placeFlight) delete UI.placeFlight[key];
+        renderLocations();
+      };
+      const chIdx = typeof LocArt !== "undefined" ? LocArt.staffCharFor(ev.action, ev.slot) : ev.player % 4;
+      const from = P(ev.player).human
+        ? document.querySelectorAll("#staff-roster .staffer")[P(ev.player).editorsLeft]
+        : document.querySelector(`#turn-order .order-chip[data-pid="${ev.player}"]`);
+      const dest = () => {
+        const loc = document.querySelector(`#locations .loc[data-action="${ev.action}"]`);
+        return loc ? loc.querySelectorAll(".slot-pip")[ev.slot] : null;
+      };
+      renderLocations(); // the pip renders empty under the flight flag
+      FX.flyToken(`staff_${P(ev.player).color}_${chIdx}`, from, dest, { onLand: reveal, scale: 0.9 });
+      return 260;
+    }
     case "print": {
       // a comic debut is front-page news: headline + the publisher's quote
       {
@@ -932,10 +1346,20 @@ function animateEvent(ev) {
       {
         const g = ev.genre;
         const hasPrev = ev.prev !== undefined && ev.prev !== null;
+        // the token must not sit at home before it visibly arrives: renders
+        // during the wait+flight treat it as still airborne, and the landing
+        // reveals it (shelf socket / standings row) with the flash
+        (UI.masteryFlight = UI.masteryFlight || {})[g] = true;
+        const reveal = () => {
+          if (UI.masteryFlight) delete UI.masteryFlight[g];
+          renderHUD();
+          renderChart();
+        };
         const destFor = (pid) => pid === UI.humanId
           ? document.querySelector(`#desk-awards .award-socket[data-genre="${g}"]`)
           : document.querySelector(`#turn-order .order-chip[data-pid="${pid}"]`);
-        setTimeout(() => FX.flyToken("mastery_" + g, hasPrev ? destFor(ev.prev) : null, () => destFor(ev.player)),
+        setTimeout(() => FX.flyToken("mastery_" + g, hasPrev ? destFor(ev.prev) : null, () => destFor(ev.player),
+          { onLand: reveal }),
           REDUCED_MOTION() ? 0 : queueWait + 1250);
         announce(`${P(ev.player).pubName} ${hasPrev ? "takes" : "claims"} ${GENRE_INFO[g].name} mastery` +
           (hasPrev ? ` from ${P(ev.prev).pubName}` : "") + ".");
@@ -957,7 +1381,7 @@ function animateEvent(ev) {
     case "gainIdea":
       if (ev.from === "rookie") {
         if (ev.player === UI.humanId) {
-          toast(`ROOKIE BONUS! ${sprHTML("idea_" + ev.genre, 0.8)} free <b>${GENRE_INFO[ev.genre].name}</b> idea!`, true);
+          toast(`ROOKIE BONUS! ${sprHTML("idea_" + ev.genre, 0.6)} free <b>${GENRE_INFO[ev.genre].name}</b> idea!`, true);
           FX.burstEl(document.getElementById("hud-resources"), [GENRE_INFO[ev.genre].color, "#f5c86e", "#fff"], 14);
           SFX.play("fan");
         } else {

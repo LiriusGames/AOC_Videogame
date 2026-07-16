@@ -4,14 +4,7 @@
 <meta charset="utf-8">
 <title>Age of Comics: The Golden Years</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<script>
-// UI V2 is an isolated art-direction lab. The normal URL remains the stable
-// shipped interface; add ?ui=v2 to exercise the publisher-desk redesign.
-if (new URLSearchParams(location.search).get("ui") === "v2")
-  document.documentElement.classList.add("ui-v2");
-</script>
 <link rel="stylesheet" href="css/style.css">
-<link rel="stylesheet" href="css/v2.css">
 </head>
 <body>
 <script>
@@ -88,66 +81,61 @@ if (location.protocol === "file:") {
   </section>
 
   <!-- ======================= GAME ======================= -->
+  <!-- board-table layout: news on top, YOU on the left, the action board in
+       the middle, the market (chart) on the right, your cards at the bottom -->
   <section id="screen-game" class="screen">
     <header id="topbar">
       <div id="top-logo">AGE OF COMICS</div>
-      <div id="top-wire-slot"></div>
+      <span id="round-tag" aria-hidden="true">ROUND</span>
       <div id="calendar"></div>
+      <!-- press wire: a teleprinter on the news desk; routine dispatches feed
+           its paper tongue, clicking prints THE DAILY SPINNER archive -->
+      <button id="wire-strip" aria-controls="wire-panel" aria-expanded="false"
+              aria-label="Press wire teleprinter: latest dispatch. Opens The Daily Spinner story archive.">
+        <span class="wire-machine" aria-hidden="true"></span>
+        <span class="wire-paper"><span class="ws-text" id="wire-latest"></span></span>
+      </button>
       <div id="turn-order"></div>
       <div id="top-buttons">
+        <!-- laptop widths: the chart collapses into this topbar button -->
+        <button id="chart-mini" class="btn btn-small" aria-expanded="false" aria-controls="sidebar"></button>
         <button id="btn-undo" class="btn btn-small" title="Rewind to the start of your turn">&#8630; UNDO</button>
-        <button id="btn-chart" class="btn btn-small">MAP</button>
+        <button id="btn-chart" class="btn btn-small" title="View the Manhattan sales map">CITY</button>
         <button id="btn-help" class="btn btn-small">?</button>
         <button id="btn-sound" class="btn btn-small">&#9835;</button>
       </div>
     </header>
 
-    <main id="cityhub">
-      <div id="locations"></div>
-      <section id="action-stage" aria-label="Selected action comic"></section>
-      <aside id="sidebar" tabindex="0" aria-label="The comic book chart">
-        <div id="chart-panel"></div>
-      </aside>
-      <button id="chart-mini" aria-expanded="false" aria-controls="sidebar"></button>
-    </main>
+    <!-- the Publisher rail: one persistent home for ALL personal state -->
+    <aside id="desk-status" tabindex="0" aria-label="Your publisher: staff, resources, awards and orders">
+      <div class="mat-plate desk-plate">&#9733; PUBLISHER &#9733;</div>
+      <div id="pub-mark" aria-hidden="true"></div>
+      <div id="staff-roster" role="group" aria-label="Your editors"></div>
+      <div id="hud-resources" role="group" aria-label="Your resources"></div>
+      <div class="desk-label">AWARDS MASTERY</div>
+      <div id="desk-awards" role="group" aria-label="Your mastery awards shelf"></div>
+      <div class="desk-label">SALES ORDERS</div>
+      <div id="desk-orders" role="group" aria-label="Your sales orders"></div>
+    </aside>
+
+    <main id="locations" aria-label="The six action locations"></main>
+
+    <aside id="sidebar" tabindex="0" aria-label="The comic book chart">
+      <div id="chart-panel"></div>
+    </aside>
 
     <footer id="hud">
-      <!-- one persistent home for ALL personal state: the Publisher Desk -->
-      <div id="desk-status" tabindex="0" aria-label="Your publisher desk: resources, orders and awards">
-        <div id="desk-vitals">
-          <div class="mat-plate desk-plate">&#9733; PUBLISHER DESK &#9733;</div>
-          <div id="desk-publisher-mark" aria-hidden="true"></div>
-          <div id="hud-resources" role="group" aria-label="Your resources"></div>
-        </div>
-        <div id="desk-ledger">
-          <div class="desk-label">SALES ORDERS</div>
-          <div id="desk-orders" role="group" aria-label="Your sales orders"></div>
-          <div class="desk-label">AWARDS SHELF</div>
-          <div id="desk-awards" role="group" aria-label="Your mastery awards shelf"></div>
+      <div id="hud-hand" tabindex="0" aria-label="Your team and projects"></div>
+      <div id="hud-left">
+        <div id="hud-mat" tabindex="0" aria-label="Your printed comics"></div>
+        <div id="mat-nav" hidden>
+          <button id="mat-prev" aria-label="Scroll printed comics left">&#9664;</button>
+          <button id="mat-next" aria-label="Scroll printed comics right">&#9654;</button>
         </div>
       </div>
-      <div id="desk-collections">
-        <div id="hud-hand" tabindex="0" aria-label="Your hand"></div>
-        <div id="hud-left">
-          <div id="hud-mat" tabindex="0" aria-label="Your printed comics"></div>
-          <div id="mat-nav" hidden>
-            <button id="mat-prev" aria-label="Scroll printed comics left">&#9664;</button>
-            <button id="mat-next" aria-label="Scroll printed comics right">&#9654;</button>
-          </div>
-        </div>
-      </div>
-      <!-- press wire: routine news feeds off a teleprinter; the paper opens
-           the full archive, presented as THE DAILY SPINNER -->
-      <button id="wire-strip" aria-controls="wire-panel" aria-expanded="false"
-              aria-label="Press wire: latest dispatch. Opens The Daily Spinner story archive.">
-        <span class="wire-machine" aria-hidden="true"><span class="wm-slot"></span><span class="wm-keys"></span></span>
-        <span class="ws-label" aria-hidden="true">PRESS WIRE</span>
-        <span class="wire-paper"><span class="ws-text" id="wire-latest"></span></span>
-        <span class="ws-more" aria-hidden="true">THE DAILY SPINNER &#9656;</span>
-      </button>
     </footer>
 
-    <!-- the full event history opens as a bottom sheet over the city -->
+    <!-- the full story archive prints out of the teleprinter, below the topbar -->
     <div id="wire-panel" role="dialog" aria-label="The Daily Spinner: full story archive" hidden>
       <div class="wp-head">
         <span class="wp-mast">&#9733; THE DAILY SPINNER &#9733;</span>
@@ -158,11 +146,15 @@ if (location.protocol === "file:") {
     </div>
   </section>
 
-  <!-- post-action review: inspect the result, then undo or continue -->
+  <!-- post-action review: a proof slip stamped over the dimmed board —
+       inspect the result, then undo or continue -->
   <div id="review-bar" role="group" aria-label="Action complete: review the result" hidden>
-    <span class="rb-text">&#10004; ACTION COMPLETE</span>
-    <button id="btn-review-undo" class="btn" title="Rewind to the start of your turn (U or Ctrl+Z)">&#8630; UNDO</button>
-    <button id="btn-review-confirm" class="btn btn-go" title="Lock it in — the rivals move next (Enter)">CONFIRM &amp; CONTINUE &#9654;</button>
+    <span class="rb-text">&#10004; PROOF &mdash; ACTION COMPLETE</span>
+    <div class="rb-buttons">
+      <button id="btn-review-undo" class="btn" title="Rewind to the start of your turn (U or Ctrl+Z)">&#8630; UNDO</button>
+      <button id="btn-review-confirm" class="btn btn-go" title="Lock it in — the rivals move next (Enter)">CONFIRM &amp; CONTINUE &#9654;</button>
+    </div>
+    <span class="rb-keys" aria-hidden="true">&#9166; confirm &nbsp;&middot;&nbsp; U undo</span>
   </div>
 
   <!-- modals & fx -->
@@ -184,7 +176,6 @@ if (location.protocol === "file:") {
 <script src="js/fx.js"></script>
 <script src="js/ui-map.js"></script>
 <script src="js/ui-scenes.js"></script>
-<script src="js/ui-v2.js"></script>
 <script src="js/save.js"></script>
 <script src="js/main.js"></script>
 </body>

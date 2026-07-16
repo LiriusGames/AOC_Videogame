@@ -57,6 +57,51 @@ const FX = (() => {
     else show();
   }
 
+  // the blind-draw reveal: each mystery flips over center stage (gold "?"
+  // shutter → the real face/cover + name), then flies home to the hand.
+  // Hero-lane rules apply (one presentation at a time, never over a dialog);
+  // reduced motion skips straight to the fly/highlight.
+  // items: [{ sprite, scale, round, title, sub, toRef }]
+  function reveal(items) {
+    const land = () => items.forEach((it) =>
+      flyToken(it.sprite, null, it.toRef, { scale: it.round ? 0.65 : 0.8 }));
+    if (REDUCED_MOTION()) return land();
+    if (modalIsOpen()) return; // narrated in the log either way
+    const dur = 1500 + (items.length - 1) * 650;
+    const show = () => {
+      if (modalIsOpen()) return; // went stale while queued
+      const wrap = el("div", "fx-celebrate fx-reveal");
+      wrap.appendChild(el("div", "fx-rays"));
+      const row = el("div", "rev-row");
+      wrap.appendChild(row);
+      root().appendChild(wrap);
+      items.forEach((it, i) => {
+        const card = el("div", "rev-card");
+        const front = el("div", "rev-front" + (it.front ? " has-back" : ""));
+        if (it.front) // what the pick looked like before the flip
+          front.appendChild(spr(it.front, it.frontScale || 1.2, it.frontRound ? "round-spr" : ""));
+        front.appendChild(el("b", "", "?"));
+        const back = el("div", "rev-back");
+        back.appendChild(spr(it.sprite, it.scale || 2, it.round ? "round-spr" : ""));
+        back.appendChild(el("div", "fx-title", it.title || ""));
+        if (it.sub) back.appendChild(el("div", "fx-sub", it.sub));
+        card.appendChild(front);
+        card.appendChild(back);
+        row.appendChild(card);
+        setTimeout(() => {
+          card.classList.add("flip");
+          SFX.play("paper");
+          burstEl(card, undefined, 14);
+        }, 420 + i * 650);
+      });
+      setTimeout(() => wrap.classList.add("out"), dur - 300);
+      setTimeout(() => { wrap.remove(); land(); }, dur);
+    };
+    const wait = heroSlot(dur + 350);
+    if (wait) setTimeout(show, wait);
+    else show();
+  }
+
   // a sprite launches from center stage and lands on the chart panel
   function flyToChart(sprite, scale = 1) {
     const target = document.getElementById("chart-panel");
@@ -84,8 +129,11 @@ const FX = (() => {
     // between launch and landing, so it is re-resolved when needed
     const resolve = () => (typeof toRef === "function" ? toRef() : toRef);
     const toEl = resolve();
-    if (!toEl) return;
+    if (!toEl) { if (o.onLand) o.onLand(); return; }
     const land = () => {
+      // onLand first: it may re-render the destination's container, so the
+      // highlight must go on the freshly resolved node, not a detached one
+      if (o.onLand) o.onLand();
       const t = resolve() || toEl;
       if (REDUCED_MOTION()) {
         t.style.outline = "3px solid #f5c86e";
@@ -96,7 +144,6 @@ const FX = (() => {
         t.classList.add("flash");
         setTimeout(() => t.classList.remove("flash"), 1600);
       }
-      if (o.onLand) o.onLand();
     };
     if (REDUCED_MOTION()) return land();
     const d = spr(sprite, o.scale || 0.9, "fx-fly fx-token");
@@ -125,5 +172,5 @@ const FX = (() => {
     })();
   }
 
-  return { burst, burstEl, celebrate, flyToChart, flyToken, confetti };
+  return { burst, burstEl, celebrate, reveal, flyToChart, flyToken, confetti };
 })();

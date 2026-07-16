@@ -65,6 +65,11 @@ const SFX = (() => {
     whoosh:  () => noise(0.32, 0.24, 0, 2400),
     // one restrained teleprinter clack + faint bell (throttled by the caller)
     wire:    () => { noise(0.03, 0.14, 0, 2200); beep(1760, 0.08, "triangle", 0.09, 0.03); },
+    // a full line printing: a burst of typebar clacks, then the carriage bell
+    teletype:() => {
+      for (let i = 0; i < 9; i++) noise(0.022, 0.13, i * 0.055 + (i % 3) * 0.012, 2400);
+      beep(1760, 0.1, "triangle", 0.1, 0.52);
+    },
     drumroll:() => { for (let i = 0; i < 8; i++) noise(0.04, 0.25, i * 0.05, 1400); beep(880, 0.2, "square", 0.3, 0.42); },
   };
 

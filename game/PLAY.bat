@@ -2,10 +2,11 @@
 cd /d "%~dp0"
 set URL=http://localhost:8477/
 
-rem find a server: python, py launcher, or node (tools\serve.js needs no packages)
+rem find a server: python, py launcher, or node — all serve with NO caching
+rem (plain "python -m http.server" lets browsers cache stale JS after updates)
 set SRV=
-where python >nul 2>nul && set "SRV=python -m http.server 8477"
-if not defined SRV where py >nul 2>nul && set "SRV=py -m http.server 8477"
+where python >nul 2>nul && set "SRV=python tools\serve.py 8477"
+if not defined SRV where py >nul 2>nul && set "SRV=py tools\serve.py 8477"
 if not defined SRV where node >nul 2>nul && set "SRV=node tools\serve.js 8477"
 if not defined SRV (
   echo Could not find Python or Node.js to serve the game.

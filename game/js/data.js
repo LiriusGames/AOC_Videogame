@@ -172,9 +172,17 @@ const SPECIALS = {
 function buildMap() {
   const nodes = [];
   const COLS = 4, ROWS = 6;
+  // every corner is a NAMED 1938 neighborhood (west = downtown, east = uptown;
+  // A-D run north to south) — friendlier than grid coordinates
+  const CORNER_NAMES = [
+    ["Riverside", "Hell's Kitchen", "Columbus Circle", "Central Park W.", "Morningside", "Sugar Hill"],
+    ["Tribeca", "Greenwich Vlg.", "Chelsea", "Times Square", "Upper West Side", "Harlem"],
+    ["Financial Dist.", "SoHo", "Gramercy", "Murray Hill", "Upper East Side", "East Harlem"],
+    ["Battery Park", "Chinatown", "Lower East Side", "Kips Bay", "Lenox Hill", "Yorkville"],
+  ];
   for (let r = 0; r < ROWS; r++)
     for (let c = 0; c < COLS; c++)
-      nodes.push({ id: r * COLS + c, c, r });
+      nodes.push({ id: r * COLS + c, c, r, name: CORNER_NAMES[c][r] });
   const edges = []; // [nodeA, nodeB]
   for (let r = 0; r < ROWS; r++)
     for (let c = 0; c < COLS; c++) {

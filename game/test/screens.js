@@ -11,8 +11,7 @@ const { spawn } = require("child_process");
 const puppeteer = require("puppeteer-core");
 
 const PORT = 8497;
-const V2 = process.env.AOC_UI === "v2";
-const URL = `http://localhost:${PORT}/${V2 ? "?ui=v2" : ""}`;
+const URL = `http://localhost:${PORT}/`;
 const SHOTS = path.join(__dirname, "shots");
 const SIZES = [[1600, 900], [1366, 768], [1280, 720], [1024, 768]];
 
@@ -44,7 +43,7 @@ function findBrowser() {
       await page.setViewport({ width: w, height: h });
       await page.goto(URL, { waitUntil: "networkidle0" });
       await page.evaluate(() => localStorage.clear());
-      const shot = (name) => page.screenshot({ path: path.join(SHOTS, `${V2 ? "v2-" : ""}${name}-${w}x${h}.png`) });
+      const shot = (name) => page.screenshot({ path: path.join(SHOTS, `${name}-${w}x${h}.png`) });
       await shot("title");
 
       await page.$eval("#btn-new-game", (b) => b.click());
@@ -76,7 +75,7 @@ function findBrowser() {
       await page.evaluate(() => document.getElementById("big-banner").classList.remove("show"));
       await shot("board");
 
-      if (V2) {
+      {
         await page.evaluate(() => {
           const e = UI.engine, s = e.state, p = e.player(UI.humanId);
           window.__screenDeskSnap = e.snapshot();
@@ -106,11 +105,31 @@ function findBrowser() {
           UI.eventCursor = UI.engine.events.length;
           renderAll();
         });
-        await page.evaluate(() => document.querySelector(`.v2-lane-head[data-player="${UI.humanId}"]`).click());
+        await page.evaluate(() => document.querySelector(`.lane-head[data-player="${UI.humanId}"]`).click());
         await new Promise((r) => setTimeout(r, 100));
         await shot("chart-detail");
-        await page.$eval(".v2-chart-detail-close", (button) => button.click());
+        await page.$eval(".chart-detail-close", (button) => button.click());
       }
+
+      // the review proof slip over the dimmed board (real royalties action)
+      await page.evaluate(() => {
+        const e = UI.engine;
+        let guard = 0;
+        while (guard++ < 60 && e.currentPlayerId() !== UI.humanId) {
+          const s2 = e.state;
+          if (s2.pending) AI.resolveOwnPendings(e, s2.pending.playerId);
+          else if (s2.awaitingSpecial) AI.settle(e, s2.awaitingSpecial.player);
+          else AI.takeTurn(e, e.currentPlayerId());
+        }
+        UI.undoSnap = e.snapshot();
+        e.state.actionSpaces.royalties = [];
+        e.actRoyalties(UI.humanId);
+        Main.afterHumanMove();
+      });
+      await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
+      await shot("review");
+      await page.$eval("#btn-review-confirm", (b) => b.click());
+      await new Promise((r) => setTimeout(r, 200));
 
       const hasDrawer = await page.evaluate(() =>
         getComputedStyle(document.getElementById("chart-mini")).display !== "none");
@@ -135,7 +154,7 @@ function findBrowser() {
         if (e.actSalesStart(UI.humanId)) Scenes.salesScene(true);
       });
       await new Promise((r) => setTimeout(r, 300));
-      await shot("map");
+      await shot("map"); // the map is permanently in table perspective now
       await page.close();
     }
   } finally {

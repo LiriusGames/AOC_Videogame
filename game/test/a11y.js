@@ -218,7 +218,7 @@ async function axeScan(page, label) {
       document.activeElement.id === "wire-strip"),
       "Escape closes the archive and returns focus to the wire strip");
 
-    // ---------------------- keyboard-only sales run via the DOM map panel
+    // --------------- keyboard-only sales run: arrows drive the map directly
     await page.waitForFunction(() => UI.engine.currentPlayerId() === UI.humanId &&
       !UI.busy && !UI.engine.state.pending && !UI.engine.state.awaitingSpecial, { timeout: 30000 });
     // stage an occupancy restriction: rival parked on an adjacent corner, we are broke
@@ -235,58 +235,63 @@ async function axeScan(page, label) {
     check(await tabUntil(() => /START THE RUN/.test(document.activeElement.textContent || "")),
       "keyboard: reach START THE RUN in the scout dialog");
     await page.keyboard.press("Enter");
-    await page.waitForFunction(() => !!document.querySelector(".sales-panel"));
-    check(true, "sales panel renders");
-    // the blocked destination must be DISCOVERABLE by keyboard, not merely
-    // marked: tab onto it, read its description, and get the reason announced
-    check(await tabUntil(() => (document.activeElement.dataset || {}).pkey === "dest-" + MAP.X_LINKS[0]),
-      "keyboard: the occupied corner is still focusable");
-    const occ = await page.evaluate(() => {
-      const b = document.activeElement;
-      const why = document.getElementById(b.getAttribute("aria-describedby"));
-      return { ariaDisabled: b.getAttribute("aria-disabled"), why: why && why.textContent };
-    });
-    check(occ.ariaDisabled === "true" && /fee/.test(occ.why || ""),
-      "aria-disabled with the fee reason wired via aria-describedby");
+    await page.waitForFunction(() => !!document.querySelector(".sales-run-modal") && !!UI.engine.state.salesSession);
+    check(await page.evaluate(() => {
+      const a = document.activeElement;
+      return a && a.classList.contains("sales-map-pane") &&
+        a.getAttribute("role") === "application" && !!a.getAttribute("aria-label");
+    }), "the map region takes focus as a labelled keyboard application");
+    // at the X, arrows cycle the four avenues and announce the terms; the
+    // first candidate is the rival's corner we cannot afford
+    await page.keyboard.press("ArrowRight");
+    const aveMsg = await page.evaluate(() => document.getElementById("aria-status").textContent);
+    check(/Enter to go/.test(aveMsg), "arrow at the X announces the selected avenue");
+    check(/fee|blocked/i.test(aveMsg), "the rival's corner announces its fee/block");
     await page.keyboard.press("Enter");
-    check(await page.evaluate(() => /fee/.test(document.getElementById("aria-status").textContent)),
-      "activating it announces the reason in the live region");
     check(await page.evaluate(() => UI.engine.player(UI.humanId).agentNode === "X"),
-      "and the agent did not move");
-    check(await tabUntil(() => /^dest-/.test((document.activeElement.dataset || {}).pkey || "") &&
-      document.activeElement.getAttribute("aria-disabled") !== "true"), "keyboard: reach a legal destination");
-    const nodeBefore = await page.evaluate(() => UI.engine.player(UI.humanId).agentNode);
+      "departing to the unaffordable corner is refused: the agent stays");
+    check(await page.evaluate(() => /fee|afford/i.test(document.getElementById("aria-status").textContent)),
+      "the refusal reason reaches the live region");
+    // cycle to a free avenue and depart
+    await page.keyboard.press("ArrowRight");
     await page.keyboard.press("Enter");
-    check(await page.evaluate((nb) => UI.engine.player(UI.humanId).agentNode !== nb, nodeBefore),
-      "keyboard: Enter moves the agent");
-    check(await page.evaluate(() => !!document.activeElement.closest(".sales-panel")),
-      "focus preserved in the panel after the rerender");
-    // flip or collect if the corner offers one
-    const canAct = await page.evaluate(() => {
-      const b = document.querySelector('.sales-panel [data-pkey^="flip-"]:not([disabled]),' +
-        ' .sales-panel [data-pkey^="collect-"]:not([disabled])');
-      if (!b) return false;
-      b.focus();
-      return true;
-    });
-    if (canAct) {
+    const arrived = await page.evaluate(() =>
+      ({ node: UI.engine.player(UI.humanId).agentNode, live: document.getElementById("aria-status").textContent }));
+    check(arrived.node !== "X", "arrows + Enter move the agent off the X");
+    check(/stand/i.test(arrived.live), "arrival announces the corner and its stands");
+    // work the stands: SPACE selects (announced), ENTER acts
+    const hadStands = await page.evaluate(() => UI.engine.slotsAtAgent(UI.humanId).length > 0);
+    if (hadStands) {
       const acts = await page.evaluate(() => {
         const ses = UI.engine.state.salesSession;
         return ses.flipsLeft + ses.collectsLeft;
       });
+      await page.keyboard.press(" ");
+      check(await page.evaluate(() => /Stand 1 of/.test(document.getElementById("aria-status").textContent)),
+        "SPACE selects a stand and announces it");
       await page.keyboard.press("Enter");
       check(await page.evaluate((n) => {
         const ses = UI.engine.state.salesSession;
         return !ses || ses.flipsLeft + ses.collectsLeft < n;
-      }, acts), "keyboard: flip/collect consumed an action");
+      }, acts), "keyboard: ENTER flip/collect consumed an action");
     }
+    // a bad direction buzzes with a reason instead of moving
+    const stuck = await page.evaluate(() => {
+      const nd = UI.engine.player(UI.humanId).agentNode;
+      return { nd, edge: MAP.nodes[nd] && MAP.nodes[nd].c === 0 };
+    });
+    if (stuck.edge) {
+      await page.keyboard.press("ArrowUp");
+      check(await page.evaluate((nb) => UI.engine.player(UI.humanId).agentNode === nb &&
+        /No street/i.test(document.getElementById("aria-status").textContent), stuck.nd),
+        "an impossible direction announces 'no street that way'");
+    }
+    // E ends the run from anywhere
     if (await page.evaluate(() => !!document.querySelector("#modal-root .modal"))) {
-      check(await tabUntil(() => /END SALES RUN/.test(document.activeElement.textContent || "")),
-        "keyboard: reach END SALES RUN");
-      await page.keyboard.press("Enter");
+      await page.keyboard.press("e");
     }
     await page.waitForFunction(() => !document.querySelector("#modal-root .modal"), { timeout: 10000 });
-    check(true, "sales run ends from the keyboard");
+    check(true, "sales run ends from the keyboard (E)");
     check(await page.evaluate(() => document.activeElement !== document.body),
       "focus restored somewhere useful after the dialog closes");
 

@@ -20,7 +20,7 @@ const Scenes = (() => {
 
   // ---------------------------------------------------------------- pickers
   function cardPick(container, cardId, opts = {}) {
-    const d = el("div", "pick-card");
+    const d = el("div", "pick-card" + (opts.cls ? " " + opts.cls : ""));
     d.appendChild(spr(opts.back || cardSprite(cardId), opts.scale || 1.4));
     if (opts.label) d.appendChild(el("div", "pc-label", opts.label));
     if (opts.cost) d.appendChild(el("div", "pc-cost", opts.cost));
@@ -31,7 +31,7 @@ const Scenes = (() => {
     return d;
   }
   function selectOne(row, d) {
-    row.querySelectorAll(".pick-card,.person,.comic-tile,.token-btn").forEach((x) => {
+    row.querySelectorAll(".pick-card,.person,.figure,.comic-tile,.token-btn").forEach((x) => {
       x.classList.remove("selected");
       x.setAttribute("aria-pressed", "false");
     });
@@ -70,39 +70,36 @@ const Scenes = (() => {
     const e = E(), s = e.state;
     const sel = { writer: null, artist: null };
     openModal((m) => {
-      sceneBanner(m, "hire");
-      m.appendChild(el("h2", "", "TALENT AGENCY &mdash; HIRE"));
-      m.appendChild(el("div", "modal-sub", "Sign one writer AND one artist waiting in the lobby — or take a gamble on whoever answered the classified ad (blind). Value-1 rookies bring a free idea."));
+      panelHead(m, "hire", "TALENT AGENCY &mdash; HIRE",
+        "Sign one writer and one artist from the lobby — or gamble on whoever answered the classified ad. &#10022;-rookies bring a free idea.");
       for (const kind of ["writer", "artist"]) {
         const key = kind + "s";
-        m.appendChild(el("h3", "", kind.toUpperCase() + "S IN THE LOBBY"));
+        const body = panelSection(m, `ON OFFER &mdash; ${kind.toUpperCase()}S IN THE LOBBY`);
         const row = el("div", "card-row balloon-row");
         for (const c of s.display[key]) {
           const card = CARD_BY_ID[c];
-          const chip = personChip(c, {
+          row.appendChild(personFigure(c, {
             cls: "pickable",
             balloon: `${kind === "writer" ? "I write" : "I draw"} <b style="color:${GENRE_INFO[card.genre].color}">${GENRE_INFO[card.genre].name}</b>!`,
             onpick: (d) => {
               sel[kind] = c;
               selectOne(row, d);
               if (card.value === 1)
-                toast(`${sprHTML("idea_" + card.genre, 0.7)} ${esc(card.name)} is a rookie — signs with a FREE ${GENRE_INFO[card.genre].name} idea!`);
+                toast(`${sprHTML("idea_" + card.genre, 0.55)} ${esc(card.name)} is a rookie — signs with a FREE ${GENRE_INFO[card.genre].name} idea!`);
               refresh();
             },
-          });
-          row.appendChild(chip);
+          }));
         }
         if (s.decks[key].length + s.discards[key].length > 0) {
           const topVal = s.decks[key].length ? CARD_BY_ID[s.decks[key][s.decks[key].length - 1]].value : 1;
-          const blind = el("div", "person pickable");
-          blind.appendChild(spr(`back_${kind}_${topVal}`, 0.42));
-          blind.appendChild(el("div", "p-info",
-            `<div class="p-name">Classified ad</div><div><span class="p-kind">mystery ${kind}</span> <b class="p-val">${"&#10022;".repeat(topVal)}</b></div>`));
-          blind.onclick = () => { SFX.play("click"); sel[kind] = "deck"; selectOne(row, blind); refresh(); };
-          row.appendChild(blind);
+          row.appendChild(mysteryFigure(kind, topVal, {
+            cls: "pickable",
+            onpick: (d) => { sel[kind] = "deck"; selectOne(row, d); refresh(); },
+          }));
         }
-        m.appendChild(row);
+        body.appendChild(row);
       }
+      const foot = panelFooter(m);
       modalButtons(m, [
         { label: "CANCEL", fn: () => { closeModal(); } },
         { label: "SIGN THEM", cls: "btn-go", id: "hire-ok", fn: () => {
@@ -111,9 +108,20 @@ const Scenes = (() => {
             Main.afterHumanMove();
           }, disabled: true },
       ]);
+      function pickName(id, kind) {
+        if (!id) return `<b style="color:#8a2f22">pick a ${kind}</b>`;
+        if (id === "deck") return `the classified-ad ${kind} <i>(blind)</i>`;
+        const c = CARD_BY_ID[id];
+        return `<b>${esc(c.name)}</b> (${GENRE_INFO[c.genre].name} ${"&#10022;".repeat(c.value)})`;
+      }
       function refresh() {
+        const rookies = [sel.writer, sel.artist]
+          .filter((c) => c && c !== "deck" && CARD_BY_ID[c].value === 1).length;
+        foot.innerHTML = `<b>Free.</b> You sign ${pickName(sel.writer, "writer")} + ${pickName(sel.artist, "artist")}` +
+          (rookies ? ` &middot; <b>+${rookies} free idea${rookies > 1 ? "s" : ""}</b> (rookie)` : "");
         m.querySelector("#hire-ok").disabled = !(sel.writer && sel.artist);
       }
+      refresh();
     }, { width: "860px", onDismiss: () => {} });
   }
 
@@ -122,10 +130,9 @@ const Scenes = (() => {
     const e = E(), s = e.state;
     let sel = null; // {comic} | {searchGenre}
     openModal((m) => {
-      sceneBanner(m, "develop");
-      m.appendChild(el("h2", "", "WRITERS' ROOM &mdash; DEVELOP"));
-      m.appendChild(el("div", "modal-sub", "Option one comic book for future printing. Printing needs 2 matching idea tokens + a creative team."));
-      m.appendChild(el("h3", "", "PITCHES ON THE TABLE"));
+      panelHead(m, "develop", "WRITERS' ROOM &mdash; DEVELOP",
+        "Option one comic for future printing. Getting it on the presses later takes a writer + artist team, their fee, and 2 matching ideas.");
+      const body = panelSection(m, "ON OFFER &mdash; PITCHES ON THE TABLE");
       const row = el("div", "card-row");
       for (const c of s.display.comics) {
         row.appendChild(comicTile(c, {
@@ -133,21 +140,27 @@ const Scenes = (() => {
           onpick: (d) => { sel = { comic: c }; selectOne(m, d); refresh(); },
         }));
       }
-      if (s.decks.comics.length + s.discards.comics.length > 0)
-        cardPick(row, null, {
+      if (s.decks.comics.length + s.discards.comics.length > 0) {
+        // blind draw off the slush pile: a face-down back + the "?" mark
+        const blind = cardPick(row, null, {
           back: "back_orig_" + (s.decks.comics.length ? CARD_BY_ID[s.decks.comics[s.decks.comics.length - 1]].genre : "scifi"),
           label: "Slush pile<br><i>blind draw</i>",
           onpick: (d) => { sel = { comic: "deck" }; selectOne(m, d); refresh(); },
         });
-      m.appendChild(row);
-      m.appendChild(el("h3", "", `COMMISSION A GENRE ($4) — search the deck`));
+        blind.appendChild(el("div", "pc-cost", "?"));
+        blind.setAttribute("aria-label", "Slush pile — option the top comic of the deck, blind");
+      }
+      body.appendChild(row);
+      const gbody = panelSection(m, "OR COMMISSION A GENRE ($4) &mdash; search the deck");
       const grow = el("div", "card-row");
       for (const g of GENRES) {
         const t = el("div", "token-btn" + (P(me()).money < 4 ? " dimmed" : ""));
-        t.appendChild(spr("idea_" + g, 1.1));
+        t.appendChild(spr("genreicon_" + g, 1.05));
         t.appendChild(el("span", "", GENRE_INFO[g].name));
+        t.setAttribute("aria-label", `Commission a ${GENRE_INFO[g].name} original for $4` +
+          (P(me()).money < 4 ? " (you can't afford it)" : ""));
         t.onclick = () => {
-          if (P(me()).money < 4) return SFX.play("error");
+          if (P(me()).money < 4) { SFX.play("error"); return toast("A commission costs $4 — you're short."); }
           SFX.play("click");
           m.querySelectorAll(".pick-card,.token-btn").forEach((x) => x.classList.remove("selected"));
           t.classList.add("selected");
@@ -156,7 +169,8 @@ const Scenes = (() => {
         };
         grow.appendChild(t);
       }
-      m.appendChild(grow);
+      gbody.appendChild(grow);
+      const foot = panelFooter(m);
       modalButtons(m, [
         { label: "CANCEL", fn: () => closeModal() },
         { label: "OPTION IT", cls: "btn-go", id: "dev-ok", disabled: true, fn: () => {
@@ -165,7 +179,23 @@ const Scenes = (() => {
             Main.afterHumanMove();
           } },
       ]);
-      function refresh() { m.querySelector("#dev-ok").disabled = !sel; }
+      function refresh() {
+        const p = P(me());
+        if (!sel) {
+          foot.innerHTML = `<b style="color:#8a2f22">Pick a pitch, the slush pile, or a commission.</b>`;
+        } else if (sel.searchGenre) {
+          foot.innerHTML = `<b>$4.</b> The deck is searched for the <b>${GENRE_INFO[sel.searchGenre].name}</b> original of your choice.`;
+        } else if (sel.comic === "deck") {
+          foot.innerHTML = `<b>Free.</b> The top comic of the slush pile lands on your desk — sight unseen.`;
+        } else {
+          const card = CARD_BY_ID[sel.comic];
+          foot.innerHTML = `<b>Free.</b> <b>${esc(card.title)}</b> goes to your desk &middot; ` +
+            `printing it later needs <b>2 ${GENRE_INFO[card.genre].name}</b> ideas (you hold ${p.ideas[card.genre]}) ` +
+            `&middot; prints with ${bonusLabel(card.bonus)}`;
+        }
+        m.querySelector("#dev-ok").disabled = !sel;
+      }
+      refresh();
     }, { width: "860px", onDismiss: () => {} });
   }
   function bonusLabel(b) {
@@ -179,54 +209,58 @@ const Scenes = (() => {
     const fromBoard = IDEAS_SLOTS[slot];
     const board = [], supply = [];
     openModal((m) => {
-      sceneBanner(m, "ideas");
-      m.appendChild(el("h2", "", "CAFE BIZARRE &mdash; IDEAS"));
-      m.appendChild(el("div", "modal-sub",
-        `Take up to <b>${fromBoard}</b> token${fromBoard === 1 ? "" : "s"} from the cafe table, plus <b>2 of your choice</b> from the supply.`));
-      m.appendChild(el("h3", "", `CAFE TABLE (pick ${fromBoard})`));
-      const brow = el("div", "card-row");
-      if (fromBoard === 0) brow.appendChild(el("i", "", "None at this seat — supply only."));
+      panelHead(m, "ideas", "CAFE BIZARRE &mdash; IDEAS",
+        fromBoard > 0
+          ? `Your seat takes up to <b>${fromBoard}</b> coin${fromBoard === 1 ? "" : "s"} off the table, plus <b>2 of your choice</b> from the counter.`
+          : `The table's picked clean at this seat — but the counter still pours: take <b>2 coins of your choice</b>.`);
+      // ON OFFER: the six genre coins sit physically on the café table;
+      // taken ones stay visible but faded (they return next round)
+      const offer = panelSection(m, `ON OFFER &mdash; THE TABLE${fromBoard > 0 ? ` (take up to ${fromBoard})` : " (not from your seat)"}`);
+      const table = el("div", "cafe-table");
+      const tableCoins = {};
       GENRES.forEach((g) => {
-        if (fromBoard === 0) return;
         const avail = s.boardIdeas[g] > 0;
-        const t = el("div", "token-btn" + (avail ? "" : " dimmed"));
-        t.appendChild(spr("idea_" + g, 1.2));
+        const t = el("div", "table-coin" + (avail ? "" : " taken"));
+        t.appendChild(spr("idea_" + g, 1));
         t.appendChild(el("span", "", GENRE_INFO[g].name));
+        tableCoins[g] = t;
+        t.setAttribute("aria-pressed", "false");
         t.onclick = () => {
-          if (!avail) return SFX.play("error");
-          SFX.play("click");
+          if (!avail) { SFX.play("error"); return toast(`The ${GENRE_INFO[g].name} coin is already taken — back next round.`); }
+          if (fromBoard === 0) { SFX.play("error"); return toast("Your seat takes no coins from the table — counter only."); }
           const i = board.indexOf(g);
-          if (i >= 0) { board.splice(i, 1); t.classList.remove("selected"); }
-          else if (board.length < fromBoard) { board.push(g); t.classList.add("selected"); }
-          refresh();
-        };
-        brow.appendChild(t);
-      });
-      m.appendChild(brow);
-      m.appendChild(el("h3", "", "SUPPLY (pick 2, duplicates ok)"));
-      const srow = el("div", "card-row");
-      const counters = {};
-      GENRES.forEach((g) => {
-        const t = el("div", "token-btn");
-        t.appendChild(spr("idea_" + g, 1.2));
-        const cnt = el("span", "count-badge", "0");
-        t.appendChild(cnt);
-        counters[g] = cnt;
-        t.onclick = () => {
+          if (i >= 0) board.splice(i, 1);
+          else if (board.length < fromBoard) board.push(g);
+          else { SFX.play("error"); return toast(`Your seat only takes ${fromBoard} from the table — return one first.`); }
           SFX.play("click");
-          if (supply.length >= 2) {
-            // reset this genre or all? remove first occurrence of g, else clear oldest
-            const i = supply.indexOf(g);
-            if (i >= 0) supply.splice(i, 1);
-            else supply.shift();
-          }
-          if (supply.length < 2) supply.push(g);
-          GENRES.forEach((x) => (counters[x].textContent = supply.filter((y) => y === x).length));
           refresh();
         };
-        srow.appendChild(t);
+        table.appendChild(t);
       });
-      m.appendChild(srow);
+      offer.appendChild(table);
+      // the counter: the always-available supply, duplicates welcome
+      const counter = panelSection(m, "THE COUNTER (take 2 &mdash; doubles welcome)");
+      const crow = el("div", "counter-row");
+      const counterCoins = {};
+      GENRES.forEach((g) => {
+        const t = el("div", "table-coin");
+        t.appendChild(spr("idea_" + g, 1));
+        t.appendChild(el("span", "", GENRE_INFO[g].name));
+        counterCoins[g] = t;
+        t.onclick = () => {
+          if (supply.length >= 2) { SFX.play("error"); return toast("Your tray already holds 2 counter coins — tap one on the tray to put it back."); }
+          SFX.play("click");
+          supply.push(g);
+          refresh();
+        };
+        crow.appendChild(t);
+      });
+      counter.appendChild(crow);
+      // YOUR PICK: the tray that carries your haul out the door
+      const pickBody = panelSection(m, "YOUR PICK &mdash; THE TRAY");
+      const tray = el("div", "pick-tray");
+      pickBody.appendChild(tray);
+      const foot = panelFooter(m);
       modalButtons(m, [
         { label: "CANCEL", fn: () => closeModal() },
         { label: "BRAINSTORM", cls: "btn-go", id: "ideas-ok", disabled: true, fn: () => {
@@ -235,11 +269,56 @@ const Scenes = (() => {
             Main.afterHumanMove();
           } },
       ]);
-      function refresh() {
-        // "up to N" from the table — taking fewer (or none) is always legal
-        m.querySelector("#ideas-ok").disabled = supply.length !== 2;
+      function traySlot(g, cap, onremove) {
+        const d = el("div", "tray-slot" + (g ? " filled" : ""));
+        if (g) {
+          d.appendChild(spr("idea_" + g, 0.7));
+          d.title = `Put the ${GENRE_INFO[g].name} coin back`;
+          d.setAttribute("aria-label", `${GENRE_INFO[g].name} idea in your tray — put it back on the ${cap}`);
+          d.onclick = () => { SFX.play("click"); onremove(); refresh(); };
+        } else {
+          d.title = `Empty tray spot (${cap})`;
+        }
+        return d;
       }
-    }, { width: "760px", onDismiss: () => {} });
+      function refresh() {
+        // the table reflects the tray: picked coins leave a chalk ghost
+        GENRES.forEach((g) => {
+          const t = tableCoins[g];
+          t.classList.toggle("picked", board.includes(g));
+          t.setAttribute("aria-pressed", String(board.includes(g)));
+          t.setAttribute("aria-label", s.boardIdeas[g] > 0
+            ? `${GENRE_INFO[g].name} idea coin on the table${board.includes(g) ? " — in your tray" : ""}`
+            : `${GENRE_INFO[g].name} idea coin — already taken, back next round`);
+          counterCoins[g].setAttribute("aria-label",
+            `Take a ${GENRE_INFO[g].name} idea coin from the counter`);
+        });
+        tray.innerHTML = "";
+        if (fromBoard > 0) {
+          const gTable = el("div", "tray-group");
+          gTable.appendChild(el("span", "tray-cap", "TABLE"));
+          for (let i = 0; i < fromBoard; i++)
+            gTable.appendChild(traySlot(board[i], "table", () => board.splice(i, 1)));
+          tray.appendChild(gTable);
+        }
+        const gCnt = el("div", "tray-group");
+        gCnt.appendChild(el("span", "tray-cap", "COUNTER"));
+        for (let i = 0; i < 2; i++)
+          gCnt.appendChild(traySlot(supply[i], "counter", () => supply.splice(i, 1)));
+        tray.appendChild(gCnt);
+        const total = board.length + supply.length;
+        // "up to N" from the table — taking fewer (or none) is always legal;
+        // the 2 counter coins are the only requirement
+        const ready = supply.length === 2;
+        foot.innerHTML = `<b>Free.</b> You leave with <b>${total} idea${total === 1 ? "" : "s"}</b>` +
+          (board.length ? ` &middot; ${board.length} from the table` : "") +
+          ` &middot; ${supply.length}/2 from the counter` +
+          (ready ? "" : ` — <b style="color:#8a2f22">pick ${2 - supply.length} more from the counter</b>`);
+        m.querySelector("#ideas-ok").disabled = !ready;
+        a11ySweep(m);
+      }
+      refresh();
+    }, { width: "720px", onDismiss: () => {} });
   }
 
   // ------------------------------------------------------------------ PRINT
@@ -254,10 +333,8 @@ const Scenes = (() => {
       const sel = { type: "original", comic: null, target: null, writer: null, artist: null };
       const usedCards = books.flatMap((b) => [b.writer, b.artist, b.comic].filter(Boolean));
       openModal((m) => {
-        sceneBanner(m, "print");
-        m.appendChild(el("h2", "", `PRINT FLOOR &mdash; BOOK ${n}${x2 ? " of up to 2" : ""}`));
-        const sub = el("div", "modal-sub");
-        m.appendChild(sub);
+        const head = panelHead(m, "print", `PRINT FLOOR &mdash; BOOK ${n}${x2 ? " of up to 2" : ""}`, "&nbsp;");
+        const sub = head.querySelector(".ph-tag"); // filled per ORIGINAL/RIP-OFF below
 
         // type toggle
         const ripTargets = s.chart.filter((c) => !c.isRipoff && c.owner !== me() && !s.rippedOriginals[c.cardId]);
@@ -278,27 +355,25 @@ const Scenes = (() => {
           m.appendChild(tg);
         }
 
-        m.appendChild(el("h3", "", "THE BOOK"));
+        const bookBody = panelSection(m, "ON OFFER &mdash; THE BOOK");
         const comicRow = el("div", "card-row");
-        m.appendChild(comicRow);
+        bookBody.appendChild(comicRow);
 
-        m.appendChild(el("h3", "", "THE TEAM (from your roster)"));
-        const wRow = el("div", "card-row");
-        const aRow = el("div", "card-row");
-        for (const [kind, row] of [["writer", wRow], ["artist", aRow]]) {
+        const teamBody = panelSection(m, "YOUR PICK &mdash; THE TEAM (from your roster)");
+        for (const kind of ["writer", "artist"]) {
+          const row = el("div", "card-row");
           const cards = p.hand.filter((c) => CARD_BY_ID[c].kind === kind && !usedCards.includes(c));
           if (!cards.length) row.appendChild(el("i", "", `No ${kind}s on the roster — visit the Talent Agency first.`));
           for (const c of cards) {
-            row.appendChild(personChip(c, {
-              cls: "pickable",
+            row.appendChild(personFigure(c, {
+              cls: "pickable", noRookie: true,
               onpick: (d) => { sel[kind] = c; selectOne(row, d); refresh(); },
             }));
           }
-          m.appendChild(row);
+          teamBody.appendChild(row);
         }
 
-        const preview = el("div", "modal-sub", "");
-        m.appendChild(preview);
+        const preview = panelFooter(m);
 
         modalButtons(m, [
           { label: books.length ? "PRINT WHAT I HAVE" : "CANCEL", fn: () => {
@@ -337,7 +412,7 @@ const Scenes = (() => {
               d.appendChild(spr(`cover_rip_${t.genre}_${idxInGenre}`, 1.2));
               d.appendChild(el("div", "ct-info",
                 `<div class="ct-title">${esc(RIPOFF_TITLES[t.cardId])}</div>` +
-                `<div style="font-size:14px">${genreDot(t.genre)} rips off <b>${esc(t.title)}</b><br>(${esc(P(t.owner).pubName)})</div>`));
+                `<div style="font-size:14px">${genreMark(t.genre, 0.5)} rips off <b>${esc(t.title)}</b><br>(${esc(P(t.owner).pubName)})</div>`));
               d.onclick = () => { SFX.play("click"); sel.target = t.idx; selectOne(comicRow, d); refresh(); };
               comicRow.appendChild(d);
             }
@@ -425,9 +500,12 @@ const Scenes = (() => {
         m.appendChild(el("h2", "", "MANHATTAN &mdash; SCOUT THE NEWSSTANDS"));
         m.appendChild(el("div", "modal-sub",
           `This seat lets you <b>flip up to ${n}</b> and <b>collect up to ${n}</b> sales orders. No editor placed yet — you can still walk away.`));
+        const ref = el("div", "run-ref horizontal");
+        renderCatalog(ref);
+        m.appendChild(ref);
         const cv = el("canvas");
         cv.id = "map-canvas";
-        cv.style.width = "min(680px, calc(66vh / var(--z, 1)))";
+        cv.style.width = "min(840px, calc(102vh / var(--z, 1)))";
         cv.style.alignSelf = "center";
         m.appendChild(cv);
         modalButtons(m, [
@@ -438,12 +516,13 @@ const Scenes = (() => {
             } },
         ]);
         MapView.attach(cv, false, null);
-      }, { width: "700px", onDismiss: () => {} });
+      }, { width: "900px", onDismiss: () => {} });
       return;
     }
     runModal();
 
     function runModal() {
+    UI.salesParked = false; // any (re)opened run un-parks it
     let ticketMode = false;
     openModal((m) => {
       m.classList.add("sales-run-modal");
@@ -456,24 +535,56 @@ const Scenes = (() => {
       const mapPane = el("div", "sales-map-pane");
       const cv = el("canvas");
       cv.id = "map-canvas";
-      cv.style.width = "min(680px, calc(68vh / var(--z, 1)))";
+      cv.style.width = "min(860px, 100%)";
       cv.style.alignSelf = "center";
       mapPane.appendChild(cv);
-      cv.setAttribute("aria-hidden", "true"); // the panel below mirrors the map for keyboard/SR users
-      mapPane.appendChild(el("div", "modal-sub sales-legend", "<b>GREEN</b> free walk &middot; <b>GOLD</b> $2 cab &middot; " +
-        "<b>RED</b> blocked or rival fee. Select a newsstand order at your current corner to flip or collect it."));
+      cv.setAttribute("aria-hidden", "true"); // keys + spoken narration are the non-visual path
+      // the map region takes real keyboard control: arrows drive the agent
+      // directly (the old dispatch button list is gone)
+      mapPane.tabIndex = 0;
+      mapPane.setAttribute("role", "application");
+      mapPane.setAttribute("aria-label",
+        "Manhattan sales run. Arrow keys walk or cab one block; on the central X, arrows choose an avenue and Enter departs. " +
+        "Space cycles the newsstands at your corner, Enter flips or collects the selected one. " +
+        "D cuts across the plaza diagonal, T arms a ticket, E ends the run, M minimizes. Every result is announced.");
+      mapPane.appendChild(el("div", "modal-sub sales-legend",
+        "<b>&#8592;&#8593;&#8595;&#8594;</b> walk/cab &middot; <b>SPACE</b> next stand &middot; <b>ENTER</b> flip/collect &middot; " +
+        "<b>D</b> cut the X &middot; <b>T</b> ticket &middot; <b>E</b> end &middot; <b>M</b> minimize<br>" +
+        "<b>GREEN</b> free walk &middot; <b>GOLD</b> $2 cab &middot; <b>RED</b> blocked or rival fee &middot; the mouse works everywhere too."));
       workspace.appendChild(mapPane);
-      const panel = el("div", "sales-panel");
-      panel.setAttribute("aria-label", "Sales run controls");
-      workspace.appendChild(panel);
+      const dispatchCol = el("div", "dispatch-col");
+      // the dispatch desk keeps your catalog pinned in view: which orders you
+      // can actually deliver is THE question when deciding where to run
+      const refPane = el("div", "run-ref");
+      dispatchCol.appendChild(refPane);
+      workspace.appendChild(dispatchCol);
       const actionBar = modalButtons(workspace, [
+        // park the run and return to the desk: the session survives in the
+        // engine and the Manhattan Map space becomes the resume button, so
+        // the player can consult hand/projects/chart mid-run
+        { label: "&#9662; MINIMIZE", fn: () => {
+            SFX.play("paper");
+            UI.salesParked = true; // advance() must not auto-reopen the run
+            closeModal();
+            renderLocations();
+            toast("Run parked &mdash; the Manhattan Map space brings you back");
+          } },
         { label: "USE TICKET", id: "btn-ticket", fn: (btn) => {
             if (P(me()).tickets <= 0) return;
             ticketMode = !ticketMode;
             btn.classList.toggle("btn-go", ticketMode);
-            toast(ticketMode ? "Ticket armed: click anywhere on the map" : "Ticket disarmed");
+            if (!ticketMode) clearKb();
+            toast(ticketMode ? "Ticket armed: click anywhere, or steer the arrows and press Enter" : "Ticket disarmed");
           } },
-        { label: "END SALES RUN", cls: "btn-danger", fn: () => {
+        { label: (UI.animFast ? "&#9193; FAST: ON" : "&#9193; FAST: OFF"), id: "btn-anim-fast", fn: (btn) => {
+            UI.animFast = !UI.animFast;
+            try { localStorage.setItem("aoc-anim-fast", UI.animFast ? "1" : ""); } catch (_e) {}
+            btn.innerHTML = UI.animFast ? "&#9193; FAST: ON" : "&#9193; FAST: OFF";
+            btn.setAttribute("aria-pressed", String(UI.animFast));
+            toast(UI.animFast ? "Fast animations on — cab rides hurry along"
+              : "Fast animations off — enjoy the cab ride");
+          } },
+        { label: "END SALES RUN", cls: "btn-danger", id: "btn-end-run", fn: () => {
             if (!e.salesEnd(me())) return failed("You owe $2 for this corner — you can't end here.");
             closeModal();
             Main.afterHumanMove();
@@ -481,7 +592,7 @@ const Scenes = (() => {
       ]);
       actionBar.classList.add("sales-actions");
       refreshHud();
-      MapView.attach(cv, true, (h) => {
+      const act = (h) => {
         const ses = s.salesSession;
         if (!ses) return;
         if (h.node !== undefined) {
@@ -532,7 +643,152 @@ const Scenes = (() => {
           closeModal();
           Main.advance();
         }
-      });
+      };
+      MapView.attach(cv, true, act);
+
+      // ---- direct keyboard control (replaces the old dispatch button list):
+      // arrows drive the agent, SPACE/ENTER work the stands, the engine's own
+      // legality checks answer every press, and every result is announced
+      let kbSlot = -1;   // selected stand at the current corner
+      let xSel = -1;     // avenue choice while standing on the X
+      let cursor = null; // free destination cursor while a ticket is armed
+      const XORDER = [9, 13, 14, 10]; // the four avenues, clockwise
+      const DIAG = { 9: 14, 14: 9, 10: 13, 13: 10 };
+      const grid = (n) => ({ gx: MAP.nodes[n].r, gy: MAP.nodes[n].c });
+      function axisNeighbors(n) {
+        const adj = [];
+        for (const [a, b] of MAP.edges) {
+          if (a === n) adj.push(b);
+          if (b === n) adj.push(a);
+        }
+        return adj;
+      }
+      function dirTarget(from, dx, dy) {
+        if (from === "X") return null;
+        const g = grid(from);
+        return axisNeighbors(from).find((nd) => {
+          const gm = grid(nd);
+          return Math.sign(gm.gx - g.gx) === dx && Math.sign(gm.gy - g.gy) === dy;
+        });
+      }
+      function clearKb() { kbSlot = -1; xSel = -1; cursor = null; MapView.setKbFocus(null); }
+      function standsSummary() {
+        const tiles = e.slotsAtAgent(me());
+        if (!tiles.length) return P(me()).agentNode === "X" ? "No stands at the station." : "No free stands here.";
+        return tiles.map((t, i) => t.faceUp
+          ? `stand ${i + 1}: ${GENRE_INFO[t.genre].name}, needs ${t.minVal}, pays ${t.fans}`
+          : `stand ${i + 1}: face-down`).join("; ") + ".";
+      }
+      function goTo(target) {
+        clearKb();
+        act({ node: target });
+        if (s.salesSession && P(me()).agentNode === target)
+          announce(`${cornerName(target)}. ${standsSummary()}`);
+      }
+      function onKey(ev) {
+        if (!s.salesSession) return;
+        const key = ev.key;
+        const onButton = ev.target && ev.target.tagName === "BUTTON";
+        const ARROWS = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] };
+        if (ARROWS[key]) {
+          ev.preventDefault();
+          const [dx, dy] = ARROWS[key];
+          const from = P(me()).agentNode;
+          if (ticketMode && P(me()).tickets > 0) {
+            // the armed ticket steers a free cursor to ANY corner; Enter rides
+            const start = cursor !== null ? cursor : from;
+            const nxt = start === "X" ? XORDER[0] : dirTarget(start, dx, dy);
+            if (nxt === undefined || nxt === null) return failed("No street that way.");
+            cursor = nxt;
+            MapView.setKbFocus({ node: cursor });
+            announce(`Ticket to ${cornerName(cursor)}? Enter to ride.`);
+            return;
+          }
+          if (from === "X") {
+            // the plaza's four avenues are diagonal: arrows cycle, Enter departs
+            const dir = dx > 0 || dy > 0 ? 1 : -1;
+            xSel = ((xSel < 0 ? (dir > 0 ? 0 : XORDER.length - 1) : xSel + dir) + XORDER.length) % XORDER.length;
+            const target = XORDER[xSel];
+            MapView.setKbFocus({ node: target });
+            const chk = e.salesMoveCheck(me(), target);
+            announce(`${cornerName(target)} — ${chk.cabFare ? "$2 cab" : "free"}` +
+              `${chk.occupied ? ", rival's corner, $2 fee" : ""}${chk.ok ? "" : ", blocked"}. Enter to go.`);
+            return;
+          }
+          const target = dirTarget(from, dx, dy);
+          if (target === undefined || target === null) return failed("No street that way.");
+          goTo(target);
+          return;
+        }
+        if (key === "d" || key === "D") {
+          // cut across the plaza: the diagonal avenue between central corners
+          const from = P(me()).agentNode;
+          if (DIAG[from] === undefined) return failed("No diagonal avenue at this corner.");
+          ev.preventDefault();
+          goTo(DIAG[from]);
+          return;
+        }
+        if (key === " " || key === "Enter") {
+          if (onButton) return; // buttons keep their native activation
+          ev.preventDefault();
+          if (key === "Enter" && ticketMode && cursor !== null) {
+            const target = cursor;
+            clearKb();
+            act({ node: target });
+            if (s.salesSession && P(me()).agentNode === target)
+              announce(`Rode the ticket to ${cornerName(target)}. ${standsSummary()}`);
+            return;
+          }
+          if (P(me()).agentNode === "X") {
+            if (key === "Enter" && xSel >= 0) {
+              const t2 = XORDER[xSel];
+              act({ node: t2 });
+              if (s.salesSession && P(me()).agentNode === t2) {
+                clearKb();
+                announce(`${cornerName(t2)}. ${standsSummary()}`);
+              } else {
+                MapView.setKbFocus({ node: t2 }); // refused: keep the pick for the next arrow
+              }
+              return;
+            }
+            return announce("Use the arrow keys to choose an avenue, then press Enter.");
+          }
+          const tiles = e.slotsAtAgent(me());
+          if (!tiles.length) return failed("No free stands at this corner.");
+          if (key === " ") {
+            kbSlot = (kbSlot + 1) % tiles.length;
+            const t2 = tiles[kbSlot];
+            MapView.setKbFocus({ slotId: t2.id });
+            announce(`Stand ${kbSlot + 1} of ${tiles.length}: ` + (t2.faceUp
+              ? `${GENRE_INFO[t2.genre].name}, needs value ${t2.minVal}, pays ${t2.fans} fans. Enter to collect.`
+              : "face-down order. Enter to flip."));
+            return;
+          }
+          const t2 = tiles[kbSlot >= 0 && kbSlot < tiles.length ? kbSlot : 0];
+          kbSlot = -1;
+          MapView.setKbFocus(null);
+          act({ slot: t2 });
+          if (s.salesSession) announce(standsSummary());
+          return;
+        }
+        if (key === "Escape") { clearKb(); return; }
+        if (key === "t" || key === "T") {
+          const b = m.querySelector("#btn-ticket");
+          if (b && !b.disabled) { b.click(); if (ticketMode) cursor = null; }
+          return;
+        }
+        if (key === "e" || key === "E") {
+          const b = m.querySelector("#btn-end-run");
+          if (b) b.click();
+          return;
+        }
+        if (key === "m" || key === "M") {
+          const b = [...m.querySelectorAll("button")].find((x) => /MINIMIZE/.test(x.textContent || ""));
+          if (b) b.click();
+        }
+      }
+      m.addEventListener("keydown", onKey);
+
       function failed(msg) { SFX.play("error"); toast(msg); }
       function refreshHud() {
         const ses = s.salesSession;
@@ -544,148 +800,70 @@ const Scenes = (() => {
           `<span><b>CASH</b> $${p.money}</span> <span><b>TICKETS</b> ${p.tickets}</span>`;
         const tbtn = m.querySelector("#btn-ticket");
         if (tbtn) tbtn.disabled = p.tickets <= 0;
-        renderPanel();
+        renderCatalog(refPane);
       }
-      function afterPanelAction() {
-        flushEvents();
-        refreshHud();
-        renderHUD();
-        if (s.pending && s.pending.playerId === me()) {
-          closeModal();
-          Main.advance();
-        }
-      }
-      // DOM twin of the canvas map: everything a sales run can do, as real
-      // buttons, derived from the engine's own legality checks
-      function renderPanel() {
-        const ses = s.salesSession;
-        if (!ses) return;
-        const p = P(me());
-        const a = document.activeElement;
-        const prevKey = a && a.dataset ? a.dataset.pkey : null;
-        panel.innerHTML = "";
-        panel.appendChild(el("h3", "sp-title", "DISPATCH DESK"));
-        const feeOwed = ses.unpaidNode != null && !ses.feePaid;
-        panel.appendChild(el("div", "sp-status",
-          `You are at <b>${cornerName(p.agentNode)}</b> &middot; $${p.money} &middot; ` +
-          `${p.tickets} ticket${p.tickets === 1 ? "" : "s"} &middot; next step ${ses.freeWalk ? "free" : "$2 cab"}` +
-          (feeOwed ? " &middot; <b>owes a $2 fee at this corner</b>" : "")));
-
-        const mkBtn = (label, key, opts = {}) => {
-          const b = el("button", "btn btn-small", label);
-          b.dataset.pkey = key;
-          b.setAttribute("aria-label", opts.desc || label);
-          if (opts.disabledReason) {
-            // stays focusable so keyboard users can reach the explanation:
-            // aria-disabled + described-by reason + activation blocked in code
-            b.setAttribute("aria-disabled", "true");
-            b.title = opts.disabledReason;
-            const r = el("span", "sr-only", "Unavailable: " + opts.disabledReason);
-            r.id = "sp-why-" + key;
-            b.appendChild(r);
-            b.setAttribute("aria-describedby", r.id);
-            b.onclick = () => failed(`Unavailable: ${opts.disabledReason}.`);
-          } else if (opts.fn) b.onclick = () => { SFX.play("click"); opts.fn(); };
-          return b;
-        };
-
-        // walk/cab destinations
-        const dests = el("div", "sp-row");
-        dests.appendChild(el("span", "sp-lab", "GO TO"));
-        for (const nd of e.agentAdjacent(me())) {
-          if (nd === "X") continue;
-          const chk = e.salesMoveCheck(me(), nd);
-          const desc = `Move to ${cornerName(nd)} — ${chk.cabFare ? "$2 cab" : "free step"}` +
-            (chk.occupied ? ", a rival's corner: $2 fee to act or stop there" : "");
-          dests.appendChild(mkBtn(
-            `${cornerName(nd).replace("corner ", "")}${chk.occupied ? " &#9873;" : ""} (${chk.cabFare ? "$2" : "free"})`,
-            "dest-" + nd, {
-              desc,
-              disabledReason: chk.ok ? null : chk.reason,
-              fn: () => {
-                const mode = ses.freeWalk ? "walk" : "cab";
-                const from = p.agentNode;
-                if (e.salesMove(me(), nd)) MapView.queueMove(me(), from, nd, mode);
-                afterPanelAction();
-              },
-            }));
-        }
-        panel.appendChild(dests);
-
-        // ticket teleport: native select + ride
-        if (p.tickets > 0) {
-          const trow = el("div", "sp-row");
-          trow.appendChild(el("span", "sp-lab", "TICKET"));
-          const sel = el("select");
-          sel.dataset.pkey = "ticket-sel";
-          sel.setAttribute("aria-label", "Ticket destination");
-          for (const nd of MAP.nodes) {
-            if (nd.id === p.agentNode) continue;
-            const o = el("option", "", cornerName(nd.id));
-            o.value = nd.id;
-            sel.appendChild(o);
-          }
-          trow.appendChild(sel);
-          trow.appendChild(mkBtn("RIDE", "ticket-go", {
-            desc: "Use a super-transport ticket to ride to the selected corner",
-            fn: () => {
-              const nd = +sel.value;
-              const chk = e.salesMoveCheck(me(), nd, true);
-              if (!chk.ok) return failed(`Can't ride there: ${chk.reason}.`);
-              const from = p.agentNode;
-              if (e.salesMove(me(), nd, true)) MapView.queueMove(me(), from, nd, "ticket");
-              afterPanelAction();
-            },
-          }));
-          panel.appendChild(trow);
-        }
-
-        // orders at the current corner
-        const here = el("div", "sp-row");
-        here.appendChild(el("span", "sp-lab", "HERE"));
-        const tiles = e.slotsAtAgent(me());
-        if (!tiles.length)
-          here.appendChild(el("span", "sp-none",
-            p.agentNode === "X" ? "no newsstands at the station" : "no free orders at this corner"));
-        const feeBlock = feeOwed && p.money < 2 ? "owes the $2 fee and can't pay it" : null;
-        const feeNote = feeOwed ? " (pays the $2 fee first)" : "";
-        for (const t of tiles) {
-          const name = t.faceUp
-            ? `${fmtGenre(t.genre)} order — needs value ${t.minVal}, worth ${t.fans} fan${t.fans > 1 ? "s" : ""}`
-            : "a face-down order";
-          if (!t.faceUp && ses.flipsLeft > 0)
-            here.appendChild(mkBtn("FLIP ?", "flip-" + t.id, {
-              desc: `Flip ${name} at ${cornerName(p.agentNode)}${feeNote}`,
-              disabledReason: feeBlock,
-              fn: () => { if (!e.salesFlip(me(), t.id)) failed("Can't flip that."); afterPanelAction(); },
-            }));
-          if (ses.collectsLeft > 0)
-            here.appendChild(mkBtn(t.faceUp ? `COLLECT ${fmtGenre(t.genre)} ${t.minVal}+/${t.fans}` : "COLLECT ? (blind)", "collect-" + t.id, {
-              desc: `Collect ${name}${feeNote}`,
-              disabledReason: feeBlock,
-              fn: () => { if (!e.salesCollect(me(), t.id)) failed("Can't collect that."); afterPanelAction(); },
-            }));
-        }
-        panel.appendChild(here);
-
-        // predictable focus after every rerender: same control, else its
-        // group, else the first live button in the panel
-        if (prevKey) {
-          const live = ':not([aria-disabled="true"])';
-          const target = panel.querySelector(`[data-pkey="${prevKey}"]${live}`) ||
-            panel.querySelector(`[data-pkey^="${prevKey.split("-")[0]}"]${live}`) ||
-            panel.querySelector("button" + live);
-          if (target) target.focus();
-        }
-      }
-    }, { width: "720px" });
+    }, { width: "min(1260px, calc(92vw / var(--z, 1)))" });
+    // land keyboard players on the map region so the arrows work immediately
+    const mp = document.querySelector("#modal-root .sales-map-pane");
+    if (mp) mp.focus();
     }
   }
 
   function cornerName(n) {
     if (n === "X") return "Central Station";
     const nd = MAP.nodes[n];
-    return `corner ${"ABCD"[nd.c]}${nd.r + 1}`;
+    // fall back to coordinates so a half-cached load degrades, never crashes
+    return (nd && nd.name) || `corner ${"ABCD"[nd.c]}${nd.r + 1}`;
+  }
+
+  // what a dispatch decision actually weighs: YOUR books on the chart (an
+  // order delivers by itself once you own a same-genre book of value >= its
+  // number, and collected fans push one of these up the lanes), the rival to
+  // beat, and the orders you already hold
+  function renderCatalog(pane) {
+    const e = E(), s = e.state, p = P(me());
+    pane.innerHTML = "";
+    pane.appendChild(el("h3", "sp-title", "YOUR BOOKS ON THE CHART"));
+    const mine = s.chart.filter((c) => c.owner === me()).sort((a, b) => b.fans - a.fans);
+    if (!mine.length)
+      pane.appendChild(el("span", "rr-empty",
+        "Nothing printed yet — orders only deliver for genres you publish."));
+    for (const c of mine) {
+      const row = el("span", "rr-book");
+      row.appendChild(spr(comicSprite(c), 0.32));
+      row.appendChild(el("span", "rr-bk-info",
+        `<b>${esc(c.title)}</b><small>${genreMark(c.genre, 0.4)} v${c.value}${c.isRipoff ? " &middot; rip-off" : ""}</small>`));
+      row.appendChild(el("b", "rr-fans", `${c.fans}&#9829;`));
+      row.title = `${c.title} — value ${c.value}, ${c.fans} fans. ` +
+        `Delivers ${GENRE_INFO[c.genre].name} orders needing ${c.value} or less; ` +
+        `fans you collect could push it up the chart.`;
+      pane.appendChild(row);
+    }
+    // the race in one line: who you'd have to overtake
+    if (mine.length) {
+      const top = s.players.filter((pl) => pl.id !== me())
+        .map((pl) => ({ pl, f: Math.max(0, e.bestComicFans(pl.id)) }))
+        .sort((a, b) => b.f - a.f)[0];
+      if (top) {
+        const myBest = Math.max(0, e.bestComicFans(me()));
+        pane.appendChild(el("span", "rr-lead", myBest > top.f
+          ? `&#9733; YOU LEAD the chart at ${myBest}&#9829; &middot; next: ${esc(top.pl.pubName)} ${top.f}&#9829;`
+          : `Chart leader: <b>${esc(top.pl.pubName)} ${top.f}&#9829;</b> &middot; your best ${myBest}&#9829;`));
+      }
+    }
+    const open = p.orders.map((oid) => s.mapSlots[oid]).filter((o) => !o.fulfilled);
+    if (open.length) {
+      pane.appendChild(el("h3", "sp-title", "ORDERS IN HAND"));
+      const row = el("span", "rr-row rr-orders");
+      for (const o of open) {
+        const chip = el("span", "rr-chip");
+        chip.innerHTML = `${genreMark(o.genre, 0.4)} ${o.minVal}+&rarr;${o.fans}&#9829;`;
+        chip.title = `Undelivered ${GENRE_INFO[o.genre].name} order: you still need a ` +
+          `${GENRE_INFO[o.genre].name} book of value ${o.minVal}+ (worth ${o.fans} fans, or -${o.fans} VP unfilled).`;
+        row.appendChild(chip);
+      }
+      pane.appendChild(row);
+    }
   }
 
   // view-only map
@@ -694,9 +872,11 @@ const Scenes = (() => {
       m.appendChild(el("h2", "", "MANHATTAN — NEWSSTAND ORDERS"));
       const cv = el("canvas");
       cv.id = "map-canvas";
-      cv.style.width = "min(760px, calc(80vh / var(--z, 1)))";
+      cv.style.width = "min(880px, calc(108vh / var(--z, 1)))";
       m.appendChild(cv);
-      modalButtons(m, [{ label: "CLOSE", fn: () => closeModal() }]);
+      modalButtons(m, [
+        { label: "CLOSE", fn: () => closeModal() },
+      ]);
       MapView.attach(cv, false, null);
     }, { onDismiss: () => {} });
   }
@@ -758,7 +938,7 @@ const Scenes = (() => {
           const d = spr(coverOf(c), 0.42);
           d.title = `${CARD_BY_ID[c].title} — needs 2 ${GENRE_INFO[CARD_BY_ID[c].genre].name} ideas (you have ${p.ideas[CARD_BY_ID[c].genre]})`;
           ctx.appendChild(d);
-          ctx.appendChild(el("span", "", genreDot(CARD_BY_ID[c].genre)));
+          ctx.appendChild(el("span", "", genreMark(CARD_BY_ID[c].genre, 0.45)));
         });
       }
       if (s.display.comics.length) {
@@ -767,7 +947,7 @@ const Scenes = (() => {
           const d = spr(coverOf(c), 0.42);
           d.title = `${CARD_BY_ID[c].title} (${GENRE_INFO[CARD_BY_ID[c].genre].name}) — available to develop`;
           ctx.appendChild(d);
-          ctx.appendChild(el("span", "", genreDot(CARD_BY_ID[c].genre)));
+          ctx.appendChild(el("span", "", genreMark(CARD_BY_ID[c].genre, 0.45)));
         });
       }
       const talent = s.display.writers.concat(s.display.artists);
@@ -777,7 +957,7 @@ const Scenes = (() => {
           const d = spr(faceOf(c), 0.8);
           d.title = `${CARD_BY_ID[c].name} — ${GENRE_INFO[CARD_BY_ID[c].genre].name} ${CARD_BY_ID[c].kind} v${CARD_BY_ID[c].value}`;
           ctx.appendChild(d);
-          ctx.appendChild(el("span", "", genreDot(CARD_BY_ID[c].genre)));
+          ctx.appendChild(el("span", "", genreMark(CARD_BY_ID[c].genre, 0.45)));
         });
       }
       m.appendChild(ctx);
@@ -785,7 +965,7 @@ const Scenes = (() => {
       const counters = {};
       GENRES.forEach((g) => {
         const t = el("div", "token-btn");
-        t.appendChild(spr("idea_" + g, 1.2));
+        t.appendChild(spr("idea_" + g, 0.9));
         const cnt = el("span", "count-badge", "0");
         t.appendChild(cnt);
         counters[g] = cnt;
@@ -930,11 +1110,11 @@ const Scenes = (() => {
       function crCard(cardId, value, bookGenre, opts = {}) {
         const cd = CARD_BY_ID[cardId];
         const d = el("div", "swap-cr" + (cd.genre === bookGenre ? " spec" : "") + (opts.cls ? " " + opts.cls : ""));
-        d.appendChild(spr(faceOf(cardId), 1.15));
-        d.appendChild(el("div", "sc-meta", `${genreDot(cd.genre)}<b>${"&#10022;".repeat(value)}</b>`));
+        d.appendChild(spr(faceBigOf(cardId), 0.55));
+        d.appendChild(el("div", "sc-meta", `${genreMark(cd.genre, 0.45)}<b>${"&#10022;".repeat(value)}</b>`));
         if (opts.label) d.appendChild(el("div", "sc-label", opts.label));
-        attachZoom(d, cd.sprite,
-          `<b>${esc(cd.name)}</b><br>${genreDot(cd.genre)} ${GENRE_INFO[cd.genre].name} &middot; v${value}` +
+        attachZoom(d, faceBigOf(cardId),
+          `<b>${esc(cd.name)}</b><br>${genreMark(cd.genre, 0.5)} ${GENRE_INFO[cd.genre].name} &middot; v${value}` +
           (cd.genre === bookGenre ? "<br><span class='zc-note'>&#9733; would be specialized here</span>" : ""));
         return d;
       }
@@ -959,7 +1139,7 @@ const Scenes = (() => {
             const line = el("div", "swap-line");
             const bk = el("div", "swap-book");
             bk.appendChild(spr(comicSprite(comic), 0.45));
-            bk.appendChild(el("span", "", genreDot(comic.genre)));
+            bk.appendChild(el("span", "", genreMark(comic.genre, 0.45)));
             bk.title = `${comic.title} — ${GENRE_INFO[comic.genre].name}, value v${comic.value}`;
             line.appendChild(bk);
             line.appendChild(crCard(cur.id, cur.curValue, comic.genre, { label: "on the book" }));
@@ -1121,26 +1301,41 @@ const Scenes = (() => {
   function startingPicksModal() {
     const e = E(), s = e.state, p = P(me());
     const picks = p.startingPicks;
+    const pub = PUBLISHERS[p.color];
     let comic = null;
     const ideas = [];
     openModal((m) => {
-      m.appendChild(el("h2", "", "FOUNDING CATALOG"));
-      m.appendChild(el("div", "modal-sub",
-        `Pick the <b>genre</b> of your first comic book project (you draw it face-down — its bonus is a surprise) and <b>${picks.ideas}</b> idea tokens.`));
-      m.appendChild(el("h3", "", "YOUR STARTING TEAM"));
+      // the shared panel anatomy, with the HOUSE MARK as the emblem — this
+      // is the founding of your publishing house, not an action room
+      const head = el("div", "panel-head");
+      const em = el("div", "ph-emblem bare"); // the die-cut mark needs no plaque
+      em.appendChild(spr(pub.logo, 1.6));
+      head.appendChild(em);
+      const ht = el("div", "ph-text");
+      ht.appendChild(el("h2", "", `FOUNDING CATALOG &mdash; ${pub.name.toUpperCase()}`));
+      ht.appendChild(el("div", "ph-tag",
+        `Pick the <b>genre</b> of your first comic book project (you draw it face-down — its bonus is a surprise) and <b>${picks.ideas}</b> idea token${picks.ideas === 1 ? "" : "s"}.`));
+      head.appendChild(ht);
+      m.appendChild(head);
+      const teamBody = panelSection(m, "YOUR STARTING TEAM");
       const team = el("div", "card-row");
-      for (const c of p.hand) team.appendChild(personChip(c, { scale: 2 }));
-      m.appendChild(team);
-      m.appendChild(el("h3", "", "PICK A GENRE FROM THE VAULT"));
+      for (const c of p.hand) team.appendChild(personFigure(c));
+      teamBody.appendChild(team);
+      const vaultBody = panelSection(m, "ON OFFER &mdash; PICK A GENRE FROM THE VAULT");
       const row = el("div", "card-row");
       for (const g of GENRES) {
         const inDeck = s.decks.comics.filter((c) => CARD_BY_ID[c].genre === g);
         const teamMatch = p.hand.some((c) => CARD_BY_ID[c].genre === g);
+        // every vault card shares one fixed footprint (cls vault-card): the
+        // match note lives in a reserved caption line and a gold ribbon, so
+        // it can never warp the row's spacing
         cardPick(row, null, {
           back: "back_orig_" + g,
           scale: 1.25,
+          cls: "vault-card",
           dimmed: inDeck.length === 0,
-          label: `${fmtGenre(g)}${teamMatch ? "<br><b>&#9733; matches your team!</b>" : "<br>&nbsp;"}`,
+          label: `${genreMark(g, 0.55)} ${GENRE_INFO[g].name}<br>` +
+            (teamMatch ? `<span class="match-tag">&#9733; MATCHES YOUR TEAM</span>` : "&nbsp;"),
           onpick: (d) => {
             comic = inDeck[(e.rng() * inDeck.length) | 0]; // seeded: reproducible + undo-safe
             selectOne(row, d);
@@ -1148,13 +1343,13 @@ const Scenes = (() => {
           },
         });
       }
-      m.appendChild(row);
-      m.appendChild(el("h3", "", `IDEA TOKENS (${picks.ideas})`));
+      vaultBody.appendChild(row);
+      const ideaBody = panelSection(m, `IDEA TOKENS (pick ${picks.ideas} &mdash; doubles welcome)`);
       const irow = el("div", "card-row");
       const counters = {};
       GENRES.forEach((g) => {
         const t = el("div", "token-btn");
-        t.appendChild(spr("idea_" + g, 1.1));
+        t.appendChild(spr("idea_" + g, 0.85));
         const cnt = el("span", "count-badge", "0");
         t.appendChild(cnt);
         counters[g] = cnt;
@@ -1162,30 +1357,57 @@ const Scenes = (() => {
           SFX.play("click");
           if (ideas.length >= picks.ideas) ideas.shift();
           ideas.push(g);
-          GENRES.forEach((x) => (counters[x].textContent = ideas.filter((y) => y === x).length));
+          GENRES.forEach((x) => {
+            const n = ideas.filter((y) => y === x).length;
+            counters[x].textContent = n;
+            counters[x].classList.toggle("has", n > 0); // quiet at 0, gold when picked
+          });
           refresh();
         };
         irow.appendChild(t);
       });
-      m.appendChild(irow);
-      modalButtons(m, [{ label: "FOUND THE HOUSE", cls: "btn-go", id: "sp-ok", disabled: true, fn: () => {
+      ideaBody.appendChild(irow);
+      const foot = panelFooter(m);
+      // NOT natively disabled: a blocked button must stay reachable and
+      // explain itself (house a11y rule) — pressing it too early answers
+      // with what's still missing
+      modalButtons(m, [{ label: "FOUND THE HOUSE", cls: "btn-go", id: "sp-ok", fn: () => {
+        if (!(comic && ideas.length === picks.ideas)) {
+          SFX.play("error");
+          return toast("Before opening: " + missing().join(" and ") + ".");
+        }
         closeModal();
         e.resolveStartingPicks(me(), comic, ideas);
         e.advanceIncrease();
         Main.afterHumanMove();
       } }]);
-      function refresh() { m.querySelector("#sp-ok").disabled = !(comic && ideas.length === picks.ideas); }
+      function missing() {
+        const parts = [];
+        if (!comic) parts.push("pick a genre from the vault");
+        if (ideas.length < picks.ideas)
+          parts.push(`pick ${picks.ideas - ideas.length} more idea token${picks.ideas - ideas.length === 1 ? "" : "s"}`);
+        return parts;
+      }
+      function refresh() {
+        const ok = comic && ideas.length === picks.ideas;
+        const btn = m.querySelector("#sp-ok");
+        btn.setAttribute("aria-disabled", String(!ok));
+        foot.innerHTML = ok
+          ? `You open with a face-down <b>${GENRE_INFO[CARD_BY_ID[comic].genre].name}</b> original` +
+            ` + ${ideas.map((g) => sprHTML("idea_" + g, 0.55)).join("")} &middot; all set — <b>FOUND THE HOUSE</b>!`
+          : `<b style="color:#8a2f22">${missing().map((x) => x[0].toUpperCase() + x.slice(1)).join(" &middot; ")}.</b>` +
+            (ideas.length ? ` In the tray: ${ideas.map((g) => sprHTML("idea_" + g, 0.55)).join("")}` : "");
+      }
+      refresh();
     }, { width: "980px" });
   }
 
   function increaseModal() {
     const e = E(), p = P(me());
     openModal((m) => {
-      m.appendChild(el("h2", "", "CREATIVE DEVELOPMENT"));
-      m.appendChild(el("div", "modal-sub",
-        "Specialized creatives on printed books can grow: <b>learn</b> from a stronger specialized teammate ($1) or <b>train</b> (pay the new value). One step per creative per round. Higher team value = higher book value for orders."));
-      const list = el("div");
-      m.appendChild(list);
+      panelHead(m, "develop", "CREATIVE DEVELOPMENT",
+        "Specialized creatives on printed books can grow: <b>learn</b> from a stronger specialized teammate ($1) or <b>train</b> (pay the new value). One step per creative per round. Higher team value = higher book value for orders.");
+      const list = panelSection(m, "THIS ROUND'S CANDIDATES");
       render();
       modalButtons(m, [{ label: "DONE", cls: "btn-go", fn: () => {
         closeModal();
@@ -1201,7 +1423,7 @@ const Scenes = (() => {
           const cr = c.creatives[o.kind];
           const line = el("div", "card-row");
           line.appendChild(el("span", "modal-sub",
-            `${sprHTML(faceOf(cr.id), 1.1)} <b>${esc(cr.name)}</b> (${o.kind} on <b>${esc(c.title)}</b>) v${cr.curValue} &rarr; v${o.newValue} &middot; ${o.mode} for <b>$${o.cost}</b>`));
+            `${sprHTML(faceBigOf(cr.id), 0.5)} <b>${esc(cr.name)}</b> (${o.kind} on <b>${esc(c.title)}</b>) v${cr.curValue} &rarr; v${o.newValue} &middot; ${o.mode} for <b>$${o.cost}</b>`));
           const b = el("button", "btn btn-small", o.mode.toUpperCase() + " $" + o.cost);
           b.onclick = () => {
             SFX.play("cash");

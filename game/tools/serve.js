@@ -22,7 +22,13 @@ http.createServer((req, res) => {
   if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, "index.html");
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404); return res.end("404"); }
-    res.writeHead(200, { "Content-Type": MIME[path.extname(file).toLowerCase()] || "application/octet-stream" });
+    res.writeHead(200, {
+      "Content-Type": MIME[path.extname(file).toLowerCase()] || "application/octet-stream",
+      // the game is served straight off the working tree: never let the
+      // browser heuristically cache stale JS/CSS (this once shipped an old
+      // ui-map.js after an update)
+      "Cache-Control": "no-store",
+    });
     res.end(data);
   });
 }).listen(PORT, () => console.log(`Serving ${ROOT} at http://localhost:${PORT}/`));
