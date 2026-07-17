@@ -50,12 +50,11 @@ const Main = (() => {
       d.setAttribute("aria-label", `${pub.name} — ${pub.boss}. ${pub.blurb}`);
       d.style.setProperty("--pc", pub.color);
       const head = el("div", "pub-head");
-      head.appendChild(spr("bossbig_" + c, 1.15));
+      head.appendChild(spr(PUBLISHERS[c].logo, 1.9));
       d.appendChild(head);
       const body = el("div", "pub-body");
       const logoRow = el("div", "pub-logo-row");
-      logoRow.appendChild(sprHD(pub.logo, 0.8));
-      logoRow.appendChild(el("b", "", pub.name));
+      logoRow.appendChild(el("b", "", pub.name)); // the mark above IS the face
       body.appendChild(logoRow);
       body.appendChild(el("div", "pub-boss", pub.boss));
       body.appendChild(el("div", "pub-blurb", pub.blurb));
@@ -107,7 +106,7 @@ const Main = (() => {
     document.getElementById("setup-preview").innerHTML =
       "<b>YOUR RIVALS:</b> " + rivals.map((c) => {
         const pub = PUBLISHERS[c];
-        return `<span class="rival-chip" title="${pub.boss} — ${pub.name}">${sprHTML("bosssm_" + c, 1)} <b>${pub.boss}</b></span>`;
+        return `<span class="rival-chip" title="${pub.boss} — ${pub.name}">${sprHTML(pub.logo, 0.62)} <b>${pub.boss}</b></span>`;
       }).join("");
   }
 
@@ -244,7 +243,11 @@ const Main = (() => {
         const key = `inc-${s.round}-${pid}`;
         if (UI.lastTurnKey !== key) { UI.lastTurnKey = key; UI.undoSnap = e.snapshot(); }
         if (p.startingPicks) Scenes.startingPicksModal();
-        else if (e.increaseOptions(pid).length) Scenes.increaseModal();
+        else if (e.increaseOptions(pid).length) {
+          const wait = (typeof heroRemaining === "function" ? heroRemaining() : 0) + 650;
+          UI.busy = true;
+          setTimeout(() => { UI.busy = false; if (!modalIsOpen()) Scenes.increaseModal(); }, wait);
+        }
         else { e.finishIncrease(pid); queueAdvance(60); }
       } else {
         AI.doStartingPicks(e, pid);
@@ -315,14 +318,29 @@ const Main = (() => {
     return UI.pendingReview && !UI.autoplay && !s.gameOver && !!UI.undoSnap &&
       !s.pending && !s.awaitingSpecial && !s.salesSession && !s.printX2;
   }
+  // the slip names what was just done (placement diary for actions; the
+  // founding/development dialogs stash a hint before committing)
+  const REVIEW_LABELS = {
+    hire: "TALENT SIGNED", develop: "COMIC OPTIONED", ideas: "IDEAS COLLECTED",
+    print: "BOOKS PRINTED", royalties: "ROYALTIES COLLECTED", sales: "SALES RUN FILED",
+  };
+  function reviewLabel() {
+    if (UI.reviewHint) return UI.reviewHint;
+    const s = UI.engine.state;
+    const last = s.placeSeq && s.placeSeq[s.placeSeq.length - 1];
+    if (last && last.player === UI.humanId && REVIEW_LABELS[last.action]) return REVIEW_LABELS[last.action];
+    return "ACTION COMPLETE";
+  }
   function showReview() {
     const bar = document.getElementById("review-bar");
     if (!bar.hidden) return;
     UI.busy = false;
     setAIStatus(null);
+    const label = reviewLabel();
+    bar.querySelector(".rb-text").innerHTML = "&#10004; PROOF &mdash; " + label;
     bar.hidden = false;
     document.getElementById("screen-game").classList.add("reviewing");
-    announce("Action complete. Confirm to continue, or undo.");
+    announce(label.toLowerCase() + ". Confirm to continue, or undo.");
     document.getElementById("btn-review-confirm").focus();
   }
   function hideReview() {
@@ -332,6 +350,7 @@ const Main = (() => {
   function confirmReview() {
     UI.pendingReview = false;
     UI.undoSnap = null; // the action is locked in
+    UI.reviewHint = null;
     hideReview();
     const loc = document.querySelector('#locations [role="button"]');
     if (loc) loc.focus();

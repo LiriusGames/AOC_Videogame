@@ -8,6 +8,19 @@
 </head>
 <body>
 <script>
+// no half-dressed first paint: the app fades in once the period fonts and
+// the title art are actually ready (1.4s failsafe)
+document.documentElement.classList.add("booting");
+addEventListener("DOMContentLoaded", function () {
+  var done = function () { document.documentElement.classList.remove("booting"); };
+  var t = setTimeout(done, 1400);
+  Promise.all([
+    document.fonts ? document.fonts.ready : Promise.resolve(),
+    new Promise(function (res) { var i = new Image(); i.onload = i.onerror = res; i.src = "assets/title.webp"; }),
+  ]).then(function () { clearTimeout(t); done(); });
+});
+</script>
+<script>
 // Opening index.html straight from the filesystem half-loads and dies with an
 // opaque "Script error" — browsers restrict file:// pages. The supported
 // launch is PLAY.bat, which serves the game at http://localhost:8477/.

@@ -134,7 +134,7 @@ function cardSprite(cardId) {
   const c = CARD_BY_ID[cardId];
   return c.kind ? c.sprite : coverOf(cardId);
 }
-function bossSprite(pid) { return "boss_" + P(pid).color; }
+function bossSprite(pid) { return PUBLISHERS[P(pid).color].logo; }
 
 // components ----------------------------------------------------------------
 const BONUS_CHIP = {
@@ -227,6 +227,7 @@ function personFigure(creativeId, opts = {}) {
   if (opts.onpick) d.onclick = () => { SFX.play("click"); opts.onpick(d); };
   if (opts.dimmed) d.classList.add("dimmed");
   // hover: the face up close + the facts — no trading card at runtime
+  if (opts.noZoom) return d;
   attachZoom(d, faceBigOf(creativeId),
     `<b>${esc(c.name)}</b><br>${GENRE_INFO[c.genre].name} ${c.kind} &middot; ${"&#10022;".repeat(c.value)}`);
   return d;
@@ -650,6 +651,16 @@ function offerStrip(action) {
         d.title = `${card.title} (${GENRE_INFO[card.genre].name})`;
         strip.appendChild(d);
       });
+      // the slush pile rides the preview too: the face-down draw is part of
+      // what this desk offers (same back you would see in the dialog)
+      if (s.decks.comics.length + s.discards.comics.length > 0) {
+        const g0 = s.decks.comics.length ? CARD_BY_ID[s.decks.comics[s.decks.comics.length - 1]].genre : "scifi";
+        const bd = el("div", "offer-comic offer-blind");
+        bd.appendChild(spr("back_orig_" + g0, 0.38));
+        bd.appendChild(el("b", "ob-q", "?"));
+        bd.title = "Slush pile — a face-down comic can be drawn blind";
+        strip.appendChild(bd);
+      }
       break;
     case "ideas":
       // all six shown; taken ones fade instead of vanishing
@@ -1140,7 +1151,7 @@ function renderHUD() {
       let hc;
       if (card.kind) {
         hc = el("div", "team-chip");
-        hc.appendChild(spr(faceBigOf(c.id), 0.55));
+        hc.appendChild(spr(faceBigOf(c.id), 0.55, "no-frame"));
         hc.appendChild(el("span", "tc-meta", `${genreMark(card.genre, 0.45)}<b>${"&#10022;".repeat(card.value)}</b>`));
         hc.title = `${card.name} — ${GENRE_INFO[card.genre].name} ${card.kind} v${card.value}`;
         hc.setAttribute("aria-label",
@@ -1297,8 +1308,8 @@ function animateEvent(ev) {
         FX.reveal(ev.blind.map((c) => {
           const cd = CARD_BY_ID[c];
           return {
-            sprite: faceBigOf(c), scale: 1.15, round: true,
-            front: "mysterybig_" + cd.kind, frontRound: true, frontScale: 1.15,
+            sprite: faceBigOf(c), scale: 1.15,
+            front: "mysterybig_" + cd.kind, frontScale: 1.15,
             title: cd.name.toUpperCase(),
             sub: `${GENRE_INFO[cd.genre].name} ${cd.kind} &middot; <b>${"&#10022;".repeat(cd.value)}</b>` +
               (cd.value === 1 ? " &middot; rookie (+1 idea)" : ""),

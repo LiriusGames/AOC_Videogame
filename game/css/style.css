@@ -164,7 +164,7 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 .pub-card:hover { transform: translateY(-3px); }
 .pub-card.active { background: var(--pc); outline: 4px solid var(--gold); }
 .pub-card .pub-head { display: flex; justify-content: center; padding: 8px 0 0; background: var(--pc); border-bottom: 3px solid var(--ink); }
-.pub-card .pub-head .spr { border: 3px solid var(--ink); background: var(--paper); }
+.pub-card .pub-head .spr { }
 .pub-card .pub-body { padding: 7px 8px; display: flex; flex-direction: column; gap: 3px; }
 .pub-card .pub-logo-row { display: flex; align-items: center; gap: 6px; font-family: var(--f-display); font-size: 11px; }
 .pub-card .pub-logo-row .spr { flex-shrink: 0; } /* the die-cut mark, unframed */
@@ -181,7 +181,7 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 }
 .choice.active { background: var(--accent); color: var(--ink); box-shadow: inset 0 -3px 0 rgba(0,0,0,.3); }
 .setup-rivals-preview { font-size: 15px; line-height: 1.5; background: var(--paper-dark); padding: 8px 10px; border: 2px dashed var(--ink); display: flex; align-items: center; gap: 6px 18px; flex-wrap: wrap; }
-.setup-rivals-preview .spr { border: 2px solid var(--ink); vertical-align: middle; }
+.setup-rivals-preview .spr { vertical-align: middle; }
 .setup-rivals-preview .rival-chip { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
 
 /* -------------------------------------------------------------------- game
@@ -371,13 +371,20 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 /* people & comics as first-class objects */
 /* comic speech balloon ("I write WESTERN!") */
 .figure .balloon {
-  position: absolute; top: -30px; left: 6px; z-index: 3; white-space: nowrap;
-  background: #fff; border: 2px solid var(--ink); border-radius: 10px;
-  padding: 2px 8px; font-size: 13px; color: var(--ink); box-shadow: 2px 3px 0 rgba(0,0,0,.25);
+  position: absolute; top: -32px; left: 4px; z-index: 3; white-space: nowrap;
+  background: #fff; border: 2px solid var(--ink);
+  border-radius: 50% / 46%;
+  padding: 4px 12px; font-size: 13px; color: var(--ink);
+  box-shadow: 2px 3px 0 rgba(0, 0, 0, .18);
 }
+/* the tail: ink triangle with a white overlay = outlined comic tail */
 .figure .balloon::after {
-  content: ""; position: absolute; left: 14px; bottom: -8px;
-  border: 5px solid transparent; border-top-color: var(--ink);
+  content: ""; position: absolute; left: 15px; bottom: -9px;
+  border: 6px solid transparent; border-top-color: var(--ink);
+}
+.figure .balloon::before {
+  content: ""; position: absolute; left: 17px; bottom: -4px; z-index: 1;
+  border: 4px solid transparent; border-top-color: #fff;
 }
 .card-row.balloon-row { padding-top: 28px; row-gap: 38px; }
 .chip {
@@ -433,7 +440,7 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 .hand-comic { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .hand-comic .hc-chips { display: flex; align-items: center; }
 .dlg-face { float: left; margin-right: 5px; line-height: 0; }
-.dlg-face .spr { border: 2px solid var(--ink); }
+.dlg-face .spr { }
 
 /* sidebar chart */
 #sidebar {
@@ -852,7 +859,8 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
    footer — every action dialog is built from these */
 .panel-head { display: flex; gap: 14px; align-items: center; border-bottom: 3px solid var(--ink); padding-bottom: 10px; }
 .ph-emblem {
-  flex: none; width: 118px; height: 90px; display: flex; align-items: center; justify-content: center;
+  flex: none; width: 118px; height: 90px; display: flex; align-items: flex-end; justify-content: center;
+  overflow: hidden;
   background: radial-gradient(circle at 50% 38%, #fff6e0, var(--paper-dark) 85%);
   border: 3px solid var(--ink); border-radius: 8px; box-shadow: 0 3px 0 rgba(0,0,0,.25);
 }
@@ -1431,3 +1439,26 @@ html.film-matinee.film-lens #app { filter: sepia(.4) saturate(1.18) contrast(1.0
 
 /* grain has its own switch in the settings (negative class: default is on) */
 html.film-nograin .fl-grain { display: none; }
+
+/* ------------------------------------------------- hiccup pass, July 17 */
+/* boot: nothing shows until fonts + title art are ready (script in index) */
+#app { transition: opacity .22s; }
+html.booting #app { opacity: 0; }
+/* medallion faces carry their own ink ring — no square chip frame on them */
+.team-chip .spr.no-frame, .project-chip .spr.no-frame { border: none; background: none; }
+/* develop tile: the slush pile is part of the offer preview */
+.offer-comic .ob-q {
+  font-family: var(--f-display); font-size: 12px; color: var(--ink);
+  background: var(--gold); border: 1px solid var(--ink); border-radius: 5px;
+  padding: 0 4px; margin-left: 2px;
+}
+/* the mockup's aged stock: modals live on warmer paper with a lit center
+   and browned edges (layered UNDER the halftone dots above) */
+.modal {
+  background-color: #eee0c0;
+  background-image:
+    radial-gradient(rgba(34, 29, 22, .05) 1px, transparent 1.4px),
+    radial-gradient(ellipse at 50% 26%, rgba(255, 252, 240, .55), transparent 68%),
+    radial-gradient(ellipse at 50% 118%, rgba(112, 82, 38, .14), transparent 62%);
+  background-size: 6px 6px, 100% 100%, 100% 100%;
+}

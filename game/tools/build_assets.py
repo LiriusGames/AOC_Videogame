@@ -33,8 +33,10 @@ def retro(im, target_w, colors=24, sat=1.18, con=1.06, max_h=None):
 def crisp(im, target_w, max_h=None):
     """Resize only — NO palette crunch. Anything that functions as an ICON
     (tokens, coins, faces, genre marks) stays clean; the 16-bit treatment
-    lives on the poster-scale surfaces (scenes, covers, vignettes)."""
-    im = im.convert("RGBA")
+    lives on the poster-scale surfaces (scenes, covers, vignettes).
+    Defringed first: LANCZOS against black-backed transparency used to leave
+    a dark halo on every token edge (the mastery tokens' '16-bit trace')."""
+    im = defringe(im.convert("RGBA"))
     ratio = target_w / im.width
     if max_h is not None and im.height * ratio > max_h:
         ratio = max_h / im.height
@@ -262,105 +264,193 @@ atlas.update(tokens.save())
 # S skin, T skin shade / H hair / C house color, D house dark (garment) /
 # W white shirt or blouse / G gray trousers / K near-black (shoes, hat band).
 STAFF_MAPS = [
-    # 0 — man in a fedora and house-color suit, white shirt, dark tie
+    # 0 - man in a fedora and house-color suit, white shirt, dark tie (26x44)
     """
-....ODDDO....
-...ODDDDDO...
-...OKKKKKO...
-.ODDDDDDDDDO.
-..OOOOOOOOO..
-...OSSSSSO...
-...OSESESO...
-...OTSSSTO...
-....OSSSO....
-...OWWWWWO...
-..OCCWDWCCO..
-.OCCCWDWCCCO.
-.OCCCWDWCCCO.
-.OCOCWWWCOCO.
-.OCOCCCCCOCO.
-.OTOCCCCCOTO.
-..OODDDDDOO..
-...ODDDDDO...
-...ODDODDO...
-...ODDODDO...
-...OKKOKKO...
-....OO.OO....
+........ODDDDDDDDO
+.......ODDDDDDDDDDO
+.......ODDDDDDDDDDO
+.......ODDDDDDDDDDO
+.......OKKKKKKKKKKO
+....ODDDDDDDDDDDDDDDDO
+....ODDDDDDDDDDDDDDDDO
+.....OOOOOOOOOOOOOOOO
+.......OTTTTTTTTTTO
+.......OSSSSSSSSSSO
+.......OSEESSSSEESO
+.......OSSSSSSSSSSO
+.......OSSSTTTTSSSO
+........OSSSSSSSSO
+.........OTTTTTTO
+..........OSSSSO
+.......OWWWOSSOWWWO
+....OCCCCOWWDDWWOCCCCO
+...OCCCCCOWWDDWWOCCCCCO
+..OCCCCCCOWWDDWWOCCCCCCO
+..OCOCCCCOWWDDWWOCCCCOCO
+..OCOCCCCOWWDDWWOCCCCOCO
+..OCOCCCCOWDDDDWOCCCCOCO
+..OCOCCCCOWWDDWWOCCCCOCO
+..OTOCCCCOWWDDWWOCCCCOTO
+...OOCCCCCODDDDOCCCCCOO
+....OCCCCCCCCCCCCCCCCO
+....ODDDDDDDDDDDDDDDDO
+.....ODDDDDDDDDDDDDDO
+.....ODDDDDDDDDDDDDDO
+.....ODDDDDDDDDDDDDDO
+.....ODDDDDDDDDDDDDDO
+.....ODDDDDDOODDDDDDO
+.....ODDDDDDOODDDDDDO
+.....ODDDDDDOODDDDDDO
+.....ODDDDDDOODDDDDDO
+.....ODDDDDDOODDDDDDO
+.....ODDDDDDOODDDDDDO
+.....ODDDDDDOODDDDDDO
+.....ODDDDDDOODDDDDDO
+.....OKKKKKKOOKKKKKKO
+....OKKKKKKKOOKKKKKKKO
+....OKKKKKKKOOKKKKKKKO
+.....OOOOOOO..OOOOOOO
 """,
-    # 1 — woman with an updo, white blouse, house-color pencil skirt
+    # 1 - woman with an updo, white blouse, house-color pencil skirt (26x44)
     """
-.............
-....OHHHO....
-...OHHHHHO...
-..OHHHHHHHO..
-..OHSSSSSHO..
-..OHSESESHO..
-..OHTSSSTHO..
-...OSSSSSO...
-....OSSSO....
-...OWWWWWO...
-..OWWWWWWWO..
-.OWOWWWWWOWO.
-.OWOWWWWWOWO.
-.OTOWWWWWOTO.
-..OODCCCDOO..
-...OCCCCCO...
-...OCCCCCO...
-..OCCCCCCCO..
-..OCCCCCCCO..
-...OOSOSOO...
-....OSOSO....
-....OKOKO....
+.
+.
+..........OHHHHHO
+.........OHHHHHHHO
+........OHHHHHHHHHO
+........OHHHHHHHHHO
+........OHSSSSSSSHO
+........OHSSSSSSSHO
+........OHSEESEESHO
+........OHSSSSSSSHO
+........OHSSTTTSSHO
+.........OSSSSSSSO
+..........OTTTTTO
+...........OSSSO
+........OWWWOSOWWWO
+......OWWWWWWWWWWWWWO
+.....OWWWWWWWWWWWWWWWO
+.....OWOWWWWWWWWWWWOWO
+.....OWOWWWWGWWWWWWOWO
+.....OWOWWWWWWWWWWWOWO
+.....OWOWWWWWWWWWWWOWO
+.....OTOWWWWWWWWWWWOTO
+......OODCCCCCCCDOO
+.......OCCCCCCCCCO
+.......OCCCCCCCCCO
+.......OCCCCCCCCCO
+.......OCCCCCCCCCO
+.......OCCCCCCCCCO
+.......OCCCCDCCCCO
+.......OCCCCCCCCCO
+.......OCCCCCCCCCO
+.......OCCCCCCCCCO
+........OOSSOSSOO
+.........OSSOOSSO
+.........OSSO.OSSO
+.........OSSO.OSSO
+.........OSSO.OSSO
+.........OSSO.OSSO
+.........OSSO.OSSO
+.........OSSO.OSSO
+.........OKKO.OKKO
+........OKKKO.OKKKO
+........OKKKO.OKKKO
+.........OOO...OOO
 """,
-    # 2 — man in shirtsleeves with house-color suspenders, gray trousers
+    # 2 - man in shirtsleeves, house suspenders, house trousers (26x44)
     """
-.............
-.............
-.............
-....OHHHO....
-...OHHHHHO...
-...OHSSSHO...
-...OSESESO...
-...OTSSSTO...
-....OSSSO....
-...OWWWWWO...
-..OWCWWWCWO..
-.OWWCWWWCWWO.
-.OWOCWWWCOWO.
-.OWOCWWWCOWO.
-.OTOWWWWWOTO.
-..OODDDDDOO..
-...OCCCCCO...
-...OCCOCCO...
-...OCCOCCO...
-...OCCOCCO...
-...OKKOKKO...
-....OO.OO....
+.
+.
+.
+........OHHHHHHHHO
+.......OHHHHHHHHHHO
+.......OHSSSSSSSSHO
+.......OSSSSSSSSSSO
+.......OSEESSSSEESO
+.......OSSSSSSSSSSO
+.......OSSSTTTTSSSO
+........OSSSSSSSSO
+.........OTTTTTTO
+..........OSSSSO
+.......OWWWOSSOWWWO
+....OWWWWWWWWWWWWWWWWO
+...OWWCWWWWWWWWWWCWWO
+..OWOWCWWWWWWWWWWCWOWO
+..OWOWCWWWWWWWWWWCWOWO
+..OWOWCWWGWWWWGWWCWOWO
+..OTOWWCWWWWWWWWCWWOTO
+...OODDDDDDDDDDDDDDOO
+....OCCCCCCCCCCCCCCO
+....OCCCCCCCCCCCCCCO
+....OCCCCCCCCCCCCCCO
+....OCCCCCCCCCCCCCCO
+....OCCCCCCOOCCCCCCO
+....OCCCCCCOOCCCCCCO
+....OCCCCCCOOCCCCCCO
+....OCCCCCCOOCCCCCCO
+....OCCCCCCOOCCCCCCO
+....OCCCCCCOOCCCCCCO
+....OCCCCCCOOCCCCCCO
+....OCCCCCCOOCCCCCCO
+....OCCCCCCOOCCCCCCO
+....OCCCCCCOOCCCCCCO
+....OCCCCCCOOCCCCCCO
+....OCCCCCCOOCCCCCCO
+....OCCCCCCOOCCCCCCO
+....OCCCCCCOOCCCCCCO
+....OCCCCCCOOCCCCCCO
+....OKKKKKKOOKKKKKKO
+...OKKKKKKKOOKKKKKKKO
+...OKKKKKKKOOKKKKKKKO
+....OOOOOOO..OOOOOOO
 """,
-    # 3 — woman with a bob cut in a house-color day dress, dark belt
+    # 3 - woman with an auburn bob in a house day dress, dark belt (26x44)
     """
-.............
-.............
-....OHHHO....
-..OHHHHHHHO..
-..OHHHHHHHO..
-..OHSSSSSHO..
-..OHSESESHO..
-..OHTSSSTHO..
-..OHHSSSHHO..
-....OSSSO....
-...OCCCCCO...
-..OCCCCCCCO..
-.OCOCCCCCOCO.
-.OCOCDDDCOCO.
-.OTOCCCCCOTO.
-...OCCCCCO...
-..OCCCCCCCO..
-..OCCCCCCCO..
-.OCCCCCCCCCO.
-...OOSOSOO...
-....OSOSO....
-....OKOKO....
+.
+.
+.......OHHHHHHHHHO
+......OHHHHHHHHHHHO
+......OHHHHHHHHHHHO
+......OHHSSSSSSSHHO
+......OHHSSSSSSSHHO
+......OHSEESSSEESHO
+......OHHSSSSSSSHHO
+......OHHSSTTTSSHHO
+......OHHHSSSSSHHHO
+.......OHHOSSSOHHO
+..........OSSSO
+........OCCCOSOCCCO
+......OCCCCCCCCCCCCCO
+.....OCCCCCCCCCCCCCCCO
+....OCOCCCCCCCCCCCCCOCO
+....OCOCCCCCCCCCCCCCOCO
+....OCOCCCCCCCCCCCCCOCO
+....OTOCCCCCCCCCCCCCOTO
+.....OODDDDDDDDDDDDDOO
+.....OCCCCCCCCCCCCCCCO
+.....OCCCCCCCCCCCCCCCO
+....OCCCCCCCCCCCCCCCCCO
+....OCCCCCCCCCCCCCCCCCO
+...OCCCCCCCCCCCCCCCCCCCO
+...OCCCCCCCCCCCCCCCCCCCO
+...OCCCCCDCCCCCCCDCCCCCO
+...OCCCCCCCCCCCCCCCCCCCO
+...OOOOOOOOOOOOOOOOOOOOO
+........OSSO..OSSO
+........OSSO..OSSO
+........OSSO..OSSO
+........OSSO..OSSO
+........OSSO..OSSO
+........OSSO..OSSO
+........OSSO..OSSO
+........OSSO..OSSO
+........OKKO..OKKO
+.......OKKKO..OKKKO
+.......OKKKO..OKKKO
+........OOO....OOO
+.
+.
 """,
 ]
 # per-character skin + hair, for a mixed 1950s newsroom
@@ -372,7 +462,7 @@ STAFF_TONES = [
 ]
 STAFF_FIXED = {"O": (26, 21, 18), "E": (30, 26, 24), "W": (244, 238, 222), "G": (108, 104, 100), "K": (34, 32, 32)}
 
-def staff_sprite(map_txt, tones, house, house_dark, scale=2):
+def staff_sprite(map_txt, tones, house, house_dark, scale=1):
     rows = [r for r in map_txt.strip("\n").split("\n")]
     w, h = max(len(r) for r in rows), len(rows)
     im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
@@ -605,6 +695,50 @@ def sticker(im, d):
     padded.paste(base, (pad, pad), base)
     return crisp(padded, d, max_h=d)
 
+# print-era face treatment (user ruling, July 17): the creatives' heads are
+# SKETCHES FROM THE FILES — photo substitutes. Whole cutout (hats included,
+# never cropped) on a square of cream stock with a thin ink frame. Replaces
+# both the disc and the bare-sticker looks everywhere.
+SKETCH_PAPER = (243, 233, 210, 255)
+SKETCH_INK = (34, 29, 22, 255)
+from PIL import ImageChops
+def sketch(im, d):
+    """Round ink-ring portrait medallion (user mockup, July 17): the whole
+    cutout — hats included, never cropped — fitted inside a cream disc with
+    a thin ink ring. Reads as an engraved file photo on panel paper AND
+    stays legible on the dark desk chrome."""
+    im = defringe(im)
+    b = im.split()[3].getbbox()
+    if b:
+        im = im.crop(b)
+    S = 320
+    mask = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, S - 1, S - 1), fill=255)
+    card = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    card.paste(Image.new("RGBA", (S, S), SKETCH_PAPER), (0, 0), mask)
+    inner = int(S * 0.80)
+    r = min(inner / im.width, inner / im.height)
+    art = im.resize((max(1, round(im.width * r)), max(1, round(im.height * r))), Image.LANCZOS)
+    card.alpha_composite(art, ((S - art.width) // 2, (S - art.height) // 2))
+    card.putalpha(ImageChops.multiply(card.split()[3], mask))
+    dr = ImageDraw.Draw(card)
+    rw = max(2, round(S * 1.5 / d))
+    for k in range(rw):
+        dr.ellipse((k, k, S - 1 - k, S - 1 - k), outline=SKETCH_INK)
+    return crisp(card, d)
+def sketch_crop(face_im, d):
+    """Card-crop fallback: circle-mask the ink-centered window + ring."""
+    S = face_im.width
+    card = face_im.convert("RGBA").copy()
+    mask = Image.new("L", (S, S), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, S - 1, S - 1), fill=255)
+    card.putalpha(ImageChops.multiply(card.split()[3], mask))
+    dr = ImageDraw.Draw(card)
+    rw = max(2, round(S * 1.5 / d))
+    for k in range(rw):
+        dr.ellipse((k, k, S - 1 - k, S - 1 - k), outline=SKETCH_INK)
+    return crisp(card, d)
+
 FACE_SCAN = (16, 830, 158, 972)   # frame-free zone used to find the ink
 FACE_ZONE = (8, 822, 166, 980)    # the window may slide within this
 FACE_SIDE = 150
@@ -632,27 +766,27 @@ for kind, sub in (("writer", r"#05_CARDS\#AOCTGY20B_Writers\Writers Front"),
             if cut:
                 # user cutout → bare sticker head (no circle frame)
                 head = Image.open(cut).convert("RGBA")
-                faces.add(f"face_{kind}_{g}_{suffix}", sticker(head, 26))
-                facesbig.add(f"facebig_{kind}_{g}_{suffix}", sticker(head, 56))
-                faceshd.add(f"hd_face_{kind}_{g}_{suffix}", sticker(head, 120))
+                faces.add(f"face_{kind}_{g}_{suffix}", sketch(head, 26))
+                facesbig.add(f"facebig_{kind}_{g}_{suffix}", sketch(head, 56))
+                faceshd.add(f"hd_face_{kind}_{g}_{suffix}", sketch(head, 120))
             else:
                 # card crop → still needs the disc to hide its square edges
                 # (resolves itself as the remaining cutouts arrive)
                 missing_faces.append(cname)
                 card = Image.open(os.path.join(ASSETS, sub, f"{prefix} {CRE_FOLDER[g]} {suffix}.png"))
                 face = face_crop(card)
-                faces.add(f"face_{kind}_{g}_{suffix}", face_disc(face))
-                facesbig.add(f"facebig_{kind}_{g}_{suffix}", face_disc(face, 56))
-                faceshd.add(f"hd_face_{kind}_{g}_{suffix}", face_disc(face, 120))
+                faces.add(f"face_{kind}_{g}_{suffix}", sketch_crop(face, 26))
+                facesbig.add(f"facebig_{kind}_{g}_{suffix}", sketch_crop(face, 56))
+                faceshd.add(f"hd_face_{kind}_{g}_{suffix}", sketch_crop(face, 120))
 if missing_faces:
     print("  note: no cutout for", ", ".join(missing_faces), "- using card crops")
 # the classified ad: the detailed generic trade tools as the same bare
 # sticker cutouts — only the content says "unknown writer/artist"
 for kind, fsrc in (("writer", "Micro icon Generic Writer"), ("artist", "Micro icon Generic Artist")):
     icon = custom_img(fsrc)
-    faces.add("mystery_" + kind, sticker(icon, 26))
-    facesbig.add("mysterybig_" + kind, sticker(icon, 56))
-    faceshd.add("hd_mystery_" + kind, sticker(icon, 120))
+    faces.add("mystery_" + kind, sketch(icon, 26))
+    facesbig.add("mysterybig_" + kind, sketch(icon, 56))
+    faceshd.add("hd_mystery_" + kind, sketch(icon, 120))
 atlas.update(faces.save())
 atlas.update(facesbig.save())
 # publisher bosses, cropped from the box-art office scene. BOTH boss sizes

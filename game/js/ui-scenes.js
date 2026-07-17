@@ -927,7 +927,7 @@ const Scenes = (() => {
     const e = E(), s = e.state, p = P(me());
     const sel = [];
     openModal((m) => {
-      m.appendChild(el("h2", "", "BONUS IDEAS"));
+      panelHead(m, "ideas", "BONUS IDEAS", "&nbsp;");
       m.appendChild(el("div", "modal-sub", `Take <b>${pd.data.count}</b> idea token${pd.data.count > 1 ? "s" : ""} of any genre. Printing an original needs <b>2 matching ideas</b> — here's what's around:`));
       // context: what could use those ideas
       const ctx = el("div", "ctx-strip");
@@ -991,7 +991,7 @@ const Scenes = (() => {
     const e = E(), s = e.state;
     const o = s.mapSlots[pd.data.orderId];
     openModal((m) => {
-      m.appendChild(el("h2", "", "WHICH BOOK TAKES THE ORDER?"));
+      panelHead(m, "sales", "WHICH BOOK TAKES THE ORDER?", "&nbsp;");
       m.appendChild(el("div", "modal-sub", `A ${GENRE_INFO[o.genre].name} order (value ${o.minVal}+) grants <b>+${o.fans} fans</b> to one of these:`));
       const row = el("div", "card-row");
       for (const idx of pd.data.choices) {
@@ -1177,7 +1177,7 @@ const Scenes = (() => {
     const comics = p.hand.filter((c) => !CARD_BY_ID[c].kind);
     if (!comics.length) { e.specialHype(me(), null); return Main.advance(); }
     openModal((m) => {
-      m.appendChild(el("h2", "", "&#9733; BUILD HYPE"));
+      panelHead(m, "hype", "&#9733; BUILD HYPE", "&nbsp;");
       m.appendChild(specialArt("hype", 150)).style.alignSelf = "center";
       m.appendChild(el("div", "modal-sub", "Set one unprinted comic aside. It gains a hype token (2 fans) at the start of every round; all cash in when you finally print it."));
       const row = el("div", "card-row");
@@ -1203,7 +1203,7 @@ const Scenes = (() => {
     if (!total || !mine.length) { e.specialIdeasConv(me(), []); return Main.advance(); }
     const sel = [];
     openModal((m) => {
-      m.appendChild(el("h2", "", "&#9733; WORD OF MOUTH"));
+      panelHead(m, "ideas", "&#9733; WORD OF MOUTH", "&nbsp;");
       m.appendChild(specialArt("ideasconv", 150)).style.alignSelf = "center";
       m.appendChild(el("div", "modal-sub", `Convert up to ${Math.min(3, total)} idea tokens into +1 fan each (max 1 per comic). Any genre token works.`));
       const row = el("div", "card-row");
@@ -1244,7 +1244,7 @@ const Scenes = (() => {
     let tier = null;
     const dist = {};
     openModal((m) => {
-      m.appendChild(el("h2", "", "&#9733; MARKETING BLITZ"));
+      panelHead(m, "hype", "&#9733; MARKETING BLITZ", "&nbsp;");
       m.appendChild(specialArt("marketing", 150)).style.alignSelf = "center";
       m.appendChild(el("div", "modal-sub", "Buy fans: $2 &rarr; 1 fan, $5 &rarr; 2 fans, $9 &rarr; 4 fans. Spread them over your books on the chart."));
       const tg = el("div", "choice-group");
@@ -1312,6 +1312,7 @@ const Scenes = (() => {
       em.appendChild(sprHD(pub.logo, 1.6));
       head.appendChild(em);
       const ht = el("div", "ph-text");
+      UI.reviewHint = "HOUSE FOUNDED";
       ht.appendChild(el("h2", "", `FOUNDING CATALOG &mdash; ${pub.name.toUpperCase()}`));
       ht.appendChild(el("div", "ph-tag",
         `Pick the <b>genre</b> of your first comic book project (you draw it face-down — its bonus is a surprise) and <b>${picks.ideas}</b> idea token${picks.ideas === 1 ? "" : "s"}.`));
@@ -1319,7 +1320,7 @@ const Scenes = (() => {
       m.appendChild(head);
       const teamBody = panelSection(m, "YOUR STARTING TEAM");
       const team = el("div", "card-row");
-      for (const c of p.hand) team.appendChild(personFigure(c));
+      for (const c of p.hand) team.appendChild(personFigure(c, { noZoom: true }));
       teamBody.appendChild(team);
       const vaultBody = panelSection(m, "ON OFFER &mdash; PICK A GENRE FROM THE VAULT");
       const row = el("div", "card-row");
@@ -1405,7 +1406,9 @@ const Scenes = (() => {
   function increaseModal() {
     const e = E(), p = P(me());
     openModal((m) => {
-      panelHead(m, "develop", "CREATIVE DEVELOPMENT",
+      const ROMAN = ["", "I", "II", "III", "IV", "V"];
+      UI.reviewHint = "CREATIVE DEVELOPMENT";
+      panelHead(m, "develop", `ROUND ${ROMAN[e.state.round] || e.state.round} &mdash; CREATIVE DEVELOPMENT`,
         "Specialized creatives on printed books can grow: <b>learn</b> from a stronger specialized teammate ($1) or <b>train</b> (pay the new value). One step per creative per round. Higher team value = higher book value for orders.");
       const list = panelSection(m, "THIS ROUND'S CANDIDATES");
       render();
@@ -1471,7 +1474,7 @@ const Scenes = (() => {
         const c = el("div", "pod-card" + (i === 0 ? " pod-win" : ""));
         c.style.setProperty("--pc", pub.color);
         c.appendChild(el("div", "pod-rank", RANK[i]));
-        c.appendChild(spr(i === 0 ? "bossbig_" + p.color : "boss_" + p.color, i === 0 ? 1.15 : 1.1));
+        c.appendChild(spr(PUBLISHERS[p.color].logo, i === 0 ? 1.6 : 1.15));
         const lg = el("div", "pod-logo");
         lg.appendChild(sprHD(pub.logo, i === 0 ? 0.7 : 0.55));
         c.appendChild(lg);
