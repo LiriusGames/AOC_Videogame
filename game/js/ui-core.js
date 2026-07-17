@@ -38,6 +38,16 @@ function spr(name, scale = 1, cls = "") {
   return d;
 }
 function sprHTML(name, scale = 1) { return spr(name, scale).outerHTML; }
+// print-era: paper surfaces (panels, inspectors, reveals) show the HD twin of
+// a sprite when the pipeline built one (hd_ prefix, no palette crunch). The
+// call-site scale keeps its pixel-sprite meaning — the ratio rescales it — so
+// board chrome and paper surfaces can share numbers.
+function sprHD(name, scale = 1, cls = "") {
+  const hd = ATLAS["hd_" + name], px = ATLAS[name];
+  if (!hd || !px) return spr(name, scale, cls);
+  return spr("hd_" + name, scale * (px.w / hd.w), "spr-hd" + (cls ? " " + cls : ""));
+}
+function sprHDHTML(name, scale = 1) { return sprHD(name, scale).outerHTML; }
 function genreDot(g) {
   return `<span class="genre-dot" style="background:${GENRE_INFO[g].color}" title="${GENRE_INFO[g].name}"></span>`;
 }
@@ -85,7 +95,7 @@ function comicTile(cardId, opts = {}) {
   const card = CARD_BY_ID[cardId];
   const d = el("div", "comic-tile" + (opts.cls ? " " + opts.cls : ""));
   d.style.setProperty("--gc", GENRE_INFO[card.genre].color); // genre top band
-  d.appendChild(spr(coverOf(cardId), opts.scale || 1.2));
+  d.appendChild(sprHD(coverOf(cardId), opts.scale || 1.2));
   const info = el("div", "ct-info");
   info.innerHTML = `<div class="ct-title">${esc(card.title)}</div>` +
     `<div>${genreMark(card.genre)} ${bonusChip(card.bonus)}${opts.extra || ""}</div>`;
@@ -105,8 +115,11 @@ function comicTile(cardId, opts = {}) {
 function panelHead(m, action, title, tagline) {
   const h = el("div", "panel-head");
   const em = el("div", "ph-emblem");
-  const a = ATLAS["vig_" + action];
-  em.appendChild(spr("vig_" + action, Math.min(112 / a.w, 84 / a.h)));
+  // print-era: the emblem is the full line-art vignette when the HD sheet
+  // carries it (browser downscale beats the quantized 120px plate)
+  const key = ATLAS["hd_vig_" + action] ? "hd_vig_" + action : "vig_" + action;
+  const a = ATLAS[key];
+  em.appendChild(spr(key, Math.min(112 / a.w, 84 / a.h), key.startsWith("hd_") ? "spr-hd" : ""));
   h.appendChild(em);
   const t = el("div", "ph-text");
   t.appendChild(el("h2", "", title));
@@ -406,7 +419,7 @@ function attachZoom(elem, spriteName, caption) {
   elem.addEventListener("mouseenter", (ev) => {
     elem.classList.add("magnified");
     zr.innerHTML = "";
-    zr.appendChild(spr(spriteName, 3));
+    zr.appendChild(sprHD(spriteName, 3));
     if (caption) zr.appendChild(el("div", "zoom-cap", caption));
     zr.style.display = "block";
     dock(ev);
@@ -777,7 +790,7 @@ function renderChart() {
     head.setAttribute("aria-expanded", String(inspectedPublisher === pid));
     head.setAttribute("aria-label",
       `${p.pubName}${p.human ? ", your publishing house" : `, ${p.name}`}. Open publisher details.`);
-    head.appendChild(spr(pub.logo, 0.5));
+    head.appendChild(sprHD(pub.logo, 0.5));
     head.appendChild(el("span", "", esc(p.pubName.split(" ")[0])));
     if (p.human) head.appendChild(el("span", "you-tag", "YOU"));
     head.onclick = () => {
@@ -836,7 +849,7 @@ function renderChart() {
       (held.length ? `, holds ${held.length} mastery token${held.length === 1 ? "" : "s"}` : "") +
       `. Open publisher details.`);
     row.appendChild(el("span", "st-place", place.toUpperCase()));
-    row.appendChild(spr(pub.logo, 0.42));
+    row.appendChild(sprHD(pub.logo, 0.42));
     const bestFans = Math.max(0, e.bestComicFans(sc.player));
     row.appendChild(el("span", "st-name",
       `<b>${esc(p.pubName)}${p.human ? " (YOU)" : ""}</b>` +
@@ -891,7 +904,7 @@ function renderChartDetail(pid) {
   detail.appendChild(el("div", "desk-label", "PUBLISHED COMICS"));
   const books = el("div", "chart-books");
   for (const c of s.chart.filter((item) => item.owner === pid)) {
-    const cover = spr(comicSprite(c), 0.45);
+    const cover = sprHD(comicSprite(c), 0.45);
     cover.title = `${c.title}: value ${c.value}, ${c.fans} fans`;
     attachZoom(cover, comicSprite(c), `<b>${esc(c.title)}</b><br>v${c.value} &middot; ${c.fans}&#9829;`);
     books.appendChild(cover);
@@ -916,7 +929,7 @@ function renderHUD() {
   const mark = document.getElementById("pub-mark");
   mark.innerHTML = "";
   const logo = el("span", "rail-logo");
-  logo.appendChild(spr(pub.logo, 1.25)); // fills the 56px square box
+  logo.appendChild(sprHD(pub.logo, 1.25)); // fills the 56px square box
   mark.appendChild(logo);
   mark.appendChild(el("span", "rail-name", `<b>${esc(p.pubName)}</b><small>YOUR PUBLISHING HOUSE</small>`));
   const scoreCard = el("div", "rail-score", `<span>PROJECTED VP</span><b>${score.total}</b>`);
@@ -1102,7 +1115,7 @@ function comicInfoModal(c) {
     // panel anatomy like every other pane: cover as the emblem
     const head = el("div", "panel-head");
     const em = el("div", "ph-emblem bare");
-    em.appendChild(spr(comicSprite(c), 0.85));
+    em.appendChild(sprHD(comicSprite(c), 0.85));
     head.appendChild(em);
     const t = el("div", "ph-text");
     t.appendChild(el("h2", "", esc(c.title) +
@@ -1163,7 +1176,7 @@ function handCardInfoModal(entry) {
       // same anatomy as the creative sheet: cover emblem + facts section
       const head = el("div", "panel-head");
       const em = el("div", "ph-emblem bare");
-      em.appendChild(spr(coverOf(entry.id), 0.85));
+      em.appendChild(sprHD(coverOf(entry.id), 0.85));
       head.appendChild(em);
       const t = el("div", "ph-text");
       t.appendChild(el("h2", "", esc(card.title)));

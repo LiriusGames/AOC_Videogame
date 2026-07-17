@@ -159,6 +159,31 @@ for v in (1, 2, 3):
     cards.add(f"back_artist_{v}", retro(Image.open(os.path.join(ASSETS, rf"#05_CARDS\#AOCTGY20C_Artists\Artists Back\Artist back 0{v}.png")), CARD_W, 16))
 atlas.update(cards.save())
 
+# ------------------------------------------------- print-era HD cards sheet
+# The restyle shows covers and deck backs at paper size inside the panels:
+# LANCZOS only, NO palette crunch — the halftone dots of the printed art ARE
+# the period look. Stored at 3x the pixel cover; sprHD() in ui-core rescales
+# call-site scales automatically, so the pixel sprites stay the board's face.
+HD_W = 216
+cardshd = Sheet("cardshd", 220, 312, 8)
+def hd_cover(im):
+    w, h = im.size
+    return im.crop((round(w * .095), round(h * .125), round(w * .905), round(h * .955)))
+for oid, f, g, b, t in ORIGINALS:
+    im = Image.open(os.path.join(ASSETS, r"#05_CARDS\#AOCTGY20_Originals\Front", f)).convert("RGBA")
+    cardshd.add(f"hd_cover_orig_{oid}", crisp(hd_cover(im), HD_W, max_h=308))
+for g in GENRES:
+    for i in range(1, 5):
+        p = os.path.join(ASSETS, r"#05_CARDS\#AOCTGY20A_Ripoffs\Front", f"{RIP_FOLDER[g]}_ripoff_{i}.png")
+        cardshd.add(f"hd_cover_rip_{g}_{i}", crisp(hd_cover(Image.open(p).convert("RGBA")), HD_W, max_h=308))
+for g, f in (("scifi","scifi_back.png"),("crime","crime_back.png"),("romance","romance_back.png"),
+             ("horror","horror_back.png"),("superheroes","superheroes_back.png"),("western","western_back.png")):
+    cardshd.add(f"hd_back_orig_{g}", crisp(Image.open(os.path.join(ASSETS, r"#05_CARDS\#AOCTGY20_Originals\Back", f)).convert("RGBA"), HD_W, max_h=308))
+for v in (1, 2, 3):
+    cardshd.add(f"hd_back_writer_{v}", crisp(Image.open(os.path.join(ASSETS, rf"#05_CARDS\#AOCTGY20B_Writers\Writers Back\Writer back {v}.png")).convert("RGBA"), HD_W, max_h=308))
+    cardshd.add(f"hd_back_artist_{v}", crisp(Image.open(os.path.join(ASSETS, rf"#05_CARDS\#AOCTGY20C_Artists\Artists Back\Artist back 0{v}.png")).convert("RGBA"), HD_W, max_h=308))
+atlas.update(cardshd.save())
+
 # --------------------------------------------------------------- tokens sheet
 tokens = Sheet("tokens", 48, 48, 10)
 IDEA_FILE = {"scifi": "Scifi", "crime": "Crime", "romance": "Romance",
@@ -655,6 +680,24 @@ VIG_FILES = {"hire": "Hire Handshake", "develop": "Develop drawing man",
 for key, f in VIG_FILES.items():
     vign.add(f"vig_{key}", retro(custom_img(f), 120, 32, max_h=100))
 atlas.update(vign.save())
+
+# print-era HD vignettes + logos: the panel-header emblems and letterhead
+# marks at full line-art fidelity (crisp, no quantize) — panelHead and the
+# paper surfaces prefer these via sprHD()/hd_ lookups
+vignhd = Sheet("vignhd", 248, 212, 4)
+for key, f in VIG_FILES.items():
+    vignhd.add(f"hd_vig_{key}", crisp(custom_img(f), 240, max_h=204))
+for name, f in MARKS.items():
+    plate = Image.open(os.path.join(OUT, "custom", f)).convert("RGBA")
+    bbox = plate.split()[3].getbbox()
+    if bbox:
+        plate = plate.crop(bbox)
+    hd_pad = 8
+    art = crisp(defringe(plate), 128 - 2 * hd_pad, max_h=128 - 2 * hd_pad)
+    sq = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+    sq.paste(art, (hd_pad + (128 - 2 * hd_pad - art.width) // 2, hd_pad + (128 - 2 * hd_pad - art.height) // 2), art)
+    vignhd.add(f"hd_logo_{name}", sq)
+atlas.update(vignhd.save())
 
 # ----------------------------------------------------------------- title art
 box_art = Image.open(os.path.join(ASSETS, r"#10_BOX\AOC squared image.jpg"))

@@ -82,6 +82,18 @@ for (const g of GENRES) need.add(`wicon_${g}`).add(`aicon_${g}`).add(`genreicon_
 for (const a of ACTIONS) need.add("vig_" + a);
 for (const k of ["vig_hype", "tag_writer", "tag_artist", "micro_writer", "micro_artist",
   "mystery_writer", "mystery_artist", "mysterybig_writer", "mysterybig_artist"]) need.add(k);
+// print-era HD twins (cardshd/vignhd sheets, crisp): the paper surfaces —
+// panels, inspectors, reveals, letterheads — draw these through sprHD()
+for (const c of COMICS) need.add("hd_cover_" + c.id);
+for (const g of GENRES) {
+  const count = COMICS.filter((c) => c.genre === g).length;
+  for (let i = 1; i <= count; i++) need.add(`hd_cover_rip_${g}_${i}`);
+  need.add("hd_back_orig_" + g);
+}
+for (const v of [1, 2, 3]) need.add("hd_back_writer_" + v).add("hd_back_artist_" + v);
+for (const a of ACTIONS) need.add("hd_vig_" + a);
+need.add("hd_vig_hype");
+for (const col of PLAYER_COLORS) need.add("hd_" + PUBLISHERS[col].logo);
 for (const k of need) if (!ATLAS[k]) fail(`missing atlas sprite: ${k}`);
 console.log(`  ok  ${need.size} data-derived sprites checked against ATLAS`);
 

@@ -21,7 +21,7 @@ const Scenes = (() => {
   // ---------------------------------------------------------------- pickers
   function cardPick(container, cardId, opts = {}) {
     const d = el("div", "pick-card" + (opts.cls ? " " + opts.cls : ""));
-    d.appendChild(spr(opts.back || cardSprite(cardId), opts.scale || 1.4));
+    d.appendChild(sprHD(opts.back || cardSprite(cardId), opts.scale || 1.4));
     if (opts.label) d.appendChild(el("div", "pc-label", opts.label));
     if (opts.cost) d.appendChild(el("div", "pc-cost", opts.cost));
     if (opts.dimmed) d.classList.add("dimmed");
@@ -409,7 +409,7 @@ const Scenes = (() => {
             for (const t of ripTargets) {
               const idxInGenre = COMICS.filter((c) => c.genre === t.genre).findIndex((c) => c.id === t.cardId) + 1;
               const d = el("div", "comic-tile pickable");
-              d.appendChild(spr(`cover_rip_${t.genre}_${idxInGenre}`, 1.2));
+              d.appendChild(sprHD(`cover_rip_${t.genre}_${idxInGenre}`, 1.2));
               d.appendChild(el("div", "ct-info",
                 `<div class="ct-title">${esc(RIPOFF_TITLES[t.cardId])}</div>` +
                 `<div style="font-size:14px">${genreMark(t.genre, 0.5)} rips off <b>${esc(t.title)}</b><br>(${esc(P(t.owner).pubName)})</div>`));
@@ -830,7 +830,7 @@ const Scenes = (() => {
         "Nothing printed yet — orders only deliver for genres you publish."));
     for (const c of mine) {
       const row = el("span", "rr-book");
-      row.appendChild(spr(comicSprite(c), 0.32));
+      row.appendChild(sprHD(comicSprite(c), 0.32));
       row.appendChild(el("span", "rr-bk-info",
         `<b>${esc(c.title)}</b><small>${genreMark(c.genre, 0.4)} v${c.value}${c.isRipoff ? " &middot; rip-off" : ""}</small>`));
       row.appendChild(el("b", "rr-fans", `${c.fans}&#9829;`));
@@ -935,7 +935,7 @@ const Scenes = (() => {
       if (myComics.length) {
         ctx.appendChild(el("b", "", "ON YOUR DESK:"));
         myComics.forEach((c) => {
-          const d = spr(coverOf(c), 0.42);
+          const d = sprHD(coverOf(c), 0.42);
           d.title = `${CARD_BY_ID[c].title} — needs 2 ${GENRE_INFO[CARD_BY_ID[c].genre].name} ideas (you have ${p.ideas[CARD_BY_ID[c].genre]})`;
           ctx.appendChild(d);
           ctx.appendChild(el("span", "", genreMark(CARD_BY_ID[c].genre, 0.45)));
@@ -944,7 +944,7 @@ const Scenes = (() => {
       if (s.display.comics.length) {
         ctx.appendChild(el("b", "", "WRITERS' ROOM:"));
         s.display.comics.forEach((c) => {
-          const d = spr(coverOf(c), 0.42);
+          const d = sprHD(coverOf(c), 0.42);
           d.title = `${CARD_BY_ID[c].title} (${GENRE_INFO[CARD_BY_ID[c].genre].name}) — available to develop`;
           ctx.appendChild(d);
           ctx.appendChild(el("span", "", genreMark(CARD_BY_ID[c].genre, 0.45)));
@@ -997,7 +997,7 @@ const Scenes = (() => {
       for (const idx of pd.data.choices) {
         const c = s.chart[idx];
         const d = el("div", "pick-card");
-        d.appendChild(spr(comicSprite(c), 1.15));
+        d.appendChild(sprHD(comicSprite(c), 1.15));
         d.appendChild(el("div", "pc-label", `${esc(c.title)}<br>${c.fans} fans now`));
         d.onclick = () => {
           SFX.play("click");
@@ -1138,7 +1138,7 @@ const Scenes = (() => {
             const cur = comic.creatives[kind];
             const line = el("div", "swap-line");
             const bk = el("div", "swap-book");
-            bk.appendChild(spr(comicSprite(comic), 0.45));
+            bk.appendChild(sprHD(comicSprite(comic), 0.45));
             bk.appendChild(el("span", "", genreMark(comic.genre, 0.45)));
             bk.title = `${comic.title} — ${GENRE_INFO[comic.genre].name}, value v${comic.value}`;
             line.appendChild(bk);
@@ -1209,7 +1209,7 @@ const Scenes = (() => {
       const row = el("div", "card-row");
       for (const c of mine) {
         const d = el("div", "pick-card");
-        d.appendChild(spr(comicSprite(c), 1));
+        d.appendChild(sprHD(comicSprite(c), 1));
         d.appendChild(el("div", "pc-label", `${esc(c.title)}<br>${c.fans} fans`));
         d.onclick = () => {
           SFX.play("click");
@@ -1263,7 +1263,7 @@ const Scenes = (() => {
       const row = el("div", "card-row");
       for (const c of mine) {
         const d = el("div", "pick-card");
-        d.appendChild(spr(comicSprite(c), 1));
+        d.appendChild(sprHD(comicSprite(c), 1));
         const badge = el("div", "pc-cost", "+0");
         d.appendChild(badge);
         d.appendChild(el("div", "pc-label", esc(c.title)));
@@ -1309,7 +1309,7 @@ const Scenes = (() => {
       // is the founding of your publishing house, not an action room
       const head = el("div", "panel-head");
       const em = el("div", "ph-emblem bare"); // the die-cut mark needs no plaque
-      em.appendChild(spr(pub.logo, 1.6));
+      em.appendChild(sprHD(pub.logo, 1.6));
       head.appendChild(em);
       const ht = el("div", "ph-text");
       ht.appendChild(el("h2", "", `FOUNDING CATALOG &mdash; ${pub.name.toUpperCase()}`));
@@ -1473,7 +1473,7 @@ const Scenes = (() => {
         c.appendChild(el("div", "pod-rank", RANK[i]));
         c.appendChild(spr(i === 0 ? "bossbig_" + p.color : "boss_" + p.color, i === 0 ? 1.15 : 1.1));
         const lg = el("div", "pod-logo");
-        lg.appendChild(spr(pub.logo, i === 0 ? 0.7 : 0.55));
+        lg.appendChild(sprHD(pub.logo, i === 0 ? 0.7 : 0.55));
         c.appendChild(lg);
         c.appendChild(el("div", "pod-name", esc(r.pubName) + (p.human ? "<br>(YOU)" : "")));
         c.appendChild(el("div", "pod-total", r.total + " VP"));

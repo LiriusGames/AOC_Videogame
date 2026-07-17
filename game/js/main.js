@@ -54,7 +54,7 @@ const Main = (() => {
       d.appendChild(head);
       const body = el("div", "pub-body");
       const logoRow = el("div", "pub-logo-row");
-      logoRow.appendChild(spr(pub.logo, 0.8));
+      logoRow.appendChild(sprHD(pub.logo, 0.8));
       logoRow.appendChild(el("b", "", pub.name));
       body.appendChild(logoRow);
       body.appendChild(el("div", "pub-boss", pub.boss));
