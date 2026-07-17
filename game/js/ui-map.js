@@ -853,7 +853,7 @@ const MapView = (() => {
       let mw, mh; // marker box, for the highlight rings
       if (!t.faceUp) {
         bundle(pos.x, y, gi);
-        mw = 30; mh = 24;
+        mw = 32; mh = 36;
       } else if (near || hovered) {
         orderPlate(pos.x, y, t);
         mw = 68; mh = 38;
@@ -1060,15 +1060,13 @@ const MapView = (() => {
   }
   // ------- order markers: three visual weights, by how much they matter now
   function bundle(x, y, gi) {
-    ctx.fillStyle = "#221d16"; ctx.fillRect(x - 13, y - 10, 26, 20);
-    ctx.fillStyle = "#c9b083"; ctx.fillRect(x - 11, y - 8, 22, 16);
-    ctx.fillStyle = "#a68e63"; ctx.fillRect(x - 11, y - 1, 22, 2);
-    ctx.fillStyle = "#a68e63"; ctx.fillRect(x - 1, y - 8, 2, 16);
-    // the genre label pasted on the kraft: colored square plus the symbol
-    // itself (the bare square predates the print-era genre icons)
-    ctx.fillStyle = gi.color; ctx.fillRect(x + 1, y - 8, 11, 11);
-    ctx.strokeStyle = "#221d16"; ctx.lineWidth = 1; ctx.strokeRect(x + 1.5, y - 7.5, 10, 10);
-    drawSprite(gi.icon, x + 6.5, y - 2.5, 0.38);
+    // face-down reads like the open plate's genre panel — the symbol at full
+    // plate size, terms hidden — with a kraft wrap band as the "unflipped" cue
+    ctx.fillStyle = "#221d16"; ctx.fillRect(x - 14, y - 16, 28, 32);
+    ctx.fillStyle = gi.color; ctx.fillRect(x - 12, y - 14, 24, 28);
+    drawSprite(gi.icon, x, y - 3, 0.7);
+    ctx.fillStyle = "#c9b083"; ctx.fillRect(x - 12, y + 8, 24, 6);
+    ctx.fillStyle = "#a68e63"; ctx.fillRect(x - 12, y + 10, 24, 2);
   }
   function medallion(x, y, t, gi) {
     ctx.fillStyle = "#221d16";
