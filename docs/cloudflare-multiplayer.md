@@ -34,6 +34,12 @@ with SQLite storage. Static assets run asset-first except `/api/*`.
 
 ## Persistence and reconnect
 
+- Rooms pin round-1 turn order host-first at engine setup (the engine's
+  `fixedTurnOrder` option), so setup's position compensation follows the seats
+  and the host can found the house while the invite is still in flight.
+
+## Persistence and reconnect
+
 - The room stores engine config, snapshot (including RNG), monotonic revision,
   status, hashed seat tickets, and a seven-day command deduplication ledger.
 - Snapshot/revision/ledger writes occur in one synchronous storage transaction.

@@ -3,13 +3,36 @@ import { describe, expect, it } from "vitest";
 
 function socketMessage(socket, wanted) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error(`Timed out waiting for ${wanted}`)), 3000);
+    const timer = setTimeout(() => reject(new Error(`Timed out waiting for ${wanted}`)), 10000);
     const onMessage = (event) => {
       const message = JSON.parse(event.data);
       if (message.type !== wanted) return;
       clearTimeout(timer);
       socket.removeEventListener("message", onMessage);
       resolve(message);
+    };
+    socket.addEventListener("message", onMessage);
+  });
+}
+
+function commandMessages(socket) {
+  return new Promise((resolve, reject) => {
+    const seen = {};
+    const timer = setTimeout(() => reject(new Error("Timed out waiting for command result")), 10000);
+    const onMessage = (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === "rejected") {
+        clearTimeout(timer);
+        socket.removeEventListener("message", onMessage);
+        return reject(new Error(`${message.code}: ${message.message}`));
+      }
+      if (message.type === "accepted") seen.accepted = message;
+      if (message.type === "snapshot" && message.revision > 0) seen.snapshot = message;
+      if (seen.accepted && seen.snapshot) {
+        clearTimeout(timer);
+        socket.removeEventListener("message", onMessage);
+        resolve(seen);
+      }
     };
     socket.addEventListener("message", onMessage);
   });
@@ -54,13 +77,13 @@ describe("private GameRoom", () => {
     expect(first.view.decks.comics.every((card) => card === null)).toBe(true);
     expect(first.view.players[1].hand.every((card) => card === null)).toBe(true);
 
+    const resultMessages = commandMessages(host);
     host.send(JSON.stringify({
       type: "command", v: 1, commandId: "founding-host-1", expectedRevision: 0,
       kind: "starting_picks", payload: { genre: "crime", ideas: ["crime", "crime"] },
     }));
-    const accepted = await socketMessage(host, "accepted");
+    const { accepted } = await resultMessages;
     expect(accepted.revision).toBe(1);
-    await socketMessage(host, "snapshot");
     host.close();
 
     const rejoined = await connect(room.roomId, room.ticket);

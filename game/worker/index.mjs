@@ -175,7 +175,13 @@ export class GameRoom extends DurableObject {
     if (!payload || !Array.isArray(payload.tickets) || payload.tickets.length !== 2 ||
         !payload.config || !Array.isArray(payload.config.players) || payload.config.players.length !== 2)
       return json({ error: "Malformed room" }, 400);
-    const engine = new Engine({ ...payload.config, seed: payload.seed });
+    // room policy: the host founds first — the guest may still be opening
+    // the invite while seat 0 plays. Setup compensation follows the order.
+    const engine = new Engine({
+      ...payload.config,
+      seed: payload.seed,
+      fixedTurnOrder: payload.config.players.map((_, i) => i),
+    });
     const snapshot = engine.snapshot();
     snapshot.nEvents = 0;
     const now = Date.now();

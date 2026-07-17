@@ -71,7 +71,12 @@ class Engine {
       round: 1,
       phase: "increase", // increase -> actions -> (gameover)
       pending: null,     // {playerId, type, data} decision to resolve
-      turnOrder: this.shuffle(this.cfg.players.map((_, i) => i)),
+      // fixedTurnOrder (opt-in, used by invite rooms): a pinned round-1
+      // order so setup's position compensation (+1 idea / +$1) follows the
+      // seats it belongs to. Absent = the usual seeded shuffle.
+      turnOrder: this.cfg.fixedTurnOrder
+        ? this.cfg.fixedTurnOrder.slice()
+        : this.shuffle(this.cfg.players.map((_, i) => i)),
       turnIdx: 0,
       players: [],
       decks: { writers: [], artists: [], comics: [], ripoffs: [] },
