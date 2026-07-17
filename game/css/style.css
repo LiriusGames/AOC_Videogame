@@ -1428,3 +1428,6 @@ html.film-matinee.film-lens #app { filter: sepia(.4) saturate(1.18) contrast(1.0
   font-size: 13px; letter-spacing: 1px; color: #4a3d28;
 }
 .set-row .choice { font-size: 12px; padding: 6px 10px; }
+
+/* grain has its own switch in the settings (negative class: default is on) */
+html.film-nograin .fl-grain { display: none; }

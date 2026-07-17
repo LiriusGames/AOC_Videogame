@@ -94,11 +94,18 @@ const Film = (() => {
     if (!quiet) announce(on ? "Tube glass on" : "Tube glass off");
   }
   function lensOn() { return root().classList.contains("film-lens"); }
+  // grain is part of the base atmosphere, so the class is the NEGATIVE
+  function setGrain(on, quiet) {
+    root().classList.toggle("film-nograin", !on);
+    try { localStorage.setItem("aoc-grain", on ? "1" : "0"); } catch (_e) {}
+    if (!quiet) announce(on ? "Film grain on" : "Film grain off");
+  }
+  function grainOn() { return !root().classList.contains("film-nograin"); }
   function cycle() {
     const idx = LOOKS.findIndex(([k]) => k === getLook());
     setLook(LOOKS[(idx + 1) % LOOKS.length][0]);
   }
-  return { LOOKS, setLook, getLook, setLens, lensOn, cycle };
+  return { LOOKS, setLook, getLook, setLens, lensOn, setGrain, grainOn, cycle };
 })();
 function genreDot(g) {
   return `<span class="genre-dot" style="background:${GENRE_INFO[g].color}" title="${GENRE_INFO[g].name}"></span>`;

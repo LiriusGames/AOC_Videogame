@@ -485,6 +485,7 @@ const Main = (() => {
     try {
       Film.setLook(localStorage.getItem("aoc-film") || "matinee", true);
       Film.setLens(localStorage.getItem("aoc-lens") === "1", true);
+      Film.setGrain(localStorage.getItem("aoc-grain") !== "0", true);
     } catch (_e) { Film.setLook("matinee", true); }
     // AI taunts once in a while
     setInterval(() => {

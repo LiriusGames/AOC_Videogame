@@ -770,17 +770,22 @@ for y in range(128):
 grain.save(os.path.join(OUT, "grain.png"))
 print("grain", grain.size)
 
-# CRT tube displacement map for the TV '52 lens (SVG feDisplacementMap:
-# R/G encode x/y offsets around 128; edges sample outward = barrel bulge)
-N = 256
+# CRT tube displacement map for the tube-glass lens (SVG feDisplacementMap:
+# R/G encode x/y offsets around 128). Two lessons from user review: the map
+# must be HIGH RES (a 256px map stretched over the screen turned curves into
+# stepped kinks on straight ink lines) and the falloff must be r^4-steep so
+# the CENTER of the picture — where all the text lives — stays dead flat and
+# only the outer frame curves, like the real sets (and the good CRT shaders).
+N = 1024
 bmap = Image.new("RGB", (N, N))
 bp = bmap.load()
 for y in range(N):
     for x in range(N):
         nx = (x - (N - 1) / 2) / ((N - 1) / 2)
         ny = (y - (N - 1) / 2) / ((N - 1) / 2)
-        r2 = (nx * nx + ny * ny) / 2  # 0 center, 1 corners
-        bp[x, y] = (round(127.5 + nx * r2 * 127), round(127.5 + ny * r2 * 127), 128)
+        r2 = (nx * nx + ny * ny) / 2   # 0 center, 1 corners
+        f = r2 * r2                    # quartic falloff: flat middle
+        bp[x, y] = (round(127.5 + nx * f * 127), round(127.5 + ny * f * 127), 128)
 bmap.save(os.path.join(OUT, "barrel.png"))
 print("barrel", bmap.size)
 

@@ -1564,6 +1564,7 @@ const Scenes = (() => {
       group(pic, "LOOK", Film.LOOKS.map(([k, name]) => [k, name]),
         (v) => v === Film.getLook(), (v) => Film.setLook(v));
       onOff("TUBE GLASS", pic, () => Film.lensOn(), (v) => Film.setLens(v));
+      onOff("FILM GRAIN", pic, () => Film.grainOn(), (v) => Film.setGrain(v));
 
       const snd = section("SOUND");
       onOff("EFFECTS", snd, () => SFX.enabled, (v) => SFX.setSfx(v));
