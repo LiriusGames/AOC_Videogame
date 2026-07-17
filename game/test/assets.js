@@ -129,7 +129,8 @@ const refs = [...html.matchAll(/(?:src|href)="([^"#:]+)"/g)].map((m) => m[1]);
 for (const cssRef of refs.filter((r) => r.endsWith(".css"))) {
   const css = fs.readFileSync(path.join(GAME, cssRef), "utf8");
   for (const m of css.matchAll(/url\(["']?([^)"']+)["']?\)/g))
-    if (!m[1].startsWith("data:")) refs.push(path.join(path.dirname(cssRef), m[1]));
+    if (!m[1].startsWith("data:") && !m[1].startsWith("#")) // #x = SVG filter fragment
+      refs.push(path.join(path.dirname(cssRef), m[1]));
 }
 // runtime art referenced from JavaScript needs the same missing-file guard
 for (const jsFile of fs.readdirSync(path.join(GAME, "js")).filter((f) => f.endsWith(".js"))) {

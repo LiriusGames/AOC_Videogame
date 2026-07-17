@@ -168,6 +168,14 @@ if (location.protocol === "file:") {
   <!-- the Projection Room: base film atmosphere + the three period looks
        (NEWSREEL '44 / TELEVISION '52 / SUNDAY MATINEE), toggled via the
        FILM topbar button or the P key; purely decorative -->
+  <!-- the TV '52 tube: a GPU displacement filter that barrel-warps the whole
+       picture (film layer included, so the scanlines curve with the glass) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <filter id="tv-barrel" x="0" y="0" width="100%" height="100%">
+      <feImage href="assets/barrel.png" result="bmap" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none"/>
+      <feDisplacementMap in="SourceGraphic" in2="bmap" scale="16" xChannelSelector="R" yChannelSelector="G"/>
+    </filter>
+  </svg>
   <div id="film-layer" aria-hidden="true">
     <div class="fl-grain"></div>
     <div class="fl-scan"></div>

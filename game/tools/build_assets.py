@@ -770,6 +770,20 @@ for y in range(128):
 grain.save(os.path.join(OUT, "grain.png"))
 print("grain", grain.size)
 
+# CRT tube displacement map for the TV '52 lens (SVG feDisplacementMap:
+# R/G encode x/y offsets around 128; edges sample outward = barrel bulge)
+N = 256
+bmap = Image.new("RGB", (N, N))
+bp = bmap.load()
+for y in range(N):
+    for x in range(N):
+        nx = (x - (N - 1) / 2) / ((N - 1) / 2)
+        ny = (y - (N - 1) / 2) / ((N - 1) / 2)
+        r2 = (nx * nx + ny * ny) / 2  # 0 center, 1 corners
+        bp[x, y] = (round(127.5 + nx * r2 * 127), round(127.5 + ny * r2 * 127), 128)
+bmap.save(os.path.join(OUT, "barrel.png"))
+print("barrel", bmap.size)
+
 # ------------------------------------------------------------------- atlas js
 sheet_sizes["title"] = {"w": title.width, "h": title.height, "ext": "webp"}
 with open(os.path.join(OUT, "atlas.js"), "w", encoding="utf-8") as fh:

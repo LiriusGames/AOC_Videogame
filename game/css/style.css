@@ -1298,12 +1298,19 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 #film-layer > div { position: absolute; inset: 0; }
 #film-layer .fl-grain {
   inset: -128px; background: url("../assets/grain.png");
-  opacity: .28; animation: fl-grain .9s steps(6) infinite;
+  opacity: .16; animation: fl-grain 1.3s steps(1, end) infinite;
 }
+/* discrete repositions only — any tween between frames reads as drift */
 @keyframes fl-grain {
-  0% { transform: translate(0, 0); } 25% { transform: translate(-42px, 24px); }
-  50% { transform: translate(28px, -36px); } 75% { transform: translate(-14px, -52px); }
-  100% { transform: translate(38px, 40px); }
+  0% { transform: translate(0, 0); }
+  12.5% { transform: translate(-44px, 26px); }
+  25% { transform: translate(30px, -38px); }
+  37.5% { transform: translate(-16px, -54px); }
+  50% { transform: translate(42px, 44px); }
+  62.5% { transform: translate(-58px, -8px); }
+  75% { transform: translate(12px, 58px); }
+  87.5% { transform: translate(56px, -24px); }
+  100% { transform: translate(0, 0); }
 }
 #film-layer .fl-vignette {
   background: radial-gradient(ellipse at 50% 48%, transparent 58%, rgba(8, 6, 4, .34) 100%);
@@ -1313,7 +1320,7 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 
 /* NEWSREEL '44 — silver-nitrate black & white */
 html.film-newsreel #app { filter: grayscale(1) contrast(1.14) brightness(1.05) sepia(.14); }
-html.film-newsreel .fl-grain { opacity: .5; }
+html.film-newsreel .fl-grain { opacity: .34; animation-duration: .9s; }
 html.film-newsreel .fl-vignette { opacity: .9; }
 html.film-newsreel .fl-flicker {
   display: block; background: #fff; opacity: 0;
@@ -1324,7 +1331,7 @@ html.film-newsreel .fl-flicker {
 }
 
 /* TELEVISION '52 — kinescope glass */
-html.film-tv #app { filter: grayscale(1) contrast(1.08) brightness(1.08); }
+html.film-tv #app { filter: grayscale(1) contrast(1.08) brightness(1.08) url(#tv-barrel); }
 html.film-tv .fl-scan {
   display: block;
   background: repeating-linear-gradient(0deg, rgba(4, 6, 10, .17) 0 1px, transparent 1px 3px);
@@ -1335,7 +1342,7 @@ html.film-tv .fl-vignette {
     radial-gradient(ellipse at 50% 46%, transparent 52%, rgba(4, 8, 16, .52) 98%),
     linear-gradient(rgba(120, 165, 205, .05), rgba(120, 165, 205, .05));
 }
-html.film-tv .fl-grain { opacity: .34; animation-duration: .55s; }
+html.film-tv .fl-grain { opacity: .22; }
 
 /* SUNDAY MATINEE — warm pulp print under glass */
 html.film-matinee #app { filter: sepia(.4) saturate(1.18) contrast(1.05); }
@@ -1374,13 +1381,13 @@ html.film-tv .fl-roll {
     transparent 0 40%,
     rgba(4, 8, 14, .22) 46%, rgba(4, 8, 14, .3) 52%,
     rgba(235, 245, 255, .07) 54%, transparent 60% 100%);
-  animation: tv-roll 6.5s linear infinite;
+  animation: tv-roll 12s linear infinite;
 }
 @keyframes tv-roll {
   0% { transform: translateY(-42%); }
-  62% { transform: translateY(46%); }
-  /* the set catches the signal for a while, then it rolls again */
-  62.01%, 100% { transform: translateY(-42%); }
+  12% { transform: translateY(46%); }
+  /* the set catches the signal, holds it, then slips again */
+  12.01%, 100% { transform: translateY(-42%); }
 }
 /* horizontal tear: a thin bright interference streak that snaps positions */
 html.film-tv .fl-roll::after {
@@ -1400,14 +1407,6 @@ html.film-tv .fl-scan { animation: tv-scan .5s steps(3) infinite; }
 @keyframes tv-scan {
   0% { transform: translateY(0); } 33% { transform: translateY(1px); }
   66% { transform: translateY(-1px); } 100% { transform: translateY(0); }
-}
-/* the 1-frame picture jump (vertical hold slipping) */
-html.film-tv #app { animation: tv-jitter 5.3s steps(1) infinite; }
-@keyframes tv-jitter {
-  0%, 87.9% { transform: translate(0, 0); }
-  88% { transform: translate(-2px, 1px); }
-  88.6% { transform: translate(1px, -1px); }
-  89.2%, 100% { transform: translate(0, 0); }
 }
 /* curved-glass frame: the picture sits behind rounded tube glass */
 html.film-tv .fl-vignette {
