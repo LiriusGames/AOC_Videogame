@@ -1431,6 +1431,3 @@ html.film-matinee.film-lens #app { filter: sepia(.4) saturate(1.18) contrast(1.0
 
 /* grain has its own switch in the settings (negative class: default is on) */
 html.film-nograin .fl-grain { display: none; }
-
-/* paper-cutout rooms (pass 5): smooth die-cut paper, never pixelated */
-.loc canvas.loc-scene.cut-scene { image-rendering: auto; }
