@@ -2,14 +2,22 @@
   "name": "aoc-videogame",
   "version": "1.0.0",
   "private": true,
-  "description": "Age of Comics: The Golden Years — 16-bit web videogame. Runtime has zero dependencies; puppeteer-core is used only by the browser smoke test (it drives an already-installed Edge/Chrome, no download).",
+  "description": "Age of Comics: The Golden Years — a no-build vanilla browser game with solo AI, a guided tutorial, and Cloudflare private rooms.",
   "scripts": {
-    "test": "node game/test/assets.js && node game/test/rules.js && node game/test/sim.js",
+    "test": "node game/test/assets.js && node game/test/rules.js && node game/test/protocol.js && node game/test/tutorial.js && node game/test/sim.js",
+    "test:worker": "vitest run",
     "test:browser": "node game/test/browser.js",
-    "test:a11y": "node game/test/a11y.js"
+    "test:tutorial-browser": "node game/test/tutorial-browser.js",
+    "test:a11y": "node game/test/a11y.js",
+    "dev:cloudflare": "wrangler dev",
+    "deploy:staging": "wrangler deploy --name age-of-comics-staging",
+    "deploy:production": "wrangler deploy"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.18.6",
     "axe-core": "^4.12.1",
-    "puppeteer-core": "^23.0.0"
+    "puppeteer-core": "^23.0.0",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.112.0"
   }
 }

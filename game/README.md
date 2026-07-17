@@ -1,6 +1,6 @@
 # AGE OF COMICS: The Golden Years — 16-bit Videogame
 
-A single-player videogame reinterpretation of the board game *Age of Comics: The
+A solo and private two-player videogame reinterpretation of the board game *Age of Comics: The
 Golden Years* (design: Sónia Gonçalves & Giacomo Cimini, artwork: Laura
 Guglielmo). You run a Manhattan publishing house in 1938–54 against 1–3 AI
 rival publishers, each with their own personality. All the original artwork has
@@ -16,7 +16,8 @@ been machine-reinterpreted into a 16-bit pixel-art style.
     python -m http.server 8477
 
 then browse to <http://localhost:8477/>. Opening `index.html` directly from
-disk usually works too (Chrome/Edge), but the local server route is guaranteed.
+disk is intentionally blocked because browser `file://` restrictions leave the
+game half-loaded. Use `PLAY.bat` or one of the local server commands above.
 
 ## What's inside
 
@@ -31,6 +32,10 @@ disk usually works too (Chrome/Edge), but the local server route is guaranteed.
   - **Mortimer Quill** (Quill & Sons) — money man
 - Three difficulties, optional rip-offs (base game "first game" variant),
   chiptune SFX and a lo-fi swing loop (toggle with the ♪ button).
+- A deterministic **First Day on the Job** tutorial with guided actions,
+  proof/undo practice, separate resume data, and a pinned scenario regression.
+- Invite-link two-player rooms on Cloudflare. The server owns the engine state;
+  room tickets select seats, and reconnect restores the current private view.
 
 ## Dev notes
 
@@ -40,4 +45,5 @@ disk usually works too (Chrome/Edge), but the local server route is guaranteed.
   and checks rules invariants.
 - Debug URLs: `index.html?autoplay` (AI plays all seats — spectator mode),
   `index.html?scene=hire|develop|ideas|print|sales|increase` (jump into a scene).
-- No build step, no dependencies: plain HTML/CSS/JS + canvas.
+- No browser build step: plain HTML/CSS/JS + canvas. Multiplayer development
+  uses the root Wrangler configuration; see `../docs/cloudflare-multiplayer.md`.

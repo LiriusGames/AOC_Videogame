@@ -9,11 +9,12 @@ const fs = require("fs");
 const path = require("path");
 
 const GAME = path.join(__dirname, "..");
-const code = ["../assets/atlas.js", "data.js"]
-  .map((f) => fs.readFileSync(path.join(GAME, "js", f), "utf8"))
-  .join("\n") + "\n;global.__G={ATLAS,SHEET_SIZES,GENRES,COMICS,CREATIVES,RIPOFF_TITLES,PUBLISHERS,PLAYER_COLORS,ACTIONS,ACTION_INFO,GENRE_INFO,SPECIALS};";
-eval(code);
-const { ATLAS, SHEET_SIZES, GENRES, COMICS, CREATIVES, RIPOFF_TITLES, PUBLISHERS, PLAYER_COLORS, ACTIONS, ACTION_INFO, GENRE_INFO } = global.__G;
+const atlasCode = fs.readFileSync(path.join(GAME, "assets", "atlas.js"), "utf8") +
+  "\n;global.__ATLAS_TEST={ATLAS,SHEET_SIZES};";
+eval(atlasCode);
+const { ATLAS, SHEET_SIZES } = global.__ATLAS_TEST;
+const { GENRES, COMICS, CREATIVES, RIPOFF_TITLES, PUBLISHERS, PLAYER_COLORS, ACTIONS, ACTION_INFO, GENRE_INFO } =
+  require(path.join(GAME, "js", "data.js"));
 
 let failures = 0;
 function fail(msg) { failures++; console.error("FAIL  " + msg); }

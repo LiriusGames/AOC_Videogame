@@ -48,6 +48,8 @@ if (location.protocol === "file:") {
         <p class="title-sub">A publishing tycoon yarn set in Manhattan, 1938&ndash;1954</p>
         <button id="btn-new-game" class="btn btn-big">START THE PRESSES</button>
         <button id="btn-continue" class="btn btn-big" hidden>CONTINUE</button>
+        <button id="btn-tutorial" class="btn btn-big">FIRST DAY ON THE JOB &mdash; LEARN TO PLAY</button>
+        <button id="btn-private-room" class="btn">TWO-PLAYER PRIVATE ROOM</button>
         <button id="btn-how" class="btn">HOW TO PLAY</button>
         <p class="credits">Based on the board game by S&oacute;nia Gon&ccedil;alves &amp; Giacomo Cimini &middot; Artwork by Laura Guglielmo<br>Videogame reinterpretation &middot; The Print Edition, est. 1938</p>
       </div>
@@ -174,6 +176,15 @@ if (location.protocol === "file:") {
   <div id="modal-root"></div>
   <div id="toast-root"></div>
   <div id="aria-status" class="sr-only" role="status" aria-live="polite"></div>
+
+  <div id="tutor-layer" hidden aria-live="off">
+    <div id="tutor-ring" hidden aria-hidden="true"></div>
+    <section id="tutor-card" role="region" aria-label="Tutorial memo" tabindex="-1">
+      <h3></h3>
+      <p></p>
+      <button class="btn btn-small tutor-skip">SKIP THE TOUR</button>
+    </section>
+  </div>
   <div id="zoom-root"></div>
   <div id="big-banner"><div class="bb-main"></div><div class="bb-sub"></div></div>
   <div id="ai-status"></div>
@@ -202,6 +213,9 @@ if (location.protocol === "file:") {
 <script src="js/data.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/ai.js"></script>
+<script src="js/protocol.js"></script>
+<script src="js/session.js"></script>
+<script src="js/tutorial.js"></script>
 <script src="js/sfx.js"></script>
 <script src="js/loc-art.js"></script>
 <script src="js/ui-core.js"></script>
@@ -209,6 +223,7 @@ if (location.protocol === "file:") {
 <script src="js/ui-map.js"></script>
 <script src="js/ui-scenes.js"></script>
 <script src="js/save.js"></script>
+<script src="js/multiplayer.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

@@ -2,6 +2,12 @@
 // AGE OF COMICS: THE GOLDEN YEARS — videogame data
 // Static game data derived from the board game (base rules V27).
 // ============================================================================
+(function initDataModule(root, factory) {
+  const api = factory();
+  root.AOC_DATA = api;
+  Object.assign(root, api);
+  if (typeof module !== "undefined") module.exports = api;
+})(globalThis, function buildDataModule() {
 "use strict";
 
 const GENRES = ["scifi", "crime", "romance", "horror", "superheroes", "western"];
@@ -255,3 +261,14 @@ const TITLES = [
   [110, "Publisher"], [100, "Editor-in-Chief"], [90, "Senior Editor"],
   [80, "Associate Editor"], [70, "Editor"], [60, "Assistant Editor"], [0, "Proofreader"],
 ];
+
+return {
+  GENRES, GENRE_INFO, PUBLISHERS, PLAYER_COLORS,
+  COMICS, COMIC_SPRITE, RIPOFF_TITLES,
+  WRITER_NAMES, ARTIST_NAMES, CREATIVE_SUFFIX, CREATIVE_VALUES,
+  buildCreatives, CREATIVES, CARD_BY_ID, ORDER_SPECS,
+  ACTIONS, ACTION_INFO, IDEAS_SLOTS, ROYALTIES_SLOTS, SALES_SLOTS,
+  RANK_VP, FAN_MONEY, HAND_LIMIT, MARKETING, SPECIALS,
+  buildMap, MAP, QUIPS, TITLES,
+};
+});

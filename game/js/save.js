@@ -6,16 +6,19 @@
 "use strict";
 
 const Save = (() => {
-  const KEY = "aoc_save";
+  const KEYS = { game: "aoc_save", tutorial: "aoc_tutorial_save" };
   const VERSION = 1;
 
+  function slotName(slot) { return slot || (UI.mode === "tutorial" ? "tutorial" : "game"); }
   function serialize() {
     const e = UI.engine;
     if (!e || e.state.gameOver || UI.autoplay) return null;
     return JSON.stringify({
       v: VERSION,
       savedAt: Date.now(),
+      mode: UI.mode || "solo",
       humanId: UI.humanId,
+      tutorial: typeof Tutor !== "undefined" ? Tutor.exportState() : null,
       cfg: {
         players: e.cfg.players,
         useRipoffs: e.cfg.useRipoffs,
@@ -28,18 +31,18 @@ const Save = (() => {
   }
 
   // autosave the running game (no-op when there is nothing worth saving)
-  function store() {
+  function store(slot) {
     try {
       const s = serialize();
-      if (s) localStorage.setItem(KEY, s);
+      if (s) localStorage.setItem(KEYS[slotName(slot)], s);
     } catch (err) { /* storage full/blocked: play on without saves */ }
   }
 
   // parsed + validated save, or null (unknown versions and corrupt
   // payloads are treated as absent, never as errors)
-  function peek() {
+  function peek(slot = "game") {
     try {
-      const raw = localStorage.getItem(KEY);
+      const raw = localStorage.getItem(KEYS[slotName(slot)]);
       if (!raw) return null;
       const d = JSON.parse(raw);
       if (d.v !== VERSION || !d.cfg || !d.state || d.state.gameOver) return null;
@@ -51,9 +54,9 @@ const Save = (() => {
     } catch (err) { return null; }
   }
 
-  function clear() {
-    try { localStorage.removeItem(KEY); } catch (err) { /* ignore */ }
+  function clear(slot) {
+    try { localStorage.removeItem(KEYS[slotName(slot)]); } catch (err) { /* ignore */ }
   }
 
-  return { store, peek, clear };
+  return { serialize, store, peek, clear };
 })();

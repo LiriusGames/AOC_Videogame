@@ -20,7 +20,12 @@ const Main = (() => {
     };
     document.getElementById("btn-continue").onclick = () => {
       SFX.unlock(); SFX.play("click"); SFX.startMusic();
-      resumeGame();
+      resumeGame("game");
+    };
+    document.getElementById("btn-tutorial").onclick = () => {
+      SFX.unlock(); SFX.play("click"); SFX.startMusic();
+      if (Save.peek("tutorial")) resumeGame("tutorial");
+      else newTutorial();
     };
     document.getElementById("btn-how").onclick = () => { SFX.unlock(); Scenes.helpModal(); };
     refreshContinue();
@@ -33,6 +38,14 @@ const Main = (() => {
     if (d) {
       const p = d.state.players[d.humanId];
       btn.innerHTML = `CONTINUE &mdash; ROUND ${d.state.round}, ${p.pubName.toUpperCase()}`;
+    }
+    const tour = Save.peek("tutorial");
+    const tbtn = document.getElementById("btn-tutorial");
+    if (tour) tbtn.innerHTML = `CONTINUE FIRST DAY &mdash; ROUND ${tour.state.round}`;
+    else {
+      let done = false;
+      try { done = localStorage.getItem("aoc-tutorial-status") === "complete"; } catch (_e) {}
+      tbtn.innerHTML = done ? "REPLAY LEARN TO PLAY" : "FIRST DAY ON THE JOB &mdash; LEARN TO PLAY";
     }
   }
 
@@ -122,6 +135,8 @@ const Main = (() => {
       seed: (Math.random() * 1e9) | 0,
     });
     UI.humanId = 0;
+    UI.session = new LocalSession(UI.engine, UI.humanId);
+    UI.mode = "solo";
     UI.eventCursor = 0;
     UI.pendingReview = false;
     hideReview();
@@ -135,12 +150,37 @@ const Main = (() => {
     advance();
   }
 
+  function newTutorial() {
+    const sc = Tutor.SCENARIO;
+    const players = [
+      { color: "teal", human: true, name: PUBLISHERS.teal.boss },
+      { color: "yellow", human: false },
+      { color: "salmon", human: false },
+    ];
+    UI.engine = new Engine({ players, useRipoffs: true, difficulty: "normal", seed: sc.seed });
+    UI.humanId = 0;
+    UI.session = new LocalSession(UI.engine, UI.humanId);
+    UI.mode = "tutorial";
+    UI.eventCursor = 0;
+    UI.pendingReview = false;
+    UI.lastTurnKey = null;
+    UI.undoSnap = null;
+    hideReview();
+    show("screen-game");
+    document.getElementById("dialogue").innerHTML = "";
+    say(null, "<b>Manhattan, 1938.</b> Your first day at Liberty Ink begins.");
+    Tutor.begin();
+    flushEvents();
+    renderAll();
+    advance();
+  }
+
   // ----------------------------------------------------------------- resume
-  function resumeGame() {
-    const d = Save.peek();
+  function resumeGame(slot = "game") {
+    const d = Save.peek(slot);
     if (!d) {
       toast("No saved game found.");
-      Save.clear();
+      Save.clear(slot);
       refreshContinue();
       return;
     }
@@ -152,6 +192,8 @@ const Main = (() => {
     });
     UI.engine.restore({ state: d.state, rngA: d.rngA, nEvents: 0 });
     UI.humanId = d.humanId;
+    UI.session = new LocalSession(UI.engine, UI.humanId);
+    UI.mode = d.mode || (slot === "tutorial" ? "tutorial" : "solo");
     UI.eventCursor = 0;
     UI.lastTurnKey = null;
     UI.undoSnap = null;
@@ -160,6 +202,8 @@ const Main = (() => {
     show("screen-game");
     document.getElementById("dialogue").innerHTML = "";
     say(null, `<b>Back at the office.</b> Resuming round ${d.state.round} of 5.`);
+    if (UI.mode === "tutorial") Tutor.restore(d.tutorial);
+    else Tutor.hide();
     renderAll();
     advance();
   }
@@ -175,14 +219,15 @@ const Main = (() => {
     const e = UI.engine;
     if (!e) return;
     const s = e.state;
+    const remote = UI.session && UI.session.mode === "remote";
     const delay = flushEvents();
     renderAll();
 
-    if (s.gameOver) { Save.clear(); Scenes.endgameModal(s.scores); return; }
+    if (s.gameOver) { if (!remote) Save.clear(); Scenes.endgameModal(s.scores); return; }
     // autosave: the state is always consistent here, but an unconfirmed
     // action is not saved — reloading during review returns to the last
     // confirmed state (see reviewHold)
-    if (!reviewHold(s)) Save.store();
+    if (!remote && !reviewHold(s)) Save.store();
 
     // spectator mode: the AI drives the human seat through engine calls
     if (UI.autoplay) {
@@ -207,7 +252,7 @@ const Main = (() => {
         if (heroRemaining() > 0) { queueAdvance(heroRemaining() + 80); return; }
         UI.busy = false;
         Scenes.pendingModal();
-      } else { AI.resolveOwnPendings(e, s.pending.playerId); queueAdvance(Math.max(250, delay)); }
+      } else if (!remote) { AI.resolveOwnPendings(e, s.pending.playerId); queueAdvance(Math.max(250, delay)); }
       return;
     }
     if (s.awaitingSpecial) {
@@ -215,7 +260,7 @@ const Main = (() => {
         if (heroRemaining() > 0) { queueAdvance(heroRemaining() + 80); return; }
         UI.busy = false;
         Scenes.specialModal(s.awaitingSpecial.special);
-      } else { AI.settle(e, s.awaitingSpecial.player); queueAdvance(Math.max(250, delay)); }
+      } else if (!remote) { AI.settle(e, s.awaitingSpecial.player); queueAdvance(Math.max(250, delay)); }
       return;
     }
     // resume an open human sales run (e.g. after an order-choice interrupted
@@ -248,8 +293,9 @@ const Main = (() => {
           UI.busy = true;
           setTimeout(() => { UI.busy = false; if (!modalIsOpen()) Scenes.increaseModal(); }, wait);
         }
-        else { e.finishIncrease(pid); queueAdvance(60); }
+        else { UI.session.dispatch("increase_finish"); queueAdvance(60); }
       } else {
+        if (remote) { UI.busy = false; setAIStatus(null); return; }
         AI.doStartingPicks(e, pid);
         AI.doIncrease(e, pid);
         queueAdvance(Math.max(200, delay));
@@ -266,7 +312,7 @@ const Main = (() => {
         document.getElementById("screen-game").classList.add("your-turn");
         renderAll();
         if (e.player(pid).editorsLeft > 0 && ACTIONS.every((a) => e.nextSlot(a) < 0)) {
-          e.actPass(pid);
+          UI.session.dispatch("action_pass");
           queueAdvance(300);
           return;
         }
@@ -286,12 +332,19 @@ const Main = (() => {
         }
         // wait for the player to click a location
       } else {
+        if (remote) {
+          UI.busy = false;
+          document.getElementById("screen-game").classList.remove("your-turn");
+          setAIStatus(null);
+          return;
+        }
         UI.busy = true;
         document.getElementById("screen-game").classList.remove("your-turn");
         setAIStatus(pid);
         renderAll();
         setTimeout(() => {
-          AI.takeTurn(e, pid);
+          if (Tutor.active) Tutor.takeBotTurn(e, pid);
+          else AI.takeTurn(e, pid);
           UI.busy = false;
           queueAdvance(Math.max(500, flushEvents()));
         }, 550);
@@ -302,6 +355,12 @@ const Main = (() => {
 
   // called after every human-initiated engine mutation
   function afterHumanMove() {
+    if (UI.session && UI.session.mode === "remote") {
+      UI.pendingReview = false;
+      hideReview();
+      UI.busy = true;
+      return;
+    }
     UI.pendingReview = true; // the action awaits confirm/undo before AI acts
     const delay = flushEvents();
     renderAll();
@@ -342,16 +401,26 @@ const Main = (() => {
     document.getElementById("screen-game").classList.add("reviewing");
     announce(label.toLowerCase() + ". Confirm to continue, or undo.");
     document.getElementById("btn-review-confirm").focus();
+    if (Tutor.active) Tutor.onReviewShown();
   }
   function hideReview() {
     document.getElementById("review-bar").hidden = true;
     document.getElementById("screen-game").classList.remove("reviewing");
   }
   function confirmReview() {
+    if (Tutor.active && !Tutor.canConfirmReview()) {
+      SFX.play("error");
+      toast("The city editor wants you to try UNDO once before confirming.");
+      return;
+    }
+    const s = UI.engine.state;
+    const last = s.placeSeq && s.placeSeq[s.placeSeq.length - 1];
+    const action = last && last.player === UI.humanId ? last.action : null;
     UI.pendingReview = false;
     UI.undoSnap = null; // the action is locked in
     UI.reviewHint = null;
     hideReview();
+    if (Tutor.active) Tutor.onReviewConfirmed(action);
     const loc = document.querySelector('#locations [role="button"]');
     if (loc) loc.focus();
     advance();
@@ -376,6 +445,7 @@ const Main = (() => {
   // Rewind to the snapshot taken at the start of your current decision
   // (includes any AI moves shown since — they replay from the same rng).
   function doUndo() {
+    if (UI.session && UI.session.mode === "remote") return toast("Published room moves cannot be rewound.");
     if (!UI.undoSnap || UI.autoplay) return;
     clearTimeout(advanceTimer);
     UI.pendingReview = false;
@@ -385,6 +455,7 @@ const Main = (() => {
     UI.eventCursor = UI.engine.events.length;
     UI.lastTurnKey = null;
     UI.busy = false;
+    if (Tutor.active) Tutor.onUndo();
     closeModal();
     setAIStatus(null);
     SFX.play("paper");
@@ -406,6 +477,7 @@ const Main = (() => {
       document.body.appendChild(d);
     };
     initTitle();
+    Multiplayer.init();
     // the topbar teleprinter is a drawn sprite (assets/machine.png)
     const machineSlot = document.querySelector("#wire-strip .wire-machine");
     if (machineSlot) machineSlot.appendChild(spr("teletype", 1));
@@ -518,6 +590,33 @@ const Main = (() => {
     }, 22000);
   }
 
+  function enterRemote(session) {
+    UI.engine = session.engine;
+    UI.session = session;
+    UI.humanId = session.humanId;
+    UI.mode = "multiplayer";
+    UI.eventCursor = 0;
+    UI.pendingReview = false;
+    UI.lastTurnKey = null;
+    UI.undoSnap = null;
+    hideReview();
+    closeModal();
+    show("screen-game");
+    document.getElementById("dialogue").innerHTML = "";
+    say(null, "<b>Private newsroom connected.</b> Moves are saved by the room and restored automatically after a reconnect.");
+    renderAll();
+    advance();
+  }
+
+  function remoteUpdated(session) {
+    if (UI.session !== session) return;
+    UI.engine = session.engine;
+    UI.humanId = session.humanId;
+    UI.busy = false;
+    renderAll();
+    advance();
+  }
+
   document.addEventListener("DOMContentLoaded", boot);
-  return { advance, afterHumanMove, queueAdvance };
+  return { advance, afterHumanMove, queueAdvance, newTutorial, enterRemote, remoteUpdated };
 })();

@@ -18,11 +18,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Syntax-check all JavaScript
         run: |
-          for f in game/js/*.js game/test/*.js game/tools/*.js; do
+          find game -type f \( -name '*.js' -o -name '*.mjs' \) -print0 | while IFS= read -r -d '' f; do
             node --check "$f"
           done
 
@@ -35,10 +35,15 @@ jobs:
       - name: Simulation matrix (360 AI games, invariants checked)
         run: node game/test/sim.js
 
-      - name: Browser smoke test (save/resume in headless Chrome)
+      - name: Cloudflare private-room integration
         run: |
           npm ci
+          npm run test:worker
+
+      - name: Browser smoke test (save/resume in headless Chrome)
+        run: |
           node game/test/browser.js
+          node game/test/tutorial-browser.js
 
       - name: Accessibility gate (axe + keyboard-only scenario)
         run: node game/test/a11y.js
@@ -49,7 +54,7 @@ jobs:
           sleep 1
           curl -fsS -o /dev/null http://localhost:8477/
           curl -fsS -o /dev/null http://localhost:8477/js/engine.js
-          type=$(curl -fsS -o /dev/null -w '%{content_type}' http://localhost:8477/assets/title.png)
-          [ "$type" = "image/png" ]
+          type=$(curl -fsS -o /dev/null -w '%{content_type}' http://localhost:8477/assets/title.webp)
+          [ "$type" = "image/webp" ]
           code=$(curl -s -o /dev/null -w '%{http_code}' --path-as-is http://localhost:8477/../README.md)
           [ "$code" = "403" ]

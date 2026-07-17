@@ -6,6 +6,15 @@
 const Scenes = (() => {
   const me = () => UI.humanId;
   const E = () => UI.engine;
+  function command(kind, payload = {}) {
+    const result = UI.session.dispatch(kind, payload);
+    if (result && typeof result.then === "function") return result;
+    if (!result.ok) {
+      SFX.play("error");
+      toast(result.message || "That move is not available.");
+    }
+    return result;
+  }
 
   function open(action) {
     switch (action) {
@@ -103,8 +112,9 @@ const Scenes = (() => {
       modalButtons(m, [
         { label: "CANCEL", fn: () => { closeModal(); } },
         { label: "SIGN THEM", cls: "btn-go", id: "hire-ok", fn: () => {
+            const result = command("action_hire", sel);
+            if (!result.ok) return;
             closeModal();
-            e.actHire(me(), sel);
             Main.afterHumanMove();
           }, disabled: true },
       ]);
@@ -174,8 +184,9 @@ const Scenes = (() => {
       modalButtons(m, [
         { label: "CANCEL", fn: () => closeModal() },
         { label: "OPTION IT", cls: "btn-go", id: "dev-ok", disabled: true, fn: () => {
+            const result = command("action_develop", sel);
+            if (!result.ok) return;
             closeModal();
-            e.actDevelop(me(), sel);
             Main.afterHumanMove();
           } },
       ]);
@@ -264,8 +275,9 @@ const Scenes = (() => {
       modalButtons(m, [
         { label: "CANCEL", fn: () => closeModal() },
         { label: "BRAINSTORM", cls: "btn-go", id: "ideas-ok", disabled: true, fn: () => {
+            const result = command("action_ideas", { board, supply });
+            if (!result.ok) return;
             closeModal();
-            e.actIdeas(me(), { board, supply });
             Main.afterHumanMove();
           } },
       ]);
@@ -475,8 +487,8 @@ const Scenes = (() => {
     }
     function commit() {
       if (!books.length) return;
-      E().actPrint(me(), { books });
-      Main.afterHumanMove();
+      const result = command("action_print", { books });
+      if (result.ok) Main.afterHumanMove();
     }
   }
 
@@ -484,7 +496,8 @@ const Scenes = (() => {
   function royaltiesNow() {
     const e = E();
     const amt = ROYALTIES_SLOTS[e.nextSlot("royalties")];
-    e.actRoyalties(me());
+    const result = command("action_royalties");
+    if (!result.ok) return;
     toast(`+$${amt} royalties`);
     Main.afterHumanMove();
   }
@@ -511,8 +524,8 @@ const Scenes = (() => {
         modalButtons(m, [
           { label: "NOT TODAY", fn: () => closeModal() },
           { label: `START THE RUN (${n}/${n})`, cls: "btn-go", fn: () => {
-              closeModal();
-              if (e.actSalesStart(me())) runModal();
+              const result = command("sales_start");
+              if (result.ok) { closeModal(); runModal(); }
             } },
         ]);
         MapView.attach(cv, false, null);
@@ -585,7 +598,7 @@ const Scenes = (() => {
               : "Fast animations off — enjoy the cab ride");
           } },
         { label: "END SALES RUN", cls: "btn-danger", id: "btn-end-run", fn: () => {
-            if (!e.salesEnd(me())) return failed("You owe $2 for this corner — you can't end here.");
+            if (!command("sales_end").ok) return failed("You owe $2 for this corner — you can't end here.");
             closeModal();
             Main.afterHumanMove();
           } },
@@ -600,7 +613,7 @@ const Scenes = (() => {
           const from = P(me()).agentNode;
           if (h.node === from) return;
           if (ticketMode && P(me()).tickets > 0) {
-            if (!e.salesMove(me(), h.node, true))
+            if (!command("sales_move", { node: h.node, ticket: true }).ok)
               return failed("You can't afford the $2 fee on that rival's corner.");
             MapView.queueMove(me(), from, h.node, "ticket");
             ticketMode = false;
@@ -615,7 +628,7 @@ const Scenes = (() => {
             let cur = from;
             for (const step of path) {
               const mode = ses.freeWalk ? "walk" : "cab";
-              if (!e.salesMove(me(), step)) {
+              if (!command("sales_move", { node: step, ticket: false }).ok) {
                 failed("You can't afford the $2 fee on a rival's corner along that route.");
                 break;
               }
@@ -627,12 +640,12 @@ const Scenes = (() => {
           const t = h.slot;
           if (!t.nodes.includes(P(me()).agentNode)) return failed("Your agent isn't at that corner.");
           if (!t.faceUp) {
-            if (ses.flipsLeft > 0) e.salesFlip(me(), t.id);
-            else if (ses.collectsLeft > 0) e.salesCollect(me(), t.id); // blind collect
+            if (ses.flipsLeft > 0) command("sales_flip", { slotId: t.id });
+            else if (ses.collectsLeft > 0) command("sales_collect", { slotId: t.id }); // blind collect
             else return failed("No flips or collections left.");
           } else {
             if (ses.collectsLeft <= 0) return failed("No collections left.");
-            e.salesCollect(me(), t.id);
+            command("sales_collect", { slotId: t.id });
           }
         }
         flushEvents();
@@ -890,7 +903,7 @@ const Scenes = (() => {
       case "chooseOrderComic": return chooseOrderComicModal(pd);
       case "placeCube": return placeCubeModal(pd);
       case "relocateCube": return relocateCubeModal(pd);
-      default: e.resolvePending(me(), {}); Main.advance();
+      default: command("pending_resolve", { choice: {} }); Main.advance();
     }
   }
 
@@ -916,9 +929,9 @@ const Scenes = (() => {
       }
       m.appendChild(row);
       modalButtons(m, [{ label: "DISCARD", cls: "btn-danger", id: "disc-ok", disabled: true, fn: () => {
-        closeModal();
-        E().resolvePending(me(), { cards: sel });
-        Main.afterHumanMove();
+        const result = command("pending_resolve", { choice: { cards: sel } });
+        if (!result.ok) return;
+        closeModal(); Main.afterHumanMove();
       } }]);
     }, { width: "820px" });
   }
@@ -973,9 +986,9 @@ const Scenes = (() => {
       });
       m.appendChild(row);
       modalButtons(m, [{ label: "TAKE THEM", cls: "btn-go", id: "ci-ok", disabled: true, fn: () => {
-        closeModal();
-        E().resolvePending(me(), { genres: sel });
-        Main.afterHumanMove();
+        const result = command("pending_resolve", { choice: { genres: sel } });
+        if (!result.ok) return;
+        closeModal(); Main.afterHumanMove();
       } }]);
     });
   }
@@ -994,9 +1007,9 @@ const Scenes = (() => {
         d.appendChild(el("div", "pc-label", `${esc(c.title)}<br>${c.fans} fans now`));
         d.onclick = () => {
           SFX.play("click");
-          closeModal();
-          e.resolvePending(me(), { chartIdx: idx });
-          Main.afterHumanMove();
+          const result = command("pending_resolve", { choice: { chartIdx: idx } });
+          if (!result.ok) return;
+          closeModal(); Main.afterHumanMove();
         };
         row.appendChild(d);
       }
@@ -1016,8 +1029,9 @@ const Scenes = (() => {
         const d = specialCard(sp);
         d.onclick = () => {
           SFX.play("click");
+          const result = command("pending_resolve", { choice: { special: sp } });
+          if (!result.ok) return;
           closeModal();
-          E().resolvePending(me(), { special: sp });
           Main.afterHumanMove();
         };
         row.appendChild(d);
@@ -1054,11 +1068,11 @@ const Scenes = (() => {
       }
       m.appendChild(toRow);
       modalButtons(m, [
-        { label: "KEEP AS IS", fn: () => { closeModal(); E().resolvePending(me(), {}); Main.afterHumanMove(); } },
+        { label: "KEEP AS IS", fn: () => { const r = command("pending_resolve", { choice: {} }); if (r.ok) { closeModal(); Main.afterHumanMove(); } } },
         { label: "MOVE IT", cls: "btn-go", id: "rc-ok", disabled: true, fn: () => {
-            closeModal();
-            E().resolvePending(me(), { from, to });
-            Main.afterHumanMove();
+            const result = command("pending_resolve", { choice: { from, to } });
+            if (!result.ok) return;
+            closeModal(); Main.afterHumanMove();
           } },
       ]);
       function refresh() { m.querySelector("#rc-ok").disabled = !(from && to); }
@@ -1069,13 +1083,13 @@ const Scenes = (() => {
   function specialModal(sp) {
     const e = E();
     switch (sp) {
-      case "bettercolor": e.specialBetterColor(me(), true); toast("Better Colors! +2 VP token added."); return Main.advance();
-      case "extraeditor": e.specialExtraEditor(me(), true); toast("Extra editor for this round!"); return Main.advance();
+      case "bettercolor": command("special_better_color", { accept: true }); toast("Better Colors! +2 VP token added."); return Main.advance();
+      case "extraeditor": command("special_extra_editor", { accept: true }); toast("Extra editor for this round!"); return Main.advance();
       case "reassign": return reassignModal();
       case "hype": return hypeModal();
       case "ideasconv": return ideasConvModal();
       case "marketing": return marketingModal();
-      default: e.skipSpecial(me()); return Main.advance();
+      default: command("special_skip"); return Main.advance();
     }
   }
 
@@ -1092,11 +1106,11 @@ const Scenes = (() => {
       m.appendChild(rows);
       renderRows();
       modalButtons(m, [
-        { label: "SKIP", fn: () => { closeModal(); e.skipSpecial(me()); Main.advance(); } },
+        { label: "SKIP", fn: () => { if (command("special_skip").ok) { closeModal(); Main.advance(); } } },
         { label: "APPLY", cls: "btn-go", id: "ra-ok", disabled: true, fn: () => {
-            closeModal();
-            e.specialReassign(me(), swaps);
-            Main.afterHumanMove();
+            const result = command("special_reassign", { swaps });
+            if (!result.ok) return;
+            closeModal(); Main.afterHumanMove();
           } },
       ]);
       // face + genre + value pips — the info that matters, as a little card
@@ -1168,7 +1182,7 @@ const Scenes = (() => {
   function hypeModal() {
     const e = E(), p = P(me());
     const comics = p.hand.filter((c) => !CARD_BY_ID[c].kind);
-    if (!comics.length) { e.specialHype(me(), null); return Main.advance(); }
+    if (!comics.length) { command("special_hype", { cardId: null }); return Main.advance(); }
     openModal((m) => {
       panelHead(m, "hype", "&#9733; BUILD HYPE", "&nbsp;");
       m.appendChild(specialArt("hype", 150)).style.alignSelf = "center";
@@ -1178,14 +1192,14 @@ const Scenes = (() => {
         cardPick(row, c, {
           scale: 1.15, label: CARD_BY_ID[c].title,
           onpick: () => {
-            closeModal();
-            e.specialHype(me(), c);
-            Main.afterHumanMove();
+            const result = command("special_hype", { cardId: c });
+            if (!result.ok) return;
+            closeModal(); Main.afterHumanMove();
           },
         });
       }
       m.appendChild(row);
-      modalButtons(m, [{ label: "SKIP", fn: () => { closeModal(); e.specialHype(me(), null); Main.advance(); } }]);
+      modalButtons(m, [{ label: "SKIP", fn: () => { if (command("special_hype", { cardId: null }).ok) { closeModal(); Main.advance(); } } }]);
     });
   }
 
@@ -1193,7 +1207,7 @@ const Scenes = (() => {
     const e = E(), s = e.state, p = P(me());
     const total = GENRES.reduce((sum, g) => sum + p.ideas[g], 0);
     const mine = s.chart.filter((c) => c.owner === me());
-    if (!total || !mine.length) { e.specialIdeasConv(me(), []); return Main.advance(); }
+    if (!total || !mine.length) { command("special_ideas", { conversions: [] }); return Main.advance(); }
     const sel = [];
     openModal((m) => {
       panelHead(m, "ideas", "&#9733; WORD OF MOUTH", "&nbsp;");
@@ -1214,16 +1228,17 @@ const Scenes = (() => {
       }
       m.appendChild(row);
       modalButtons(m, [
-        { label: "SKIP", fn: () => { closeModal(); e.specialIdeasConv(me(), []); Main.advance(); } },
+        { label: "SKIP", fn: () => { if (command("special_ideas", { conversions: [] }).ok) { closeModal(); Main.advance(); } } },
         { label: "CONVERT", cls: "btn-go", fn: () => {
             // auto-pick which genre tokens to burn (most abundant first)
             const pool = [];
             GENRES.slice().sort((a, b) => p.ideas[b] - p.ideas[a]).forEach((g) => {
               for (let i = 0; i < p.ideas[g]; i++) pool.push(g);
             });
-            closeModal();
-            e.specialIdeasConv(me(), sel.map((idx, i) => ({ genre: pool[i], chartIdx: idx })));
-            Main.afterHumanMove();
+            const conversions = sel.map((idx, i) => ({ genre: pool[i], chartIdx: idx }));
+            const result = command("special_ideas", { conversions });
+            if (!result.ok) return;
+            closeModal(); Main.afterHumanMove();
           } },
       ]);
     });
@@ -1233,7 +1248,7 @@ const Scenes = (() => {
     const e = E(), s = e.state, p = P(me());
     const mine = s.chart.filter((c) => c.owner === me() && c.fans >= 1);
     const tiers = MARKETING.filter((t) => p.money >= t.cost);
-    if (!mine.length || !tiers.length) { e.specialMarketing(me(), 0, []); return Main.advance(); }
+    if (!mine.length || !tiers.length) { command("special_marketing", { spend: 0, distribution: [] }); return Main.advance(); }
     let tier = null;
     const dist = {};
     openModal((m) => {
@@ -1275,11 +1290,12 @@ const Scenes = (() => {
       const status = el("div", "modal-sub", "");
       m.appendChild(status);
       modalButtons(m, [
-        { label: "SKIP", fn: () => { closeModal(); e.specialMarketing(me(), 0, []); Main.advance(); } },
+        { label: "SKIP", fn: () => { if (command("special_marketing", { spend: 0, distribution: [] }).ok) { closeModal(); Main.advance(); } } },
         { label: "LAUNCH CAMPAIGN", cls: "btn-go", id: "mk-ok", disabled: true, fn: () => {
-            closeModal();
-            e.specialMarketing(me(), tier.cost, Object.entries(dist).map(([idx, fans]) => ({ chartIdx: +idx, fans })));
-            Main.afterHumanMove();
+            const distribution = Object.entries(dist).map(([idx, fans]) => ({ chartIdx: +idx, fans }));
+            const result = command("special_marketing", { spend: tier.cost, distribution });
+            if (!result.ok) return;
+            closeModal(); Main.afterHumanMove();
           } },
       ]);
       function refresh() {
@@ -1295,7 +1311,10 @@ const Scenes = (() => {
     const e = E(), s = e.state, p = P(me());
     const picks = p.startingPicks;
     const pub = PUBLISHERS[p.color];
+    const tutorial = typeof Tutor !== "undefined" && Tutor.active;
+    const remote = UI.session && UI.session.mode === "remote";
     let comic = null;
+    let comicGenre = null;
     const ideas = [];
     openModal((m) => {
       // the shared panel anatomy, with the HOUSE MARK as the emblem — this
@@ -1318,8 +1337,9 @@ const Scenes = (() => {
       const vaultBody = panelSection(m, "ON OFFER &mdash; PICK A GENRE FROM THE VAULT");
       const row = el("div", "card-row");
       for (const g of GENRES) {
-        const inDeck = s.decks.comics.filter((c) => CARD_BY_ID[c].genre === g);
+        const inDeck = remote ? [g] : s.decks.comics.filter((c) => CARD_BY_ID[c].genre === g);
         const teamMatch = p.hand.some((c) => CARD_BY_ID[c].genre === g);
+        const tutorialAllowed = !tutorial || g === Tutor.SCENARIO.genre;
         // every vault card shares one fixed footprint (cls vault-card): the
         // match note lives in a reserved caption line and a gold ribbon, so
         // it can never warp the row's spacing
@@ -1327,11 +1347,13 @@ const Scenes = (() => {
           back: "back_orig_" + g,
           scale: 1.25,
           cls: "vault-card",
-          dimmed: inDeck.length === 0,
+          dimmed: inDeck.length === 0 || !tutorialAllowed,
           label: `${genreMark(g, 0.55)} ${GENRE_INFO[g].name}<br>` +
             (teamMatch ? `<span class="match-tag">&#9733; MATCHES YOUR TEAM</span>` : "&nbsp;"),
           onpick: (d) => {
-            comic = inDeck[(e.rng() * inDeck.length) | 0]; // seeded: reproducible + undo-safe
+            if (!tutorialAllowed) return toast("Your first assignment is a Crime original.");
+            comicGenre = g;
+            comic = tutorial ? Tutor.SCENARIO.comic : g;
             selectOne(row, d);
             refresh();
           },
@@ -1349,6 +1371,8 @@ const Scenes = (() => {
         counters[g] = cnt;
         t.onclick = () => {
           SFX.play("click");
+          if (tutorial && g !== Tutor.SCENARIO.genre)
+            return toast("Take Crime ideas for this guided assignment.");
           if (ideas.length >= picks.ideas) ideas.shift();
           ideas.push(g);
           GENRES.forEach((x) => {
@@ -1370,9 +1394,10 @@ const Scenes = (() => {
           SFX.play("error");
           return toast("Before opening: " + missing().join(" and ") + ".");
         }
+        const payload = tutorial ? { comic, ideas } : { genre: comicGenre, ideas };
+        const result = command("starting_picks", payload);
+        if (!result.ok) return;
         closeModal();
-        e.resolveStartingPicks(me(), comic, ideas);
-        e.advanceIncrease();
         Main.afterHumanMove();
       } }]);
       function missing() {
@@ -1387,7 +1412,7 @@ const Scenes = (() => {
         const btn = m.querySelector("#sp-ok");
         btn.setAttribute("aria-disabled", String(!ok));
         foot.innerHTML = ok
-          ? `You open with a face-down <b>${GENRE_INFO[CARD_BY_ID[comic].genre].name}</b> original` +
+          ? `You open with a face-down <b>${GENRE_INFO[comicGenre || CARD_BY_ID[comic].genre].name}</b> original` +
             ` + ${ideas.map((g) => sprHTML("idea_" + g, 0.55)).join("")} &middot; all set — <b>FOUND THE HOUSE</b>!`
           : `<b style="color:#8a2f22">${missing().map((x) => x[0].toUpperCase() + x.slice(1)).join(" &middot; ")}.</b>` +
             (ideas.length ? ` In the tray: ${ideas.map((g) => sprHTML("idea_" + g, 0.55)).join("")}` : "");
@@ -1406,8 +1431,9 @@ const Scenes = (() => {
       const list = panelSection(m, "THIS ROUND'S CANDIDATES");
       render();
       modalButtons(m, [{ label: "DONE", cls: "btn-go", fn: () => {
+        const result = command("increase_finish");
+        if (!result.ok) return;
         closeModal();
-        e.finishIncrease(me());
         Main.afterHumanMove();
       } }]);
       function render() {
@@ -1423,7 +1449,8 @@ const Scenes = (() => {
           const b = el("button", "btn btn-small", o.mode.toUpperCase() + " $" + o.cost);
           b.onclick = () => {
             SFX.play("cash");
-            e.applyIncrease(me(), o);
+            const result = command("increase_apply", { chartIdx: o.chartIdx, kind: o.kind });
+            if (!result.ok) return;
             flushEvents();
             renderAll();
             render();

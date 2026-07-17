@@ -1,11 +1,9 @@
 "use strict";
-const fs = require("fs");
 const path = require("path");
-const code = ["data.js", "engine.js", "ai.js"]
-  .map((f) => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8"))
-  .join("\n") + "\n;global.__G={Engine,AI,GENRES,ACTIONS,PLAYER_COLORS};";
-eval(code);
-const { Engine, AI, GENRES, ACTIONS, PLAYER_COLORS } = global.__G;
+const data = require(path.join(__dirname, "..", "js", "data.js"));
+const { Engine } = require(path.join(__dirname, "..", "js", "engine.js"));
+const { AI } = require(path.join(__dirname, "..", "js", "ai.js"));
+const { GENRES, ACTIONS, PLAYER_COLORS } = data;
 
 const e = new Engine({ players: [{ color: "yellow" }, { color: "salmon" }], seed: 1200, useRipoffs: true, difficulty: "hard" });
 let guard = 0;

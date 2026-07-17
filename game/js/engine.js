@@ -3,7 +3,21 @@
 // Implements the full base game V27: worker placement, printing, chart,
 // mastery, sales map, special actions, scoring.
 // ============================================================================
+(function initEngineModule(root, factory) {
+  const data = root.AOC_DATA || (typeof require !== "undefined" ? require("./data.js") : null);
+  if (!data) throw new Error("Age of Comics data module must load before the engine");
+  const api = factory(data);
+  root.AOC_ENGINE = api;
+  Object.assign(root, api);
+  if (typeof module !== "undefined") module.exports = api;
+})(globalThis, function buildEngineModule(data) {
 "use strict";
+
+const {
+  GENRES, PUBLISHERS, PLAYER_COLORS, COMICS, CREATIVES, CARD_BY_ID,
+  RIPOFF_TITLES, ORDER_SPECS, ACTIONS, IDEAS_SLOTS, ROYALTIES_SLOTS,
+  SALES_SLOTS, RANK_VP, FAN_MONEY, HAND_LIMIT, MARKETING, SPECIALS, MAP,
+} = data;
 
 // ------------------------------------------------------------------ RNG
 function mulberry32(seed) {
@@ -1130,4 +1144,5 @@ class Engine {
   }
 }
 
-if (typeof module !== "undefined") module.exports = { Engine, mulberry32 };
+return { Engine, mulberry32 };
+});

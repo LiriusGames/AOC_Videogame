@@ -1101,6 +1101,28 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
+
+/* -------------------------------------------------------------- tutorial */
+#tutor-layer { position: fixed; inset: 0; z-index: 920; pointer-events: none; }
+#tutor-ring {
+  position: fixed; border: 3px solid #f5c86e; border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(18, 14, 12, .67), 0 0 18px #f5c86e;
+  transition: left .16s ease, top .16s ease, width .16s ease, height .16s ease;
+}
+#tutor-card {
+  position: fixed; box-sizing: border-box; pointer-events: auto; z-index: 922;
+  padding: 13px 15px 11px; color: #241b16; background: #f2e5c8;
+  border: 2px solid #3d2d22; box-shadow: 7px 8px 0 rgba(0,0,0,.42);
+  transform: rotate(-.35deg); font-family: SpecialElite, serif;
+}
+#tutor-card h3 { margin: 0 0 7px; font: 11px/1.35 PressStart, monospace; color: #7d2f28; }
+#tutor-card p { margin: 0 0 9px; font-size: 15px; line-height: 1.32; }
+#tutor-card .tutor-skip { font-size: 9px; }
+.tutorial-active .loc.tutor-blocked { opacity: .52; }
+@media (prefers-reduced-motion: reduce) {
+  #tutor-ring { transition: none; box-shadow: 0 0 0 9999px rgba(18,14,12,.67); }
+  #tutor-card { transform: none; }
+}
 /* keyboard focus: same gold treatment the mouse hover states use */
 :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; z-index: 6; }
 .modal :focus-visible { position: relative; }
@@ -1470,3 +1492,12 @@ html.booting #app { opacity: 0; }
 .ctx-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ctx-row > b { font-family: var(--f-display); font-size: 11px; letter-spacing: 1px; width: 118px; flex: none; }
 .ctx-item { display: inline-flex; align-items: center; gap: 3px; }
+.mp-form { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:20px 0; }
+.mp-field { display:grid; gap:6px; color:var(--ink, #241b15); font-weight:700; letter-spacing:.04em; }
+.mp-field input, .mp-invite input {
+  min-width:0; border:2px solid #38291f; background:#f6ebca; color:#241b15;
+  padding:10px 12px; font:inherit;
+}
+.mp-invite { display:grid; grid-template-columns:1fr auto; gap:10px; margin:20px 0; }
+.mp-status { min-height:1.5em; color:#8a2f22; }
+@media (max-width: 620px) { .mp-form { grid-template-columns:1fr; } }

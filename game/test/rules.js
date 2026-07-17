@@ -4,15 +4,11 @@
 // Run: node game/test/rules.js
 // ============================================================================
 "use strict";
-const fs = require("fs");
 const path = require("path");
-
-const code = ["data.js", "engine.js", "ai.js"]
-  .map((f) => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8"))
-  .join("\n") +
-  "\n;global.__G={Engine,AI,GENRES,PLAYER_COLORS,CARD_BY_ID,COMICS,MAP,ROYALTIES_SLOTS,RANK_VP,HAND_LIMIT};";
-eval(code);
-const { Engine, AI, GENRES, PLAYER_COLORS, CARD_BY_ID, COMICS, MAP, ROYALTIES_SLOTS, RANK_VP, HAND_LIMIT } = global.__G;
+const data = require(path.join(__dirname, "..", "js", "data.js"));
+const { Engine } = require(path.join(__dirname, "..", "js", "engine.js"));
+const { AI } = require(path.join(__dirname, "..", "js", "ai.js"));
+const { GENRES, PLAYER_COLORS, CARD_BY_ID, COMICS, MAP, ROYALTIES_SLOTS, RANK_VP, HAND_LIMIT } = data;
 
 // ------------------------------------------------------------------ harness
 let passed = 0, failed = 0;

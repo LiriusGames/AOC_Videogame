@@ -3,7 +3,20 @@
 // Heuristic planners that play the complete rules. Personalities shade the
 // weights: chart (fans/rank), ripoff (parasite), quality (specialists), money.
 // ============================================================================
+(function initAiModule(root, factory) {
+  const data = root.AOC_DATA || (typeof require !== "undefined" ? require("./data.js") : null);
+  if (!data) throw new Error("Age of Comics data module must load before the AI");
+  const api = factory(data);
+  root.AOC_AI = api;
+  Object.assign(root, api);
+  if (typeof module !== "undefined") module.exports = api;
+})(globalThis, function buildAiModule(data) {
 "use strict";
+
+const {
+  GENRES, PLAYER_COLORS, CARD_BY_ID, COMICS, ACTIONS, IDEAS_SLOTS,
+  ROYALTIES_SLOTS, SALES_SLOTS, SPECIALS, MAP, MARKETING,
+} = data;
 
 const AI = (() => {
 
@@ -624,4 +637,5 @@ const AI = (() => {
   return { takeTurn, doIncrease, doStartingPicks, settle, resolveOwnPendings, chooseAction };
 })();
 
-if (typeof module !== "undefined") module.exports = { AI };
+return { AI };
+});
