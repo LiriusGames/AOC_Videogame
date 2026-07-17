@@ -5,6 +5,12 @@
 
 const SFX = (() => {
   let ctx = null, master = null, musicGain = null, enabled = true, musicTimer = null;
+  // separated channels (settings menu): effects and music mute independently
+  let musicOn = true;
+  try {
+    enabled = localStorage.getItem("aoc-sfx") !== "0";
+    musicOn = localStorage.getItem("aoc-music") !== "0";
+  } catch (_e) { /* private mode */ }
 
   function ensure() {
     if (!ctx) {
@@ -171,6 +177,7 @@ const SFX = (() => {
     beat++;
   }
   function startMusic() {
+    if (!musicOn) return;
     ensure();
     if (musicTimer) return;
     musicTimer = setInterval(musicTick, BEAT * 1000);
@@ -185,7 +192,18 @@ const SFX = (() => {
       if (!enabled) stopMusic(); else startMusic();
       return enabled;
     },
+    // settings menu: the two channels mute independently, persisted
+    setSfx(on) {
+      enabled = !!on;
+      try { localStorage.setItem("aoc-sfx", on ? "1" : "0"); } catch (_e) {}
+    },
+    setMusic(on) {
+      musicOn = !!on;
+      try { localStorage.setItem("aoc-music", on ? "1" : "0"); } catch (_e) {}
+      if (on) startMusic(); else stopMusic();
+    },
     get enabled() { return enabled; },
+    get musicOn() { return musicOn; },
     unlock() { try { ensure(); } catch (e) {} },
   };
 })();

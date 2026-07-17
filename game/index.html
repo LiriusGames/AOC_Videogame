@@ -101,9 +101,8 @@ if (location.protocol === "file:") {
         <button id="chart-mini" class="btn btn-small" aria-expanded="false" aria-controls="sidebar"></button>
         <button id="btn-undo" class="btn btn-small" title="Rewind to the start of your turn">&#8630; UNDO</button>
         <button id="btn-chart" class="btn btn-small" title="View the Manhattan sales map">CITY</button>
-        <button id="btn-film" class="btn btn-small" title="Cycle the projection filter (P)">FILM: OFF</button>
+        <button id="btn-menu" class="btn btn-small" title="Picture, sound and screen settings">MENU</button>
         <button id="btn-help" class="btn btn-small">?</button>
-        <button id="btn-sound" class="btn btn-small">&#9835;</button>
       </div>
     </header>
 
@@ -173,7 +172,7 @@ if (location.protocol === "file:") {
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
     <filter id="tv-barrel" x="0" y="0" width="100%" height="100%">
       <feImage href="assets/barrel.png" result="bmap" x="0" y="0" width="100%" height="100%" preserveAspectRatio="none"/>
-      <feDisplacementMap in="SourceGraphic" in2="bmap" scale="16" xChannelSelector="R" yChannelSelector="G"/>
+      <feDisplacementMap in="SourceGraphic" in2="bmap" scale="26" xChannelSelector="R" yChannelSelector="G"/>
     </filter>
   </svg>
   <div id="film-layer" aria-hidden="true">

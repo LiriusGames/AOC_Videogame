@@ -65,6 +65,41 @@ function sprHTML(name, scale = 1) { return spr(name, scale).outerHTML; }
 // call sites written during pass 1.
 function sprHD(name, scale = 1, cls = "") { return spr(name, scale, cls); }
 function sprHDHTML(name, scale = 1) { return spr(name, scale).outerHTML; }
+
+// ------------------------------------------------------- the projection room
+// LOOK (grade + overlays) and LENS (tube-glass barrel warp) are independent:
+// the lens is a property of your set, not of the broadcast. Both persist.
+const Film = (() => {
+  const LOOKS = [
+    ["off", "PLAIN", "Plain picture"],
+    ["newsreel", "NEWSREEL '44", "Newsreel 1944: black and white"],
+    ["tv", "TELEVISION '52", "Television 1952: kinescope"],
+    ["matinee", "SUNDAY MATINEE", "Sunday matinee: pulp print"],
+  ];
+  const root = () => document.documentElement;
+  function setLook(key, quiet) {
+    LOOKS.forEach(([k]) => { if (k !== "off") root().classList.remove("film-" + k); });
+    const look = LOOKS.find(([k]) => k === key) || LOOKS[0];
+    if (look[0] !== "off") root().classList.add("film-" + look[0]);
+    try { localStorage.setItem("aoc-film", look[0]); } catch (_e) { /* private mode */ }
+    if (!quiet) announce(look[2]);
+  }
+  function getLook() {
+    const hit = LOOKS.find(([k]) => k !== "off" && root().classList.contains("film-" + k));
+    return hit ? hit[0] : "off";
+  }
+  function setLens(on, quiet) {
+    root().classList.toggle("film-lens", !!on);
+    try { localStorage.setItem("aoc-lens", on ? "1" : "0"); } catch (_e) {}
+    if (!quiet) announce(on ? "Tube glass on" : "Tube glass off");
+  }
+  function lensOn() { return root().classList.contains("film-lens"); }
+  function cycle() {
+    const idx = LOOKS.findIndex(([k]) => k === getLook());
+    setLook(LOOKS[(idx + 1) % LOOKS.length][0]);
+  }
+  return { LOOKS, setLook, getLook, setLens, lensOn, cycle };
+})();
 function genreDot(g) {
   return `<span class="genre-dot" style="background:${GENRE_INFO[g].color}" title="${GENRE_INFO[g].name}"></span>`;
 }

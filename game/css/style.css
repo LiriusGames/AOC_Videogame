@@ -1331,7 +1331,7 @@ html.film-newsreel .fl-flicker {
 }
 
 /* TELEVISION '52 — kinescope glass */
-html.film-tv #app { filter: grayscale(1) contrast(1.08) brightness(1.08) url(#tv-barrel); }
+html.film-tv #app { filter: grayscale(1) contrast(1.08) brightness(1.08); }
 html.film-tv .fl-scan {
   display: block;
   background: repeating-linear-gradient(0deg, rgba(4, 6, 10, .17) 0 1px, transparent 1px 3px);
@@ -1408,8 +1408,23 @@ html.film-tv .fl-scan { animation: tv-scan .5s steps(3) infinite; }
   0% { transform: translateY(0); } 33% { transform: translateY(1px); }
   66% { transform: translateY(-1px); } 100% { transform: translateY(0); }
 }
-/* curved-glass frame: the picture sits behind rounded tube glass */
-html.film-tv .fl-vignette {
+/* curved-glass frame rides with the LENS toggle (any look can wear it) */
+html.film-lens .fl-vignette {
   border-radius: 3.5% / 5%;
   box-shadow: inset 0 0 90px 26px rgba(3, 6, 12, .55), inset 0 0 8px 3px rgba(3, 6, 12, .5);
 }
+/* the barrel warp itself — every look/lens combination spelled out because
+   filter is a single declaration */
+html.film-lens #app { filter: url(#tv-barrel); }
+html.film-newsreel.film-lens #app { filter: grayscale(1) contrast(1.14) brightness(1.05) sepia(.14) url(#tv-barrel); }
+html.film-tv.film-lens #app { filter: grayscale(1) contrast(1.08) brightness(1.08) url(#tv-barrel); }
+html.film-matinee.film-lens #app { filter: sepia(.4) saturate(1.18) contrast(1.05) url(#tv-barrel); }
+
+/* ------------------------------------------------------------ settings menu */
+.set-body { display: flex; flex-direction: column; gap: 9px; margin-bottom: 6px; }
+.set-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.set-row > b {
+  width: 130px; flex: none; font-family: var(--f-display); font-weight: 500;
+  font-size: 13px; letter-spacing: 1px; color: #4a3d28;
+}
+.set-row .choice { font-size: 12px; padding: 6px 10px; }

@@ -1528,6 +1528,59 @@ const Scenes = (() => {
   }
 
   // ------------------------------------------------------------------- help
+  // the MENU: picture (look + tube lens), sound channels, screen format —
+  // one .choice-group per setting (the setup screen's radiogroup pattern,
+  // already covered by the a11y sweep's arrow-key navigation)
+  function settingsModal() {
+    openModal((m) => {
+      m.appendChild(el("h2", "", "&#9733; SETTINGS &#9733;"));
+      const section = (label) => {
+        const lab = el("div", "ps-label", label);
+        m.appendChild(lab);
+        const body = el("div", "set-body");
+        m.appendChild(body);
+        return body;
+      };
+      const group = (body, rowLabel, options, isActive, onPick) => {
+        const row = el("div", "set-row");
+        row.appendChild(el("b", "", rowLabel));
+        const g = el("div", "choice-group");
+        for (const [val, label] of options) {
+          const b = el("button", "choice" + (isActive(val) ? " active" : ""), label);
+          b.onclick = () => {
+            SFX.play("click");
+            onPick(val);
+            [...g.children].forEach((c) => c.classList.toggle("active", c === b));
+          };
+          g.appendChild(b);
+        }
+        row.appendChild(g);
+        body.appendChild(row);
+      };
+      const onOff = (label, body, get, set) =>
+        group(body, label, [[true, "ON"], [false, "OFF"]], (v) => v === get(), set);
+
+      const pic = section("PICTURE");
+      group(pic, "LOOK", Film.LOOKS.map(([k, name]) => [k, name]),
+        (v) => v === Film.getLook(), (v) => Film.setLook(v));
+      onOff("TUBE GLASS", pic, () => Film.lensOn(), (v) => Film.setLens(v));
+
+      const snd = section("SOUND");
+      onOff("EFFECTS", snd, () => SFX.enabled, (v) => SFX.setSfx(v));
+      onOff("MUSIC", snd, () => SFX.musicOn, (v) => SFX.setMusic(v));
+
+      const scr = section("SCREEN");
+      onOff("FULLSCREEN", scr, () => !!document.fullscreenElement, (v) => {
+        if (v) document.documentElement.requestFullscreen().catch(() => {});
+        else if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      });
+
+      m.appendChild(el("div", "modal-sub",
+        "The looks are decorative &mdash; grain and flicker sit still when your system asks for reduced motion. P cycles the look any time."));
+      modalButtons(m, [{ label: "DONE", fn: () => closeModal() }]);
+    }, { width: "620px", onDismiss: () => closeModal() });
+  }
+
   function helpModal() {
     openModal((m) => {
       m.appendChild(el("h2", "", "HOW TO PLAY"));
@@ -1548,5 +1601,5 @@ const Scenes = (() => {
     }, { width: "800px" });
   }
 
-  return { open, salesScene, viewMap, pendingModal, specialModal, startingPicksModal, increaseModal, endgameModal, helpModal };
+  return { open, salesScene, viewMap, pendingModal, specialModal, startingPicksModal, increaseModal, endgameModal, helpModal, settingsModal };
 })();
