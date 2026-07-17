@@ -56,17 +56,24 @@ function check(value, name) {
       await page.waitForFunction(() => !document.querySelector("#review-bar").hidden);
     }
     await foundHouse();
-    check(await page.evaluate(() => Tutor.state.beat === "proof_undo"), "first founding proof requires an undo");
+    check(await page.evaluate(() => Tutor.state.beat === "proof_confirm"), "founding proof is ready to stamp at once (no forced undo drill)");
+    // undo stays voluntary: rewinding reopens the vault, then the proof returns
     await page.click("#btn-review-undo");
     await page.waitForFunction(() => Tutor.state.beat === "founding" && !!document.querySelector("#modal-root.active"));
     await foundHouse();
-    check(await page.evaluate(() => Tutor.state.beat === "proof_confirm"), "repeated founding proof is ready to confirm");
+    check(await page.evaluate(() => Tutor.state.beat === "proof_confirm"), "voluntary undo reopens the vault and returns to the proof");
     await page.click("#btn-review-confirm");
-    // the premises tour: rail, board, chart — three NEXT presses
-    for (const tour of ["tour_rail", "tour_board", "tour_chart"]) {
-      await page.waitForFunction((wanted) => Tutor.state.beat === wanted, { timeout: 10000 }, tour);
-      await page.$eval("#tutor-card .tutor-next", (btn) => btn.click());
-    }
+    // the premises tour: rail, board, chart — with one BACK re-read on the way
+    await page.waitForFunction(() => Tutor.state.beat === "tour_rail", { timeout: 10000 });
+    await page.$eval("#tutor-card .tutor-next", (btn) => btn.click());
+    await page.waitForFunction(() => Tutor.state.beat === "tour_board");
+    await page.$eval("#tutor-card .tutor-back", (btn) => btn.click());
+    check(await page.evaluate(() => Tutor.state.beat === "tour_rail"), "BACK rewinds the tour one stop");
+    await page.$eval("#tutor-card .tutor-next", (btn) => btn.click());
+    await page.waitForFunction(() => Tutor.state.beat === "tour_board");
+    await page.$eval("#tutor-card .tutor-next", (btn) => btn.click());
+    await page.waitForFunction(() => Tutor.state.beat === "tour_chart");
+    await page.$eval("#tutor-card .tutor-next", (btn) => btn.click());
 
     async function waitTurn(beat) {
       await page.waitForFunction((wanted) => Tutor.state.beat === wanted && UI.engine.currentPlayerId() === UI.humanId &&

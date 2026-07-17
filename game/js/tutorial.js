@@ -5,7 +5,7 @@
 
 const Tutor = (() => {
   const SCENARIO = Object.freeze({
-    version: 2,
+    version: 3,
     seed: 5,
     color: "teal",
     genre: "crime",
@@ -23,12 +23,11 @@ const Tutor = (() => {
     wire: ["THE RIVALS MOVE", "Now the other houses take their shifts — the wire up top keeps the gossip. You don't wait politely in this town; you read the ticker."],
     mastery_note: ["MASTERY CLAIMED", "First original in a genre claims its mastery token: +1 fan on every book you print in that genre, and 2 points at the final bell. Another house can steal it by out-printing you."],
     founding: ["YOUR STARTING TEAM", "Your writer and artist specialize in different genres. Each teammate who matches a book adds one launch fan. Choose the highlighted Crime project and two Crime ideas."],
-    proof_undo: ["MEET THE PROOF SLIP", "Every action pauses here before the world moves. Use UNDO once; then repeat the highlighted founding picks and confirm them for real."],
-    proof_confirm: ["STAMP IT FOR REAL", "The same choices are waiting for you. Confirm this proof and the rival houses will take their turns."],
+    proof_confirm: ["THE PROOF SLIP", "Every decision pauses on this slip before the world moves. UNDO takes it back — any turn, all game long. The stamp makes it real. Stamp your founding and the rival houses will answer."],
     ideas: ["FIRST SHIFT — CAFE BIZARRE", "Send your first editor for ideas. Take the highlighted Crime ideas from the counter; table ideas are a limited bonus."],
     print: ["SECOND SHIFT — PRINT FLOOR", "Build the highlighted package: comic, writer, artist, team fee, and two matching ideas. The first press can run two books, but today you own one complete team."],
     accounting: ["THIRD SHIFT — ACCOUNTING", "Printing costs cash. Earlier Accounting desks pay more, so take the highlighted desk now."],
-    sales: ["LAST SHIFT — MANHATTAN", "Start the Sales run. Take the highlighted free step, flip stand 18, collect it, watch it fulfill, then end the run."],
+    sales: ["LAST SHIFT — MANHATTAN", "Your last editor works the street itself: walk the corners, flip newsstand orders face-up, collect what your chart can fill. Follow the gold marker on the map."],
     round_close: ["CLOSE OF BUSINESS", "Your best book sets the round rank. Each book's fan count sets its royalty bracket, then charted books cool by one fan without dropping below one."],
     free: ["THE FLOOR IS YOURS", "Your printed team stays on its book. Hire another writer and artist, then Develop a new project to build the next complete print package."],
   };
@@ -41,8 +40,6 @@ const Tutor = (() => {
       scenarioVersion: SCENARIO.version,
       beat: "masthead",
       foundingStep: "vault",
-      proofUndoDone: false,
-      foundingSubmissions: 0,
       salesStep: "start",
       botSteps: { 1: 0, 2: 0 },
       completedCore: false,
@@ -82,9 +79,21 @@ const Tutor = (() => {
     masthead: "founding", tour_rail: "tour_board", tour_board: "tour_chart",
     tour_chart: "ideas", wire: "print", mastery_note: "accounting",
   };
+  // BACK re-reads the previous lesson; NEXT (or the beat's own trigger)
+  // returns. Only beats whose predecessor is safe to re-enter are listed.
+  const PREV_FLOW = {
+    founding: "masthead", tour_board: "tour_rail", tour_chart: "tour_board",
+    ideas: "tour_chart", print: "wire", accounting: "mastery_note",
+  };
   const INTERSTITIAL = { masthead: 1, tour_rail: 1, tour_board: 1, tour_chart: 1, wire: 1, mastery_note: 1 };
   function next() {
     const to = NEXT_FLOW[state.beat];
+    if (!to) return;
+    state.beat = to;
+    sync();
+  }
+  function back() {
+    const to = PREV_FLOW[state.beat];
     if (!to) return;
     state.beat = to;
     sync();
@@ -94,10 +103,10 @@ const Tutor = (() => {
   }
   const SALES_STEP_HINTS = {
     start: "Place the editor on the Sales stand.",
-    move: "Take the FREE step to the highlighted corner.",
-    flip: "Flip the stand you are on.",
-    collect: "Collect the order — watch it fill itself from your chart.",
-    end: "END SALES RUN to file the day.",
+    move: "Take your free step to the corner circled in gold.",
+    flip: "Click the newsstand circled in gold to flip its order face-up.",
+    collect: "Click it again to collect — it fills straight from your chart.",
+    end: "Press END SALES RUN to file the day.",
     review: "Stamp the proof.",
   };
   function targetForBeat() {
@@ -111,11 +120,19 @@ const Tutor = (() => {
       return state.foundingStep === "vault" ? '#modal-root [data-tut="vault"]'
         : state.foundingStep === "tokens" ? '#modal-root [data-tut="tokens"]'
         : "#modal-root #sp-ok";
-    if (state.beat === "proof_undo" || state.beat === "proof_confirm") return "#review-bar";
+    if (state.beat === "proof_confirm") return "#review-bar";
     if (state.beat === "ideas") return '#locations [data-action="ideas"]';
     if (state.beat === "print") return '#locations [data-action="print"]';
     if (state.beat === "accounting") return '#locations [data-action="royalties"]';
-    if (state.beat === "sales") return state.salesStep === "start" ? '#locations [data-action="sales"]' : ".sales-map-pane, #map-canvas";
+    if (state.beat === "sales") {
+      // on the street the gold canvas marker does the pointing; the DOM ring
+      // only frames the decisions that live outside the map
+      if (state.salesStep === "start")
+        return document.querySelector("#modal-root.active .btn-go") ? "#modal-root.active .btn-go" : '#locations [data-action="sales"]';
+      if (state.salesStep === "end") return "#btn-end-run";
+      if (state.salesStep === "review") return "#review-bar";
+      return null;
+    }
     if (state.beat === "round_close") return "#sidebar";
     return "#locations";
   }
@@ -132,6 +149,18 @@ const Tutor = (() => {
       text += " NOW: " + SALES_STEP_HINTS[state.salesStep];
     show(memo[0], text, targetForBeat());
     applyGlow();
+    syncMapTarget();
+  }
+  // the sales lesson points at real street furniture: a gold marching ring
+  // drawn by the map itself on the corner to walk to / the stand to work
+  function syncMapTarget() {
+    if (typeof MapView === "undefined" || !MapView.setTutorTarget) return;
+    let t = null;
+    if (active && state.beat === "sales") {
+      if (state.salesStep === "move") t = { node: SCENARIO.salesNode };
+      else if (state.salesStep === "flip" || state.salesStep === "collect") t = { slotId: SCENARIO.orderId };
+    }
+    MapView.setTutorTarget(t);
   }
   function show(title, text, selector) {
     const layer = document.getElementById("tutor-layer");
@@ -145,6 +174,8 @@ const Tutor = (() => {
     if (key !== currentMemo) { currentMemo = key; announce(`${title}. ${text}`); }
     const nextBtn = card.querySelector(".tutor-next");
     if (nextBtn) { nextBtn.hidden = !NEXT_FLOW[state.beat]; nextBtn.onclick = next; }
+    const backBtn = card.querySelector(".tutor-back");
+    if (backBtn) { backBtn.hidden = !PREV_FLOW[state.beat]; backBtn.onclick = back; }
     reanchor(selector);
   }
   // the current lesson's physical subjects glow gold (vault card, idea
@@ -170,6 +201,7 @@ const Tutor = (() => {
     card.style.width = width + "px";
     const target = selector ? document.querySelector(selector) : null;
     const modal = document.querySelector("#modal-root.active .modal");
+    const ch = card.offsetHeight || 210; // real height — a guess overlaps buttons
     if (!target || (modal && !modal.contains(target) && !target.contains(modal))) {
       // no subject, or the subject is buried behind an open dialog: no ring —
       // dock the memo (centered for the masthead, lower-left otherwise)
@@ -179,20 +211,29 @@ const Tutor = (() => {
         card.style.top = Math.round(vh * 0.3) + "px";
       } else {
         card.style.left = "16px";
-        card.style.top = Math.max(12, vh - 230) + "px";
+        card.style.top = Math.max(12, vh - ch - 20) + "px";
       }
       return;
     }
     ring.hidden = false;
     const b = target.getBoundingClientRect(), pad = 7;
-    const r = { left: b.left / z, top: b.top / z, width: b.width / z, height: b.height / z, bottom: b.bottom / z };
+    const r = { left: b.left / z, top: b.top / z, width: b.width / z, height: b.height / z, bottom: b.bottom / z, right: b.right / z };
     ring.style.left = Math.max(4, r.left - pad) + "px";
     ring.style.top = Math.max(4, r.top - pad) + "px";
     ring.style.width = Math.max(24, r.width + pad * 2) + "px";
     ring.style.height = Math.max(24, r.height + pad * 2) + "px";
-    const left = Math.max(12, Math.min(vw - width - 12, r.left + r.width / 2 - width / 2));
-    const below = r.bottom + 14;
-    const top = below + 190 < vh ? below : Math.max(12, r.top - 194);
+    // the memo must never sit on the control it points at: below, above,
+    // beside, and only then a corner dock away from the target
+    let left = Math.max(12, Math.min(vw - width - 12, r.left + r.width / 2 - width / 2));
+    let top;
+    if (r.bottom + 14 + ch <= vh - 12) top = r.bottom + 14;
+    else if (r.top - ch - 14 >= 12) top = r.top - ch - 14;
+    else {
+      top = Math.max(12, Math.min(vh - ch - 12, r.top + r.height / 2 - ch / 2));
+      if (r.right + 14 + width <= vw - 12) left = r.right + 14;
+      else if (r.left - width - 14 >= 12) left = r.left - width - 14;
+      else { left = 16; top = r.top > vh / 2 ? 12 : Math.max(12, vh - ch - 20); }
+    }
     card.style.left = left + "px";
     card.style.top = top + "px";
   }
@@ -202,6 +243,7 @@ const Tutor = (() => {
     if (card && layer && card.parentElement !== layer) layer.appendChild(card);
     if (layer) layer.hidden = true;
     if (ring) ring.hidden = true;
+    if (typeof MapView !== "undefined" && MapView.setTutorTarget) MapView.setTutorTarget(null);
   }
   function detachFromModal() {
     const layer = document.getElementById("tutor-layer"), card = document.getElementById("tutor-card");
@@ -237,7 +279,6 @@ const Tutor = (() => {
     return false;
   }
   function afterCommand(kind) {
-    if (kind === "starting_picks") state.foundingSubmissions++;
     if (state.beat === "sales") {
       if (kind === "sales_start") state.salesStep = "move";
       else if (kind === "sales_move") state.salesStep = "flip";
@@ -254,17 +295,16 @@ const Tutor = (() => {
   }
   function onReviewShown() {
     if (!active) return;
-    if (state.beat === "founding") state.beat = state.proofUndoDone ? "proof_confirm" : "proof_undo";
+    if (state.beat === "founding") state.beat = "proof_confirm";
     sync();
   }
-  function canConfirmReview() { return !active || state.beat !== "proof_undo"; }
   function onUndo() {
     if (!active) return;
-    if (state.beat === "proof_undo") {
-      state.proofUndoDone = true;
-      state.beat = "founding";
-      sync();
-    }
+    // undo is voluntary now: rewinding the founding proof reopens the vault,
+    // rewinding mid-sales restarts the run script from its first step
+    if (state.beat === "proof_confirm") state.beat = "founding";
+    if (state.beat === "sales") state.salesStep = "start";
+    sync();
   }
   function onReviewConfirmed(action) {
     if (!active) return;
@@ -299,8 +339,11 @@ const Tutor = (() => {
     get active() { return active; },
     get state() { return state; },
     begin, restore, exportState, skip, sync, hide, reanchor, detachFromModal,
-    next, onHumanTurn, pingFounding,
+    next, back, onHumanTurn, pingFounding,
     allowedAction, allowCommand, afterCommand,
-    onReviewShown, canConfirmReview, onUndo, onReviewConfirmed, takeBotTurn,
+    onReviewShown, onUndo, onReviewConfirmed, takeBotTurn,
   };
 })();
+// a top-level const never lands on globalThis: session.js reaches the Tutor
+// through root.Tutor, so the gate/afterCommand hooks need this explicitly
+globalThis.Tutor = Tutor;

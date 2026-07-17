@@ -24,8 +24,13 @@ const Main = (() => {
     };
     document.getElementById("btn-tutorial").onclick = () => {
       SFX.unlock(); SFX.play("click"); SFX.startMusic();
-      if (Save.peek("tutorial")) resumeGame("tutorial");
-      else newTutorial();
+      // a saved first day can be resumed or torn up for a fresh start
+      if (Save.peek("tutorial") && confirm("Resume your saved first day?\n\nOK resumes where you left off. Cancel tears it up and starts the lesson from scratch.")) {
+        resumeGame("tutorial");
+      } else {
+        Save.clear("tutorial");
+        newTutorial();
+      }
     };
     document.getElementById("btn-how").onclick = () => { SFX.unlock(); Scenes.helpModal(); };
     refreshContinue();
@@ -409,11 +414,6 @@ const Main = (() => {
     document.getElementById("screen-game").classList.remove("reviewing");
   }
   function confirmReview() {
-    if (Tutor.active && !Tutor.canConfirmReview()) {
-      SFX.play("error");
-      toast("The city editor wants you to try UNDO once before confirming.");
-      return;
-    }
     const s = UI.engine.state;
     const last = s.placeSeq && s.placeSeq[s.placeSeq.length - 1];
     const action = last && last.player === UI.humanId ? last.action : null;
