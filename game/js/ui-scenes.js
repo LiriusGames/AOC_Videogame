@@ -930,36 +930,29 @@ const Scenes = (() => {
       panelHead(m, "ideas", "BONUS IDEAS", "&nbsp;");
       m.appendChild(el("div", "modal-sub", `Take <b>${pd.data.count}</b> idea token${pd.data.count > 1 ? "s" : ""} of any genre. Printing an original needs <b>2 matching ideas</b> — here's what's around:`));
       // context: what could use those ideas
-      const ctx = el("div", "ctx-strip");
+      const ctx = el("div", "ctx-strip ctx-rows");
+      const ctxRow = (label, items) => {
+        if (!items.length) return;
+        const row = el("div", "ctx-row");
+        row.appendChild(el("b", "", label));
+        for (const it of items) row.appendChild(it);
+        ctx.appendChild(row);
+      };
+      const ctxItem = (art, g, title) => {
+        const w = el("span", "ctx-item");
+        art.title = title;
+        w.appendChild(art);
+        w.appendChild(el("span", "", genreMark(g, 0.5)));
+        return w;
+      };
       const myComics = p.hand.filter((c) => !CARD_BY_ID[c].kind).concat(p.hyped.map((h) => h.cardId));
-      if (myComics.length) {
-        ctx.appendChild(el("b", "", "ON YOUR DESK:"));
-        myComics.forEach((c) => {
-          const d = sprHD(coverOf(c), 0.42);
-          d.title = `${CARD_BY_ID[c].title} — needs 2 ${GENRE_INFO[CARD_BY_ID[c].genre].name} ideas (you have ${p.ideas[CARD_BY_ID[c].genre]})`;
-          ctx.appendChild(d);
-          ctx.appendChild(el("span", "", genreMark(CARD_BY_ID[c].genre, 0.45)));
-        });
-      }
-      if (s.display.comics.length) {
-        ctx.appendChild(el("b", "", "WRITERS' ROOM:"));
-        s.display.comics.forEach((c) => {
-          const d = sprHD(coverOf(c), 0.42);
-          d.title = `${CARD_BY_ID[c].title} (${GENRE_INFO[CARD_BY_ID[c].genre].name}) — available to develop`;
-          ctx.appendChild(d);
-          ctx.appendChild(el("span", "", genreMark(CARD_BY_ID[c].genre, 0.45)));
-        });
-      }
+      ctxRow("ON YOUR DESK:", myComics.map((c) => ctxItem(sprHD(coverOf(c), 0.55), CARD_BY_ID[c].genre,
+        `${CARD_BY_ID[c].title} — needs 2 ${GENRE_INFO[CARD_BY_ID[c].genre].name} ideas (you have ${p.ideas[CARD_BY_ID[c].genre]})`)));
+      ctxRow("WRITERS' ROOM:", s.display.comics.map((c) => ctxItem(sprHD(coverOf(c), 0.55), CARD_BY_ID[c].genre,
+        `${CARD_BY_ID[c].title} (${GENRE_INFO[CARD_BY_ID[c].genre].name}) — available to develop`)));
       const talent = s.display.writers.concat(s.display.artists);
-      if (talent.length) {
-        ctx.appendChild(el("b", "", "TALENT:"));
-        talent.forEach((c) => {
-          const d = spr(faceOf(c), 0.8);
-          d.title = `${CARD_BY_ID[c].name} — ${GENRE_INFO[CARD_BY_ID[c].genre].name} ${CARD_BY_ID[c].kind} v${CARD_BY_ID[c].value}`;
-          ctx.appendChild(d);
-          ctx.appendChild(el("span", "", genreMark(CARD_BY_ID[c].genre, 0.45)));
-        });
-      }
+      ctxRow("TALENT:", talent.map((c) => ctxItem(spr(facebigOfSafe(c), 0.62), CARD_BY_ID[c].genre,
+        `${CARD_BY_ID[c].name} — ${GENRE_INFO[CARD_BY_ID[c].genre].name} ${CARD_BY_ID[c].kind} v${CARD_BY_ID[c].value}`)));
       m.appendChild(ctx);
       const row = el("div", "card-row");
       const counters = {};

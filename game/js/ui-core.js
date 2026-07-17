@@ -128,6 +128,7 @@ function comicSprite(entry) {
 }
 function coverOf(cardId) { return "cover_" + cardId; }
 function faceOf(creativeId) { return "face_" + creativeId; }
+function facebigOfSafe(creativeId) { return ATLAS["facebig_" + creativeId] ? "facebig_" + creativeId : "face_" + creativeId; }
 // the high-res twin for any use ≥ ~50px on screen (panels, reveals, zooms)
 function faceBigOf(creativeId) { return "facebig_" + creativeId; }
 function cardSprite(cardId) {

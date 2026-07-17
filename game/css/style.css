@@ -984,7 +984,7 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
   background: var(--paper-dark); border: 2px dashed var(--ink); padding: 6px 8px; font-size: 12px;
 }
 .ctx-strip b { font-family: var(--f-display); font-size: 10px; margin-left: 6px; }
-.ctx-strip .spr { border: 2px solid var(--ink); background: var(--paper); }
+/* die-cut art in the context strip carries its own edge */
 
 .pulse { animation: pulse .8s infinite; }
 @keyframes pulse { 0%,100% { outline-color: var(--gold); } 50% { outline-color: transparent; } }
@@ -1018,7 +1018,7 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
   animation: celeb-in .35s cubic-bezier(.2, 1.7, .4, 1);
 }
 @keyframes celeb-in { 0% { transform: scale(.3) rotate(-4deg); } }
-.fx-celebrate .fx-card .spr { border: 3px solid var(--ink); }
+.fx-celebrate .fx-card .spr { }
 .fx-celebrate .fx-title { font-family: var(--f-display); font-size: 24px; color: #8a2f22; text-align: center; }
 .fx-celebrate .fx-sub { font-size: 18px; text-align: center; max-width: 380px; }
 .fx-celebrate.out { animation: celeb-out .3s forwards; }
@@ -1034,7 +1034,7 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 .rev-card .rev-front { background: #3a3126; box-shadow: 0 10px 0 rgba(0,0,0,.45); }
 .rev-card .rev-front b { font-family: var(--f-display); font-size: 56px; color: var(--gold); text-shadow: 4px 4px 0 #000; }
 /* when the pick's face-down form is shown, the "?" shrinks to a corner seal */
-.rev-card .rev-front.has-back .spr { border: 3px solid var(--ink); }
+.rev-card .rev-front.has-back .spr { }
 .rev-card .rev-front.has-back .spr.round-spr { border: none; }
 .rev-card .rev-front.has-back b {
   position: absolute; right: 10px; bottom: 10px; font-size: 14px;
@@ -1045,7 +1045,7 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
   background: var(--paper); color: var(--ink); transform: scaleX(0);
   box-shadow: 0 0 0 4px var(--gold), 0 10px 0 rgba(0,0,0,.45);
 }
-.rev-card .rev-back .spr { border: 3px solid var(--ink); }
+.rev-card .rev-back .spr { }
 /* sticker cutouts (faces, mystery tools) carry their own edge — no frame */
 .rev-card .rev-back .spr.round-spr { border: none; }
 .rev-card .fx-title { font-size: 17px; }
@@ -1462,3 +1462,10 @@ html.booting #app { opacity: 0; }
     radial-gradient(ellipse at 50% 118%, rgba(112, 82, 38, .14), transparent 62%);
   background-size: 6px 6px, 100% 100%, 100% 100%;
 }
+
+/* bonus-ideas context: one labeled row per group, items with air between
+   them (cover/face + its genre mark as a unit) — was a single crammed run */
+.ctx-strip.ctx-rows { flex-direction: column; align-items: stretch; gap: 8px; padding: 8px 10px; }
+.ctx-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ctx-row > b { font-family: var(--f-display); font-size: 11px; letter-spacing: 1px; width: 118px; flex: none; }
+.ctx-item { display: inline-flex; align-items: center; gap: 3px; }
