@@ -1529,8 +1529,10 @@ const LocArt = (() => {
     // steam pipe along the brick
     R(0, 40, 28, 6, "#6e747c"); R(24, 40, 6, 92, "#6e747c"); R(24, 40, 2, 92, "#7d838c");
     R(22, 60, 10, 4, "#5a606a"); R(22, 96, 10, 4, "#5a606a"); P1(23, 61, "#8d939c");
-    // steam huffs out of the old press on the old beat
+    // steam huffs out of the old press, then drifts off and thins
     if (f % 3 === 0) { R(60, 36, 8, 6, "#cfd2d6"); R(68, 26, 6, 6, "#e2e5e8"); P1(70, 24, "#eef0f2"); }
+    else if (f % 3 === 1) { R(74, 20, 7, 5, "#dfe2e6"); P1(82, 17, "#e8ebee"); P1(78, 24, "#d3d7db"); }
+    else { P1(88, 14, "#dfe2e6"); P1(93, 12, "#e8ebee"); }
     // the press: riveted steel, two rolling drums
     box(28, 52, 168, 88, "#464e5e");
     R(28, 52, 168, 6, "#5a6478"); R(29, 53, 166, 1, "#6b7690");
@@ -1557,7 +1559,12 @@ const LocArt = (() => {
     R(240, 112, 48, 4, "#d94f43"); R(240, 120, 48, 4, "#4a7fb5"); R(240, 128, 48, 4, "#c9973b");
     g.fillStyle = "#d6c9ab";
     for (let i = 0; i < 5; i++) g.fillRect(242 + i * 9, 117, 5, 1);
-    if (f % 2) { R(236, 102, 52, 6, "#fff"); P1(232, 104, "#efe6d0"); P1(290, 103, "#efe6d0"); }
+    { // a sheet snaps off the web and drops onto the pile (3 poses)
+      const fp = f % 3;
+      if (fp === 0) { R(236, 92, 12, 6, "#fff"); P1(235, 93, "#efe6d0"); }
+      else if (fp === 1) { R(242, 100, 20, 5, "#fff"); P1(241, 101, "#efe6d0"); }
+      else { R(240, 107, 48, 5, "#fff"); P1(236, 108, "#efe6d0"); P1(290, 107, "#efe6d0"); }
+    }
     // the pressman hauls the lever on the beat
     cGuy(228, 168, {
       dir: -1, style: "cap", hatC: "#3a3f4a", hair: "#3a2a1c", shirt: "#4a7fb5",
@@ -1565,30 +1572,40 @@ const LocArt = (() => {
     });
     SH(212, 166, 36, 4, .18);
     R(206, 82, 8, 6, "#2b2f38"); // the pivot housing, high on the press
-    if (f % 2) { // lever up: he reaches for the grip
+    const pmPose = f % 8 === 7 ? 2 : f % 2;
+    if (pmPose === 1) { // lever up: he reaches for the grip
       R(208, 62, 4, 20, "#8a2f22"); P1(209, 62, "#c9776b");
       R(214, 86, 6, 14, "#3f6ea3"); // rolled sleeve
       R(211, 72, 6, 16, "#e8b48c"); // bare forearm
       R(207, 64, 7, 6, "#e8b48c"); // the grip
-    } else { // lever thrown forward, arm following through
+    } else if (pmPose === 0) { // lever thrown forward, arm following through
       R(200, 78, 16, 4, "#8a2f22"); P1(200, 79, "#c9776b");
       R(214, 88, 6, 12, "#3f6ea3");
       R(206, 82, 8, 5, "#e8b48c"); R(200, 76, 8, 5, "#e8b48c");
+    } else { // every 8th beat: a breather, wiping the brow on his sleeve
+      R(200, 78, 16, 4, "#8a2f22"); P1(200, 79, "#c9776b");
+      R(214, 84, 6, 10, "#3f6ea3");
+      R(219, 72, 5, 14, "#e8b48c");
+      R(221, 68, 9, 5, "#3f6ea3"); // sleeve across the brow
     }
     // ink drums
     SH(14, 206, 32, 4, .2); SH(46, 206, 32, 4, .2);
     box(16, 172, 26, 36, "#b5443a"); R(17, 173, 24, 2, "#c95a4e"); R(16, 184, 26, 2, "#8a2f22"); R(16, 198, 26, 2, "#8a2f22");
     R(22, 180, 14, 4, "#efe6d0"); P1(24, 181, "#8a2f22"); P1(30, 181, "#8a2f22");
     P1(20, 208, "#7a241c"); P1(36, 209, "#7a241c"); // drips
+    { const dp = f % 6; if (dp < 3) R(21, 200 + dp * 3, 2, 3, "#7a241c"); } // a live drop
     box(48, 180, 26, 28, "#2e4f8f"); R(49, 181, 24, 2, "#3d63ad"); R(48, 192, 26, 2, "#223c6e");
     R(54, 188, 14, 4, "#efe6d0"); P1(56, 189, "#2e4f8f"); P1(62, 189, "#2e4f8f");
-    // hanging work lamps with light cones
-    for (const lx of [80, 240]) {
+    // hanging work lamps: light cones, a warm pool on the floor, and each
+    // bulb stutters on its own prime beat
+    [80, 240].forEach((lx, li) => {
       R(lx, 0, 2, 14, "#222"); box(lx - 8, 14, 18, 8, "#2b2f38");
       R(lx - 8, 14, 18, 2, "#1f232b"); R(lx - 8, 20, 18, 2, "#3a4048");
-      R(lx - 4, 22, 10, 2, "#ffe38a");
-      GLOW(lx - 6, 22, 14, 4, .4); GLOW(lx - 10, 26, 22, 6, .2); GLOW(lx - 14, 32, 30, 8, .09);
-    }
+      const dim = f % (li ? 9 : 11) === (li ? 4 : 7) ? .45 : 1;
+      R(lx - 4, 22, 10, 2, dim < 1 ? "#d9b96a" : "#ffe38a");
+      GLOW(lx - 6, 22, 14, 4, .4 * dim); GLOW(lx - 10, 26, 22, 6, .2 * dim); GLOW(lx - 14, 32, 30, 8, .09 * dim);
+      GLOW(lx - 22, 146, 46, 10, .05 * dim); // the pool the cone lands in
+    });
     // stray sheets that missed the pile
     R(300, 150, 10, 6, "#efe6d0"); R(302, 152, 6, 1, "#c9b98f"); P1(300, 150, "#d6c9ab");
     R(314, 168, 8, 5, "#e5dcc2"); P1(316, 170, "#c9b98f");
