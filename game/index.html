@@ -28,7 +28,7 @@ if (location.protocol === "file:") {
   <!-- ======================= TITLE ======================= -->
   <section id="screen-title" class="screen active">
     <div class="title-wrap">
-      <img id="title-art" src="assets/title.png" alt="Age of Comics">
+      <img id="title-art" src="assets/title.webp" alt="Age of Comics">
       <div class="title-text">
         <h1>AGE OF COMICS</h1>
         <h2>THE GOLDEN YEARS</h2>
@@ -101,6 +101,7 @@ if (location.protocol === "file:") {
         <button id="chart-mini" class="btn btn-small" aria-expanded="false" aria-controls="sidebar"></button>
         <button id="btn-undo" class="btn btn-small" title="Rewind to the start of your turn">&#8630; UNDO</button>
         <button id="btn-chart" class="btn btn-small" title="View the Manhattan sales map">CITY</button>
+        <button id="btn-film" class="btn btn-small" title="Cycle the projection filter (P)">FILM: OFF</button>
         <button id="btn-help" class="btn btn-small">?</button>
         <button id="btn-sound" class="btn btn-small">&#9835;</button>
       </div>
@@ -164,6 +165,16 @@ if (location.protocol === "file:") {
   <div id="zoom-root"></div>
   <div id="big-banner"><div class="bb-main"></div><div class="bb-sub"></div></div>
   <div id="ai-status"></div>
+  <!-- the Projection Room: base film atmosphere + the three period looks
+       (NEWSREEL '44 / TELEVISION '52 / SUNDAY MATINEE), toggled via the
+       FILM topbar button or the P key; purely decorative -->
+  <div id="film-layer" aria-hidden="true">
+    <div class="fl-grain"></div>
+    <div class="fl-scan"></div>
+    <div class="fl-dots"></div>
+    <div class="fl-flicker"></div>
+    <div class="fl-vignette"></div>
+  </div>
 </div>
 
 <script src="assets/atlas.js"></script>

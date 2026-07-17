@@ -58,8 +58,11 @@ def defringe(im):
     return base
 
 class Sheet:
-    def __init__(self, name, cell_w, cell_h, cols):
-        self.name, self.cw, self.ch, self.cols = name, cell_w, cell_h, cols
+    # fmt="webp" for the HD sheets: unquantized halftone art compresses ~8x
+    # better as lossy webp than PNG (cardshd was 8.7MB); alpha is preserved.
+    # The ext is recorded in SHEET_SIZES so ui-core/assets.js resolve the file.
+    def __init__(self, name, cell_w, cell_h, cols, fmt="png"):
+        self.name, self.cw, self.ch, self.cols, self.fmt = name, cell_w, cell_h, cols, fmt
         self.sprites = []  # (key, img)
         self.atlas = {}
     def add(self, key, img):
@@ -81,9 +84,14 @@ class Sheet:
             oy = y + (self.ch - img.height) // 2
             canvas.paste(img, (ox, oy), img if img.mode == "RGBA" else None)
             self.atlas[key] = {"sheet": self.name, "x": ox, "y": oy, "w": img.width, "h": img.height}
-        canvas.save(os.path.join(OUT, self.name + ".png"))
+        if self.fmt == "webp":
+            canvas.save(os.path.join(OUT, self.name + ".webp"), quality=90, method=6)
+        else:
+            canvas.save(os.path.join(OUT, self.name + ".png"))
         print(self.name, canvas.size, len(self.sprites), "sprites")
         sheet_sizes[self.name] = {"w": canvas.width, "h": canvas.height}
+        if self.fmt != "png":
+            sheet_sizes[self.name]["ext"] = self.fmt
         return self.atlas
 
 atlas = {}
@@ -165,7 +173,7 @@ atlas.update(cards.save())
 # the period look. Stored at 3x the pixel cover; sprHD() in ui-core rescales
 # call-site scales automatically, so the pixel sprites stay the board's face.
 HD_W = 216
-cardshd = Sheet("cardshd", 220, 312, 8)
+cardshd = Sheet("cardshd", 220, 312, 8, fmt="webp")
 def hd_cover(im):
     w, h = im.size
     return im.crop((round(w * .095), round(h * .125), round(w * .905), round(h * .955)))
@@ -213,6 +221,22 @@ ORDER_FOLDER = {"scifi": "Scifi", "crime": "Crime", "romance": "Romance",
 for g in GENRES:
     p = os.path.join(ASSETS, rf"#03_TILES\#AOCTGY15_Orders\{ORDER_FOLDER[g]}", f"Order_{g}_front.png")
     tokens.add(f"gicon_{g}", crisp(Image.open(p).convert("RGBA"), 26))
+
+# print-era HD twins of the whole token family (3x masters, webp) — spr()'s
+# auto-HD serves these at every size, killing the fractional-scale crunch
+tokenshd = Sheet("tokenshd", 142, 142, 7, fmt="webp")
+for g in GENRES:
+    tokenshd.add(f"hd_idea_{g}", crisp(Image.open(os.path.join(ASSETS, r"#02_ROUND TOKENS\IDEAS", f"Ideas_{IDEA_FILE[g]}.png")).convert("RGBA"), 120))
+    tokenshd.add(f"hd_mastery_{g}", crisp(Image.open(os.path.join(ASSETS, r"#04_CUSTOM SHAPED TILES\#AOCTGY19_Mastery", f"Mastery_{MASTERY[g]}.png")).convert("RGBA"), 126))
+    tokenshd.add(f"hd_gicon_{g}", crisp(Image.open(os.path.join(ASSETS, rf"#03_TILES\#AOCTGY15_Orders\{ORDER_FOLDER[g]}", f"Order_{g}_front.png")).convert("RGBA"), 78))
+for v in (1, 2, 5, 10):
+    tokenshd.add(f"hd_coin_{v}", crisp(Image.open(os.path.join(ASSETS, r"#02_ROUND TOKENS\COINS", f"${v}.png")).convert("RGBA"), 78))
+for v, f in ((1, "1 STAR PNG.png"), (2, "2 STARS PNG.png"), (3, "3 STARS PNG.png")):
+    tokenshd.add(f"hd_vp_{v}", crisp(Image.open(os.path.join(ASSETS, r"#02_ROUND TOKENS\VP", f)).convert("RGBA"), 84))
+tokenshd.add("hd_hype", crisp(Image.open(os.path.join(ASSETS, r"#02_ROUND TOKENS\Hype.png")).convert("RGBA"), 84))
+tokenshd.add("hd_ticket", crisp(Image.open(os.path.join(ASSETS, r"#04_CUSTOM SHAPED TILES\#AOCTGY18_Transport ticket\TicketPNG.png")).convert("RGBA"), 138))
+tokenshd.add("hd_bettercolor", crisp(Image.open(os.path.join(ASSETS, r"#03_TILES\#AOCTGY12_Better Color\better_color.png")).convert("RGBA"), 90))
+atlas.update(tokenshd.save())
 # meeple recolored per player
 meeple_src = Image.open(os.path.join(ASSETS, r"#06_CUSTOM SHAPED MEEPLES\#AOCTGY21_Meeple\Meeple.png")).convert("RGBA")
 bbox = meeple_src.split()[3].getbbox()
@@ -524,6 +548,10 @@ atlas.update(scenes.save())
 # palette quantize: ink drawings keep their period feel without it.
 faces = Sheet("faces", 28, 28, 12)
 facesbig = Sheet("facesbig", 58, 58, 10)
+# print-era third size: one 120px master per face/mystery/boss — spr()'s
+# auto-HD serves it (with big/sm aliasing) so every face renders from a
+# master, never an upscale. Lossy webp keeps 54 masters ~lightweight.
+faceshd = Sheet("faceshd", 124, 124, 10, fmt="webp")
 def face_disc(im, d=26):
     tile = crisp(im, d)
     mask = Image.new("L", (d, d), 0)
@@ -606,6 +634,7 @@ for kind, sub in (("writer", r"#05_CARDS\#AOCTGY20B_Writers\Writers Front"),
                 head = Image.open(cut).convert("RGBA")
                 faces.add(f"face_{kind}_{g}_{suffix}", sticker(head, 26))
                 facesbig.add(f"facebig_{kind}_{g}_{suffix}", sticker(head, 56))
+                faceshd.add(f"hd_face_{kind}_{g}_{suffix}", sticker(head, 120))
             else:
                 # card crop → still needs the disc to hide its square edges
                 # (resolves itself as the remaining cutouts arrive)
@@ -614,6 +643,7 @@ for kind, sub in (("writer", r"#05_CARDS\#AOCTGY20B_Writers\Writers Front"),
                 face = face_crop(card)
                 faces.add(f"face_{kind}_{g}_{suffix}", face_disc(face))
                 facesbig.add(f"facebig_{kind}_{g}_{suffix}", face_disc(face, 56))
+                faceshd.add(f"hd_face_{kind}_{g}_{suffix}", face_disc(face, 120))
 if missing_faces:
     print("  note: no cutout for", ", ".join(missing_faces), "- using card crops")
 # the classified ad: the detailed generic trade tools as the same bare
@@ -622,6 +652,7 @@ for kind, fsrc in (("writer", "Micro icon Generic Writer"), ("artist", "Micro ic
     icon = custom_img(fsrc)
     faces.add("mystery_" + kind, sticker(icon, 26))
     facesbig.add("mysterybig_" + kind, sticker(icon, 56))
+    faceshd.add("hd_mystery_" + kind, sticker(icon, 120))
 atlas.update(faces.save())
 atlas.update(facesbig.save())
 # publisher bosses, cropped from the box-art office scene. BOTH boss sizes
@@ -650,7 +681,10 @@ for color, crop_box in BOSSES.items():
     # native-size variant for the tiny uses (setup rivals strip at 26px):
     # fractional downscales of the 44px sprite came out ragged
     bosses_big.add(f"bosssm_{color}", crisp(box_src.crop(crop_box).convert("RGBA"), 26))
+    # the 120px master (headroom crop — hair-grazing reads as decapitation)
+    faceshd.add(f"hd_boss_{color}", crisp(box_src.crop(crop_box).convert("RGBA"), 120))
 atlas.update(bosses_big.save())
+atlas.update(faceshd.save())
 
 # ------------------------------------------------- custom cutout icon sheets
 # user-drawn cutouts (game/assets/custom): per-genre writer/artist trade
@@ -673,6 +707,18 @@ icons.add("micro_writer", crisp(custom_img("Micro icon Generic Writer"), 20, max
 icons.add("micro_artist", crisp(custom_img("Micro icon Generic Artist"), 20, max_h=22))
 atlas.update(icons.save())
 
+# HD twins of the cutout icon family (3x masters, webp)
+iconshd = Sheet("iconshd", 172, 136, 6, fmt="webp")
+for g in GENRES:
+    iconshd.add(f"hd_wicon_{g}", crisp(custom_img(f"Typewriting {CUSTOM_GENRE[g]}"), 168, max_h=132))
+    iconshd.add(f"hd_aicon_{g}", crisp(custom_img(f"Artist {CUSTOM_GENRE[g]}"), 168, max_h=132))
+    iconshd.add(f"hd_genreicon_{g}", crisp(custom_img(f"{CUSTOM_GENRE[g]} Icon"), 102, max_h=90))
+iconshd.add("hd_tag_writer", crisp(custom_img("Writer Tag"), 144, max_h=72))
+iconshd.add("hd_tag_artist", crisp(custom_img("Artist Tag"), 144, max_h=72))
+iconshd.add("hd_micro_writer", crisp(custom_img("Micro icon Generic Writer"), 60, max_h=66))
+iconshd.add("hd_micro_artist", crisp(custom_img("Micro icon Generic Artist"), 60, max_h=66))
+atlas.update(iconshd.save())
+
 vign = Sheet("vign", 124, 104, 4)
 VIG_FILES = {"hire": "Hire Handshake", "develop": "Develop drawing man",
              "ideas": "Ideas Thinkin mang", "print": "Print press",
@@ -684,7 +730,7 @@ atlas.update(vign.save())
 # print-era HD vignettes + logos: the panel-header emblems and letterhead
 # marks at full line-art fidelity (crisp, no quantize) — panelHead and the
 # paper surfaces prefer these via sprHD()/hd_ lookups
-vignhd = Sheet("vignhd", 248, 212, 4)
+vignhd = Sheet("vignhd", 248, 212, 4, fmt="webp")
 for key, f in VIG_FILES.items():
     vignhd.add(f"hd_vig_{key}", crisp(custom_img(f), 240, max_h=204))
 for name, f in MARKS.items():
@@ -701,13 +747,31 @@ atlas.update(vignhd.save())
 
 # ----------------------------------------------------------------- title art
 box_art = Image.open(os.path.join(ASSETS, r"#10_BOX\AOC squared image.jpg"))
-title = retro(box_art, 300, 48)
-title.save(os.path.join(OUT, "title.png"))
+# print-era: the box illustration at real resolution (it was quantized to
+# 300px and UPSCALED on screen — the single most visible low-res surface)
+title = crisp(box_art.convert("RGBA"), 900)
+title.save(os.path.join(OUT, "title.webp"), quality=92, method=6)
 atlas["title"] = {"sheet": "title", "x": 0, "y": 0, "w": title.width, "h": title.height}
 print("title", title.size)
 
+# ------------------------------------------------------------- film grain
+# a deterministic noise tile for the Projection Room overlays (#film-layer):
+# white speckle with baked-in low alpha, tiled + step-animated in CSS
+import random
+_rnd = random.Random(1948)
+grain = Image.new("RGBA", (128, 128), (0, 0, 0, 0))
+gp = grain.load()
+for y in range(128):
+    for x in range(128):
+        v = _rnd.random()
+        if v > 0.86:
+            lum = 255 if v > 0.965 else 190
+            gp[x, y] = (lum, lum, lum, _rnd.randint(26, 64))
+grain.save(os.path.join(OUT, "grain.png"))
+print("grain", grain.size)
+
 # ------------------------------------------------------------------- atlas js
-sheet_sizes["title"] = {"w": title.width, "h": title.height}
+sheet_sizes["title"] = {"w": title.width, "h": title.height, "ext": "webp"}
 with open(os.path.join(OUT, "atlas.js"), "w", encoding="utf-8") as fh:
     fh.write("// generated by tools/build_assets.py\nconst ATLAS = ")
     fh.write(json.dumps(atlas))

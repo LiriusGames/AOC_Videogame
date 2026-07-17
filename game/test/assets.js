@@ -11,9 +11,9 @@ const path = require("path");
 const GAME = path.join(__dirname, "..");
 const code = ["../assets/atlas.js", "data.js"]
   .map((f) => fs.readFileSync(path.join(GAME, "js", f), "utf8"))
-  .join("\n") + "\n;global.__G={ATLAS,GENRES,COMICS,CREATIVES,RIPOFF_TITLES,PUBLISHERS,PLAYER_COLORS,ACTIONS,ACTION_INFO,GENRE_INFO,SPECIALS};";
+  .join("\n") + "\n;global.__G={ATLAS,SHEET_SIZES,GENRES,COMICS,CREATIVES,RIPOFF_TITLES,PUBLISHERS,PLAYER_COLORS,ACTIONS,ACTION_INFO,GENRE_INFO,SPECIALS};";
 eval(code);
-const { ATLAS, GENRES, COMICS, CREATIVES, RIPOFF_TITLES, PUBLISHERS, PLAYER_COLORS, ACTIONS, ACTION_INFO, GENRE_INFO } = global.__G;
+const { ATLAS, SHEET_SIZES, GENRES, COMICS, CREATIVES, RIPOFF_TITLES, PUBLISHERS, PLAYER_COLORS, ACTIONS, ACTION_INFO, GENRE_INFO } = global.__G;
 
 let failures = 0;
 function fail(msg) { failures++; console.error("FAIL  " + msg); }
@@ -24,17 +24,35 @@ function pngSize(file) {
   if (b.readUInt32BE(12) !== 0x49484452) throw new Error("no IHDR: " + file);
   return { w: b.readUInt32BE(16), h: b.readUInt32BE(20) };
 }
+// the HD sheets ship as lossy webp (VP8X container from Pillow; VP8/VP8L
+// parsed too in case a future save drops the alpha)
+function webpSize(file) {
+  const b = fs.readFileSync(file);
+  if (b.toString("ascii", 0, 4) !== "RIFF" || b.toString("ascii", 8, 12) !== "WEBP")
+    throw new Error("not a webp: " + file);
+  const four = b.toString("ascii", 12, 16);
+  if (four === "VP8X") return { w: 1 + b.readUIntLE(24, 3), h: 1 + b.readUIntLE(27, 3) };
+  if (four === "VP8 ") return { w: b.readUInt16LE(26) & 0x3fff, h: b.readUInt16LE(28) & 0x3fff };
+  if (four === "VP8L") {
+    const bits = b.readUInt32LE(21);
+    return { w: 1 + (bits & 0x3fff), h: 1 + ((bits >> 14) & 0x3fff) };
+  }
+  throw new Error("unknown webp variant " + four + ": " + file);
+}
+function sheetSize(file) { return file.endsWith(".webp") ? webpSize(file) : pngSize(file); }
 const sheets = {};
 for (const key of Object.keys(ATLAS)) {
-  const e = ATLAS[key], file = path.join(GAME, "assets", e.sheet + ".png");
-  if (!(e.sheet in sheets)) sheets[e.sheet] = fs.existsSync(file) ? pngSize(file) : null;
+  const e = ATLAS[key];
+  const ext = (SHEET_SIZES[e.sheet] && SHEET_SIZES[e.sheet].ext) || "png";
+  const file = path.join(GAME, "assets", e.sheet + "." + ext);
+  if (!(e.sheet in sheets)) sheets[e.sheet] = fs.existsSync(file) ? sheetSize(file) : null;
   const dim = sheets[e.sheet];
-  if (!dim) { fail(`sprite ${key}: sheet ${e.sheet}.png missing`); continue; }
+  if (!dim) { fail(`sprite ${key}: sheet ${e.sheet} file missing`); continue; }
   if (!(e.w > 0 && e.h > 0)) fail(`sprite ${key}: empty rect`);
   // strict: the generator clamps sprites to their cells, so any rect
   // outside its sheet is a real bug (this once clipped boss portraits)
   if (e.x < 0 || e.y < 0 || e.x + e.w > dim.w || e.y + e.h > dim.h)
-    fail(`sprite ${key}: rect ${e.x},${e.y} ${e.w}x${e.h} outside ${e.sheet}.png (${dim.w}x${dim.h})`);
+    fail(`sprite ${key}: rect ${e.x},${e.y} ${e.w}x${e.h} outside sheet ${e.sheet} (${dim.w}x${dim.h})`);
 }
 console.log(`  ok  ${Object.keys(ATLAS).length} atlas rects within their sheets`);
 
@@ -93,7 +111,15 @@ for (const g of GENRES) {
 for (const v of [1, 2, 3]) need.add("hd_back_writer_" + v).add("hd_back_artist_" + v);
 for (const a of ACTIONS) need.add("hd_vig_" + a);
 need.add("hd_vig_hype");
-for (const col of PLAYER_COLORS) need.add("hd_" + PUBLISHERS[col].logo);
+for (const col of PLAYER_COLORS) need.add("hd_" + PUBLISHERS[col].logo).add("hd_boss_" + col);
+// pass-2 HD masters: faces, tokens, icons — spr() auto-serves these
+for (const c of CREATIVES) need.add("hd_face_" + c.sprite);
+for (const g of GENRES)
+  need.add(`hd_idea_${g}`).add(`hd_mastery_${g}`).add(`hd_gicon_${g}`)
+    .add(`hd_wicon_${g}`).add(`hd_aicon_${g}`).add(`hd_genreicon_${g}`);
+for (const k of ["hd_coin_1", "hd_coin_2", "hd_coin_5", "hd_coin_10", "hd_vp_1", "hd_vp_2", "hd_vp_3",
+  "hd_hype", "hd_ticket", "hd_bettercolor", "hd_tag_writer", "hd_tag_artist",
+  "hd_micro_writer", "hd_micro_artist", "hd_mystery_writer", "hd_mystery_artist"]) need.add(k);
 for (const k of need) if (!ATLAS[k]) fail(`missing atlas sprite: ${k}`);
 console.log(`  ok  ${need.size} data-derived sprites checked against ATLAS`);
 

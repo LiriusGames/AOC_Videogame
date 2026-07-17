@@ -481,6 +481,34 @@ const Main = (() => {
       const on = SFX.toggle();
       ev.target.style.opacity = on ? 1 : 0.4;
     };
+    // the Projection Room: cycle the period looks (FILM button or P key)
+    const FILM_LOOKS = [
+      ["off", "FILM: OFF", "Projection off"],
+      ["newsreel", "NEWSREEL '44", "Newsreel 1944: black and white"],
+      ["tv", "TV '52", "Television 1952: kinescope"],
+      ["matinee", "MATINEE", "Sunday matinee: pulp print"],
+    ];
+    const filmBtn = document.getElementById("btn-film");
+    function applyFilm(key, quiet) {
+      const root = document.documentElement;
+      FILM_LOOKS.forEach(([k]) => { if (k !== "off") root.classList.remove("film-" + k); });
+      const look = FILM_LOOKS.find(([k]) => k === key) || FILM_LOOKS[0];
+      if (look[0] !== "off") root.classList.add("film-" + look[0]);
+      filmBtn.textContent = look[1];
+      try { localStorage.setItem("aoc-film", look[0]); } catch (_e) { /* private mode */ }
+      if (!quiet) announce(look[2]);
+    }
+    function cycleFilm() {
+      // "off" carries no class — findIndex misses it, so clamp to index 0
+      const cur = Math.max(0, FILM_LOOKS.findIndex(([k]) =>
+        k !== "off" && document.documentElement.classList.contains("film-" + k)));
+      applyFilm(FILM_LOOKS[(cur + 1) % FILM_LOOKS.length][0]);
+    }
+    filmBtn.onclick = () => { SFX.play("click"); cycleFilm(); };
+    document.addEventListener("keydown", (ev) => {
+      if ((ev.key === "p" || ev.key === "P") && !ev.ctrlKey && !ev.altKey && !ev.metaKey) cycleFilm();
+    });
+    try { applyFilm(localStorage.getItem("aoc-film") || "off", true); } catch (_e) { applyFilm("off", true); }
     // AI taunts once in a while
     setInterval(() => {
       const e = UI.engine;

@@ -5,7 +5,7 @@
 
 // sheet pixel sizes come from the generated atlas (SHEET_SIZES) — never hardcode
 const SHEETS = Object.fromEntries(
-  Object.entries(SHEET_SIZES).map(([name, sz]) => [name, { file: `assets/${name}.png`, w: sz.w, h: sz.h }]));
+  Object.entries(SHEET_SIZES).map(([name, sz]) => [name, { file: `assets/${name}.${sz.ext || "png"}`, w: sz.w, h: sz.h }]));
 
 const UI = {
   engine: null,
@@ -25,8 +25,31 @@ function el(tag, cls, html) {
   if (html !== undefined) e.innerHTML = html;
   return e;
 }
+// print-era resolution rule: when the atlas carries an HD twin (hd_ prefix,
+// unquantized master), spr() serves it automatically — rescaled to the pixel
+// sprite's exact footprint, so no call site changes. The big/sm mips of a
+// family (facebig_, bossbig_, bosssm_, mysterybig_) share the base master.
+const HD_BASE = [[/^facebig_/, "face_"], [/^mysterybig_/, "mystery_"], [/^boss(?:big|sm)_/, "boss_"]];
+function hdTwin(name) {
+  if (ATLAS["hd_" + name]) return "hd_" + name;
+  for (const [re, base] of HD_BASE) {
+    if (re.test(name)) {
+      const k = "hd_" + name.replace(re, base);
+      if (ATLAS[k]) return k;
+    }
+  }
+  return null;
+}
 function spr(name, scale = 1, cls = "") {
-  const a = ATLAS[name];
+  let a = ATLAS[name];
+  if (a) {
+    const hd = hdTwin(name);
+    if (hd) {
+      scale = scale * (a.w / ATLAS[hd].w);
+      a = ATLAS[hd];
+    }
+    if (hd || name.startsWith("hd_")) cls = "spr-hd" + (cls ? " " + cls : "");
+  }
   const d = el("div", "spr " + cls);
   if (!a) { d.style.width = "24px"; d.style.height = "24px"; d.style.background = "#f0f"; return d; }
   const sh = SHEETS[a.sheet];
@@ -38,16 +61,10 @@ function spr(name, scale = 1, cls = "") {
   return d;
 }
 function sprHTML(name, scale = 1) { return spr(name, scale).outerHTML; }
-// print-era: paper surfaces (panels, inspectors, reveals) show the HD twin of
-// a sprite when the pipeline built one (hd_ prefix, no palette crunch). The
-// call-site scale keeps its pixel-sprite meaning — the ratio rescales it — so
-// board chrome and paper surfaces can share numbers.
-function sprHD(name, scale = 1, cls = "") {
-  const hd = ATLAS["hd_" + name], px = ATLAS[name];
-  if (!hd || !px) return spr(name, scale, cls);
-  return spr("hd_" + name, scale * (px.w / hd.w), "spr-hd" + (cls ? " " + cls : ""));
-}
-function sprHDHTML(name, scale = 1) { return sprHD(name, scale).outerHTML; }
+// spr() now auto-serves HD twins everywhere; sprHD stays as an alias for the
+// call sites written during pass 1.
+function sprHD(name, scale = 1, cls = "") { return spr(name, scale, cls); }
+function sprHDHTML(name, scale = 1) { return spr(name, scale).outerHTML; }
 function genreDot(g) {
   return `<span class="genre-dot" style="background:${GENRE_INFO[g].color}" title="${GENRE_INFO[g].name}"></span>`;
 }
