@@ -36,7 +36,9 @@ function check(value, name) {
     await page.click("#btn-tutorial");
     await page.waitForFunction(() => typeof Tutor !== "undefined" && Tutor.active && !!document.querySelector("#modal-root.active"));
     const scenario = await page.evaluate(() => ({ seed: UI.engine.cfg.seed, beat: Tutor.state.beat, mode: UI.mode }));
-    check(scenario.seed === 5 && scenario.beat === "founding" && scenario.mode === "tutorial", "title action starts the pinned tutorial scenario");
+    check(scenario.seed === 5 && scenario.beat === "masthead" && scenario.mode === "tutorial", "title action starts the pinned tutorial scenario at the masthead memo");
+    await page.$eval("#tutor-card .tutor-next", (btn) => btn.click());
+    await page.waitForFunction(() => Tutor.state.beat === "founding");
     await page.evaluate(AXE_SRC);
     const axe = await page.evaluate(() => axe.run(document, {
       resultTypes: ["violations"], rules: { "color-contrast": { enabled: false } },
@@ -60,6 +62,11 @@ function check(value, name) {
     await foundHouse();
     check(await page.evaluate(() => Tutor.state.beat === "proof_confirm"), "repeated founding proof is ready to confirm");
     await page.click("#btn-review-confirm");
+    // the premises tour: rail, board, chart — three NEXT presses
+    for (const tour of ["tour_rail", "tour_board", "tour_chart"]) {
+      await page.waitForFunction((wanted) => Tutor.state.beat === wanted, { timeout: 10000 }, tour);
+      await page.$eval("#tutor-card .tutor-next", (btn) => btn.click());
+    }
 
     async function waitTurn(beat) {
       await page.waitForFunction((wanted) => Tutor.state.beat === wanted && UI.engine.currentPlayerId() === UI.humanId &&
@@ -92,7 +99,9 @@ function check(value, name) {
       return { board, supply: [Tutor.SCENARIO.genre, Tutor.SCENARIO.genre] };
     });
     await action("action_ideas", ideaPayload, "print");
-    await action("action_print", { books: [{ type: "original", comic: "orig_38", writer: "writer_crime_2B", artist: "artist_romance_2" }] }, "accounting");
+    await action("action_print", { books: [{ type: "original", comic: "orig_38", writer: "writer_crime_2B", artist: "artist_romance_2" }] }, "mastery_note");
+    await page.$eval("#tutor-card .tutor-next", (btn) => btn.click());
+    await page.waitForFunction(() => Tutor.state.beat === "accounting");
     await action("action_royalties", {}, "sales");
 
     await page.evaluate(() => {

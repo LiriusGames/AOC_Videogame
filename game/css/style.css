@@ -1501,3 +1501,16 @@ html.booting #app { opacity: 0; }
 .mp-invite { display:grid; grid-template-columns:1fr auto; gap:10px; margin:20px 0; }
 .mp-status { min-height:1.5em; color:#8a2f22; }
 @media (max-width: 620px) { .mp-form { grid-template-columns:1fr; } }
+
+/* tutorial memo: a proper CITY DESK note (letterhead, die-cut, next/skip) */
+#tutor-card { border-radius: 10px; }
+#tutor-card .tutor-mast {
+  font-family: var(--f-display); font-size: 10px; letter-spacing: 2px;
+  color: #7d2f28; border-bottom: 2px solid #3d2d22; padding-bottom: 5px; margin-bottom: 8px;
+}
+#tutor-card h3 { margin: 0 0 7px; font-family: var(--f-display); font-size: 15px; letter-spacing: 1px; color: #7d2f28; }
+#tutor-card .tutor-row { display: flex; gap: 8px; justify-content: space-between; }
+#tutor-card .tutor-next { font-size: 12px; background: var(--accent); }
+/* the lesson's physical subjects glow gold */
+.tutor-glow { outline: 3px solid var(--gold) !important; outline-offset: 2px; animation: tutglow 1.1s steps(2) infinite; border-radius: 8px; }
+@keyframes tutglow { 50% { outline-color: rgba(245, 200, 110, .25); } }

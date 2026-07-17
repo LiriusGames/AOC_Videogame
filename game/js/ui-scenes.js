@@ -255,6 +255,7 @@ const Scenes = (() => {
       const counterCoins = {};
       GENRES.forEach((g) => {
         const t = el("div", "table-coin");
+        t.dataset.tutGenre = g;
         t.appendChild(spr("idea_" + g, 1));
         t.appendChild(el("span", "", GENRE_INFO[g].name));
         counterCoins[g] = t;
@@ -1336,6 +1337,7 @@ const Scenes = (() => {
       teamBody.appendChild(team);
       const vaultBody = panelSection(m, "ON OFFER &mdash; PICK A GENRE FROM THE VAULT");
       const row = el("div", "card-row");
+      row.dataset.tut = "vault";
       for (const g of GENRES) {
         const inDeck = remote ? [g] : s.decks.comics.filter((c) => CARD_BY_ID[c].genre === g);
         const teamMatch = p.hand.some((c) => CARD_BY_ID[c].genre === g);
@@ -1343,7 +1345,7 @@ const Scenes = (() => {
         // every vault card shares one fixed footprint (cls vault-card): the
         // match note lives in a reserved caption line and a gold ribbon, so
         // it can never warp the row's spacing
-        cardPick(row, null, {
+        const vaultCard = cardPick(row, null, {
           back: "back_orig_" + g,
           scale: 1.25,
           cls: "vault-card",
@@ -1358,13 +1360,16 @@ const Scenes = (() => {
             refresh();
           },
         });
+        vaultCard.dataset.tutGenre = g;
       }
       vaultBody.appendChild(row);
       const ideaBody = panelSection(m, `IDEA TOKENS (pick ${picks.ideas} &mdash; doubles welcome)`);
       const irow = el("div", "card-row");
+      irow.dataset.tut = "tokens";
       const counters = {};
       GENRES.forEach((g) => {
         const t = el("div", "token-btn");
+        t.dataset.tutGenre = g;
         t.appendChild(spr("idea_" + g, 0.85));
         const cnt = el("span", "count-badge", "0");
         t.appendChild(cnt);
@@ -1408,6 +1413,7 @@ const Scenes = (() => {
         return parts;
       }
       function refresh() {
+        if (typeof Tutor !== "undefined" && Tutor.active) Tutor.pingFounding(!!comic, ideas.length);
         const ok = comic && ideas.length === picks.ideas;
         const btn = m.querySelector("#sp-ok");
         btn.setAttribute("aria-disabled", String(!ok));

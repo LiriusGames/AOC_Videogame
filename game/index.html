@@ -180,9 +180,13 @@ if (location.protocol === "file:") {
   <div id="tutor-layer" hidden aria-live="off">
     <div id="tutor-ring" hidden aria-hidden="true"></div>
     <section id="tutor-card" role="region" aria-label="Tutorial memo" tabindex="-1">
+      <div class="tutor-mast">&#9733; FROM THE CITY DESK &#9733;</div>
       <h3></h3>
       <p></p>
-      <button class="btn btn-small tutor-skip">SKIP THE TOUR</button>
+      <div class="tutor-row">
+        <button class="btn btn-small tutor-next">NEXT &#9654;</button>
+        <button class="btn btn-small tutor-skip">SKIP THE TOUR</button>
+      </div>
     </section>
   </div>
   <div id="zoom-root"></div>

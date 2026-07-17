@@ -330,6 +330,7 @@ const Main = (() => {
           showBanner("YOUR TURN", `${pips}<br>round ${s.round} &middot; ${p.editorsLeft} of ${total} editors left`);
           SFX.play("turn");
         }
+        if (Tutor.active) Tutor.onHumanTurn();
         // wait for the player to click a location
       } else {
         if (remote) {

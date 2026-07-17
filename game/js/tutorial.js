@@ -16,6 +16,12 @@ const Tutor = (() => {
     salesNode: 10,
   });
   const MEMOS = {
+    masthead: ["WELCOME TO LIBERTY INK", "Morning, boss. Word is you bought this outfit — desks, presses, debts and all. I'm your city editor. Stick with me for one day and you'll run this place like you were born in the ink."],
+    tour_rail: ["YOUR OFFICE", "The left wall is YOURS: staff, cash, idea tokens, trophies. When this wall fills up, you're winning."],
+    tour_board: ["THE CITY", "The middle is Manhattan — six places your editors can work a shift. Four editors, one shift each, every round."],
+    tour_chart: ["THE MARKET", "The right is the comic-book chart. Fans decide the ranks, ranks pay victory points. That column is why we're all here."],
+    wire: ["THE RIVALS MOVE", "Now the other houses take their shifts — the wire up top keeps the gossip. You don't wait politely in this town; you read the ticker."],
+    mastery_note: ["MASTERY CLAIMED", "First original in a genre claims its mastery token: +1 fan on every book you print in that genre, and 2 points at the final bell. Another house can steal it by out-printing you."],
     founding: ["YOUR STARTING TEAM", "Your writer and artist specialize in different genres. Each teammate who matches a book adds one launch fan. Choose the highlighted Crime project and two Crime ideas."],
     proof_undo: ["MEET THE PROOF SLIP", "Every action pauses here before the world moves. Use UNDO once; then repeat the highlighted founding picks and confirm them for real."],
     proof_confirm: ["STAMP IT FOR REAL", "The same choices are waiting for you. Confirm this proof and the rival houses will take their turns."],
@@ -33,7 +39,8 @@ const Tutor = (() => {
   function freshState() {
     return {
       scenarioVersion: SCENARIO.version,
-      beat: "founding",
+      beat: "masthead",
+      foundingStep: "vault",
       proofUndoDone: false,
       foundingSubmissions: 0,
       salesStep: "start",
@@ -71,8 +78,39 @@ const Tutor = (() => {
     renderAll();
   }
 
+  const NEXT_FLOW = {
+    masthead: "founding", tour_rail: "tour_board", tour_board: "tour_chart",
+    tour_chart: "ideas", wire: "print", mastery_note: "accounting",
+  };
+  const INTERSTITIAL = { masthead: 1, tour_rail: 1, tour_board: 1, tour_chart: 1, wire: 1, mastery_note: 1 };
+  function next() {
+    const to = NEXT_FLOW[state.beat];
+    if (!to) return;
+    state.beat = to;
+    sync();
+  }
+  function onHumanTurn() {
+    if (active && state.beat === "wire") next();
+  }
+  const SALES_STEP_HINTS = {
+    start: "Place the editor on the Sales stand.",
+    move: "Take the FREE step to the highlighted corner.",
+    flip: "Flip the stand you are on.",
+    collect: "Collect the order — watch it fill itself from your chart.",
+    end: "END SALES RUN to file the day.",
+    review: "Stamp the proof.",
+  };
   function targetForBeat() {
-    if (state.beat === "founding") return "#modal-root .panel-section, #modal-root .card-row";
+    if (state.beat === "masthead") return null;
+    if (state.beat === "tour_rail") return "#desk-status";
+    if (state.beat === "tour_board") return "#locations";
+    if (state.beat === "tour_chart") return "#sidebar";
+    if (state.beat === "wire") return "#wire-strip";
+    if (state.beat === "mastery_note") return "#desk-awards";
+    if (state.beat === "founding")
+      return state.foundingStep === "vault" ? '#modal-root [data-tut="vault"]'
+        : state.foundingStep === "tokens" ? '#modal-root [data-tut="tokens"]'
+        : "#modal-root #sp-ok";
     if (state.beat === "proof_undo" || state.beat === "proof_confirm") return "#review-bar";
     if (state.beat === "ideas") return '#locations [data-action="ideas"]';
     if (state.beat === "print") return '#locations [data-action="print"]';
@@ -89,7 +127,11 @@ const Tutor = (() => {
       persistFlag();
     }
     const memo = MEMOS[state.beat] || MEMOS.free;
-    show(memo[0], memo[1], targetForBeat());
+    let text = memo[1];
+    if (state.beat === "sales" && SALES_STEP_HINTS[state.salesStep])
+      text += " NOW: " + SALES_STEP_HINTS[state.salesStep];
+    show(memo[0], text, targetForBeat());
+    applyGlow();
   }
   function show(title, text, selector) {
     const layer = document.getElementById("tutor-layer");
@@ -101,32 +143,56 @@ const Tutor = (() => {
     card.querySelector(".tutor-skip").onclick = skip;
     const key = title + "\n" + text;
     if (key !== currentMemo) { currentMemo = key; announce(`${title}. ${text}`); }
-    const modal = document.querySelector("#modal-root.active .modal");
-    if (modal && card.parentElement !== modal) modal.appendChild(card);
-    else if (!modal && card.parentElement !== layer) layer.appendChild(card);
+    const nextBtn = card.querySelector(".tutor-next");
+    if (nextBtn) { nextBtn.hidden = !NEXT_FLOW[state.beat]; nextBtn.onclick = next; }
     reanchor(selector);
+  }
+  // the current lesson's physical subjects glow gold (vault card, idea
+  // tokens, cafe counter coins) — reapplied whenever the modal rebuilds
+  function applyGlow() {
+    document.querySelectorAll(".tutor-glow").forEach((n) => n.classList.remove("tutor-glow"));
+    if (!active) return;
+    const want = [];
+    if (state.beat === "founding") want.push('#modal-root [data-tut-genre="' + SCENARIO.genre + '"]');
+    if (state.beat === "ideas") want.push('#modal-root .counter-row [data-tut-genre="' + SCENARIO.genre + '"]');
+    for (const sel of want) document.querySelectorAll(sel).forEach((n) => n.classList.add("tutor-glow"));
   }
   function reanchor(selector = targetForBeat()) {
     if (!active) return;
     const ring = document.getElementById("tutor-ring"), card = document.getElementById("tutor-card");
-    const target = document.querySelector(selector);
-    if (!ring || !card || !target) {
-      if (ring) ring.hidden = true;
-      card.style.left = "max(16px, calc(50vw - 180px))";
-      card.style.top = "16px";
+    if (!ring || !card) return;
+    // #tutor-layer lives inside the zoomed #app: every real-pixel rect must
+    // be divided by the fitUI zoom or highlights scatter on laptop widths
+    // (the documented clientX/zoom trap).
+    const z = parseFloat(document.getElementById("app")?.style.zoom) || 1;
+    const vw = innerWidth / z, vh = innerHeight / z;
+    const width = Math.min(360, vw - 24);
+    card.style.width = width + "px";
+    const target = selector ? document.querySelector(selector) : null;
+    const modal = document.querySelector("#modal-root.active .modal");
+    if (!target || (modal && !modal.contains(target) && !target.contains(modal))) {
+      // no subject, or the subject is buried behind an open dialog: no ring —
+      // dock the memo (centered for the masthead, lower-left otherwise)
+      ring.hidden = true;
+      if (state.beat === "masthead") {
+        card.style.left = Math.max(12, vw / 2 - width / 2) + "px";
+        card.style.top = Math.round(vh * 0.3) + "px";
+      } else {
+        card.style.left = "16px";
+        card.style.top = Math.max(12, vh - 230) + "px";
+      }
       return;
     }
     ring.hidden = false;
-    const r = target.getBoundingClientRect(), pad = 7;
+    const b = target.getBoundingClientRect(), pad = 7;
+    const r = { left: b.left / z, top: b.top / z, width: b.width / z, height: b.height / z, bottom: b.bottom / z };
     ring.style.left = Math.max(4, r.left - pad) + "px";
     ring.style.top = Math.max(4, r.top - pad) + "px";
     ring.style.width = Math.max(24, r.width + pad * 2) + "px";
     ring.style.height = Math.max(24, r.height + pad * 2) + "px";
-    const width = Math.min(360, innerWidth - 24);
-    const left = Math.max(12, Math.min(innerWidth - width - 12, r.left + r.width / 2 - width / 2));
+    const left = Math.max(12, Math.min(vw - width - 12, r.left + r.width / 2 - width / 2));
     const below = r.bottom + 14;
-    const top = below + 170 < innerHeight ? below : Math.max(12, r.top - 174);
-    card.style.width = width + "px";
+    const top = below + 190 < vh ? below : Math.max(12, r.top - 194);
     card.style.left = left + "px";
     card.style.top = top + "px";
   }
@@ -144,6 +210,7 @@ const Tutor = (() => {
 
   function allowedAction(action) {
     if (!active || state.beat === "free" || state.beat === "round_close") return true;
+    if (INTERSTITIAL[state.beat]) return false;
     return (state.beat === "ideas" && action === "ideas") ||
       (state.beat === "print" && action === "print") ||
       (state.beat === "accounting" && action === "royalties") ||
@@ -151,6 +218,7 @@ const Tutor = (() => {
   }
   function allowCommand(kind, payload) {
     if (!active || state.beat === "free" || state.beat === "round_close") return true;
+    if (INTERSTITIAL[state.beat]) return false;
     if (kind === "starting_picks") return state.beat === "founding" && payload.comic === SCENARIO.comic &&
       Array.isArray(payload.ideas) && payload.ideas.length === 2 && payload.ideas.every((g) => g === SCENARIO.genre);
     if (state.beat === "ideas") return kind === "action_ideas" && payload.supply && payload.supply.length === 2 && payload.supply.every((g) => g === SCENARIO.genre);
@@ -179,6 +247,11 @@ const Tutor = (() => {
     }
     queueMicrotask(sync);
   }
+  function pingFounding(hasComic, nIdeas) {
+    if (!active || state.beat !== "founding") return;
+    const step = !hasComic ? "vault" : nIdeas < 2 ? "tokens" : "confirm";
+    if (step !== state.foundingStep) { state.foundingStep = step; sync(); }
+  }
   function onReviewShown() {
     if (!active) return;
     if (state.beat === "founding") state.beat = state.proofUndoDone ? "proof_confirm" : "proof_undo";
@@ -195,9 +268,9 @@ const Tutor = (() => {
   }
   function onReviewConfirmed(action) {
     if (!active) return;
-    if (state.beat === "proof_confirm") state.beat = "ideas";
-    else if (action === "ideas") state.beat = "print";
-    else if (action === "print") state.beat = "accounting";
+    if (state.beat === "proof_confirm") state.beat = "tour_rail";
+    else if (action === "ideas") state.beat = "wire";
+    else if (action === "print") state.beat = "mastery_note";
     else if (action === "royalties") state.beat = "sales";
     else if (action === "sales") state.beat = "round_close";
     sync();
@@ -215,11 +288,18 @@ const Tutor = (() => {
   }
 
   addEventListener("resize", () => reanchor());
+  addEventListener("scroll", () => { if (active) reanchor(); }, true);
+  new MutationObserver(() => {
+    if (!active) return;
+    applyGlow();
+    reanchor();
+  }).observe(document.getElementById("modal-root") || document.body, { childList: true, subtree: true });
   return {
     SCENARIO,
     get active() { return active; },
     get state() { return state; },
     begin, restore, exportState, skip, sync, hide, reanchor, detachFromModal,
+    next, onHumanTurn, pingFounding,
     allowedAction, allowCommand, afterCommand,
     onReviewShown, canConfirmReview, onUndo, onReviewConfirmed, takeBotTurn,
   };
