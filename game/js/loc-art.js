@@ -2019,7 +2019,157 @@ const LocArt = (() => {
     cv.width = W; cv.height = H;
     start(cv, PAINTERS[action]);
   }
+  // ------------------------------------------- print-era special pictograms
+  // The six cube specials as smooth spot illustrations — bold ink on cream
+  // stock with one warm accent, gently animated on the shared beat. These
+  // live inside the paper panels, so they speak the paper language (the
+  // pixel painters in SPECIAL_P stay as fallback).
+  const SPW = 252, SPH = 168;
+  const SP_INK = "#221d16", SP_PAPER = "#f3ead6", SP_RED = "#b5443a", SP_GOLD = "#c9a26b";
+  function spCard() {
+    g.fillStyle = SP_PAPER; g.fillRect(0, 0, SPW, SPH);
+    g.fillStyle = "rgba(34,29,22,.045)";
+    for (let y = 8; y < SPH; y += 12)
+      for (let x = 8 + (y % 24 ? 6 : 0); x < SPW; x += 12) { g.beginPath(); g.arc(x, y, 1.1, 0, 7); g.fill(); }
+    g.strokeStyle = SP_INK; g.lineWidth = 3; g.strokeRect(4.5, 4.5, SPW - 9, SPH - 9);
+  }
+  function spInk(w = 5) { g.strokeStyle = SP_INK; g.lineWidth = w; g.lineCap = "round"; g.lineJoin = "round"; }
+  function spHead(x, y, r) {
+    g.fillStyle = SP_PAPER; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+    spInk(4); g.beginPath(); g.arc(x, y, r, 0, 7); g.stroke();
+    g.fillStyle = SP_INK;
+    g.beginPath(); g.arc(x - r * .3, y - r * .1, 2.4, 0, 7); g.arc(x + r * .3, y - r * .1, 2.4, 0, 7); g.fill();
+    g.beginPath(); g.arc(x, y - r * .95, r * .75, Math.PI * 1.05, Math.PI * 1.95); g.lineWidth = 7; g.stroke();
+  }
+  function spArrow(x1, y1, x2, y2, bend, col) {
+    g.strokeStyle = col; g.lineWidth = 6; g.lineCap = "round";
+    g.beginPath(); g.moveTo(x1, y1); g.quadraticCurveTo((x1 + x2) / 2, (y1 + y2) / 2 + bend, x2, y2); g.stroke();
+    const a = Math.atan2(y2 - (y1 + y2) / 2 - bend, x2 - (x1 + x2) / 2);
+    g.fillStyle = col;
+    g.beginPath(); g.moveTo(x2, y2);
+    g.lineTo(x2 - 14 * Math.cos(a - .45), y2 - 14 * Math.sin(a - .45));
+    g.lineTo(x2 - 14 * Math.cos(a + .45), y2 - 14 * Math.sin(a + .45));
+    g.closePath(); g.fill();
+  }
+  function spHeart(x, y, s, col) {
+    g.fillStyle = col;
+    g.beginPath();
+    g.moveTo(x, y + s * .9);
+    g.bezierCurveTo(x - s * 1.3, y, x - s * .7, y - s, x, y - s * .3);
+    g.bezierCurveTo(x + s * .7, y - s, x + s * 1.3, y, x, y + s * .9);
+    g.fill();
+    spInk(3); g.stroke();
+  }
+  function spComic(x, y, w, h) {
+    g.fillStyle = "#fbf5e6"; g.fillRect(x, y, w, h);
+    spInk(4); g.strokeRect(x, y, w, h);
+    g.fillStyle = SP_RED; g.fillRect(x + 5, y + 5, w - 10, h * .2);
+    spInk(2.5);
+    g.strokeRect(x + 6, y + h * .34, w - 12, h * .24);
+    g.beginPath(); g.moveTo(x + 6, y + h * .72); g.lineTo(x + w - 6, y + h * .72);
+    g.moveTo(x + 6, y + h * .84); g.lineTo(x + w * .6, y + h * .84); g.stroke();
+  }
+  const CUT_SPECIALS = {
+    reassign(f) { // two creatives trade places
+      spCard();
+      spHead(58, 84, 26); spHead(194, 84, 26);
+      const n = f % 2 ? 4 : -4;
+      spArrow(92 + n, 58, 160 + n, 58, -26, SP_GOLD);
+      spArrow(160 - n, 112, 92 - n, 112, 26, SP_RED);
+    },
+    hype(f) { // spotlights on a comic before it even exists
+      spCard();
+      const a1 = f % 2 ? .34 : .22, a2 = f % 2 ? .22 : .34;
+      g.fillStyle = `rgba(201,162,107,${a1})`;
+      g.beginPath(); g.moveTo(30, 12); g.lineTo(112, 150); g.lineTo(64, 150); g.closePath(); g.fill();
+      g.fillStyle = `rgba(201,162,107,${a2})`;
+      g.beginPath(); g.moveTo(222, 12); g.lineTo(188, 150); g.lineTo(140, 150); g.closePath(); g.fill();
+      spComic(96, 46, 60, 86);
+      g.fillStyle = SP_GOLD;
+      for (const [sx, sy] of f % 2 ? [[70, 40], [186, 62], [176, 28]] : [[80, 28], [178, 44], [64, 66]]) {
+        g.save(); g.translate(sx, sy); g.rotate(.3);
+        g.beginPath();
+        for (let i = 0; i < 8; i++) { const rr2 = i % 2 ? 3 : 8; g.lineTo(rr2 * Math.cos(i * Math.PI / 4), rr2 * Math.sin(i * Math.PI / 4)); }
+        g.closePath(); g.fill(); g.restore();
+      }
+    },
+    ideasconv(f) { // word of mouth: talk becomes fans
+      spCard();
+      g.fillStyle = "#fbf5e6";
+      g.beginPath(); g.roundRect(24, 34, 88, 56, 18); g.fill();
+      spInk(4); g.beginPath(); g.roundRect(24, 34, 88, 56, 18); g.stroke();
+      g.fillStyle = "#fbf5e6";
+      g.beginPath(); g.moveTo(52, 88); g.lineTo(46, 106); g.lineTo(70, 88); g.closePath(); g.fill();
+      spInk(3.5); g.beginPath(); g.moveTo(52, 89); g.lineTo(46, 106); g.lineTo(70, 89); g.stroke();
+      // the idea in the balloon: a little lit bulb (ideas, not money)
+      g.fillStyle = SP_GOLD;
+      g.beginPath(); g.arc(68, 56, 11, 0, 7); g.fill();
+      spInk(3); g.beginPath(); g.arc(68, 56, 11, 0, 7); g.stroke();
+      g.fillStyle = SP_INK; g.fillRect(63, 67, 10, 4);
+      spInk(2);
+      g.beginPath();
+      g.moveTo(68, 38); g.lineTo(68, 32);
+      g.moveTo(54, 44); g.lineTo(49, 40);
+      g.moveTo(82, 44); g.lineTo(87, 40);
+      g.stroke();
+      spArrow(120, 96, 168, 96, f % 2 ? -12 : -20, SP_INK);
+      spHeart(200, 92, f % 2 ? 26 : 23, SP_RED);
+    },
+    bettercolor(f) { // half the cover bursts into color under the brush
+      spCard();
+      spComic(76, 30, 100, 118);
+      const grad = g.createLinearGradient(76, 0, 176, 0);
+      grad.addColorStop(0, "rgba(181,68,58,.85)"); grad.addColorStop(.5, "rgba(201,162,107,.85)"); grad.addColorStop(1, "rgba(91,106,138,.85)");
+      g.fillStyle = grad;
+      g.fillRect(76, 30, (f % 2 ? 58 : 48), 118);
+      spInk(4); g.strokeRect(76, 30, 100, 118);
+      const bx = f % 2 ? 140 : 130;
+      g.save(); g.translate(bx, 44); g.rotate(-.5);
+      g.fillStyle = "#8a6a4a"; g.fillRect(-3, -34, 6, 30);
+      g.fillStyle = SP_INK; g.beginPath(); g.roundRect(-5, -6, 10, 14, 4); g.fill();
+      g.restore();
+    },
+    marketing(f) { // the megaphone buys hearts
+      spCard();
+      g.save(); g.translate(58, 92); g.rotate(-.22);
+      g.fillStyle = SP_INK;
+      g.beginPath(); g.moveTo(-26, -12); g.lineTo(22, -30); g.lineTo(22, 30); g.lineTo(-26, 12); g.closePath(); g.fill();
+      g.fillStyle = SP_RED; g.fillRect(-38, -12, 14, 24);
+      g.restore();
+      spInk(3.5);
+      for (let i = 0; i < 3; i++) {
+        g.beginPath(); g.arc(96, 84, 26 + i * 16 + (f % 2 ? 4 : 0), -.7, .7); g.stroke();
+      }
+      const hs = f % 2 ? [[160, 62, 13], [196, 90, 17], [166, 118, 12]] : [[168, 58, 12], [204, 88, 18], [172, 122, 13]];
+      for (const [hx, hy, s2] of hs) spHeart(hx, hy, s2, SP_RED);
+    },
+    extraeditor(f) { // one more staffer clocks in, coffee in hand
+      spCard();
+      g.fillStyle = "#d9c9a4"; g.fillRect(24, 118, 204, 10);
+      spInk(3); g.strokeRect(24, 118, 204, 10);
+      for (let i = 0; i < 4; i++) spHead(52 + i * 38, 96, 15);
+      const nx = 208, ny = f % 2 ? 88 : 91;
+      spHead(nx, ny, 18);
+      g.fillStyle = SP_GOLD;
+      g.beginPath(); g.roundRect(nx + 24, ny + 6, 13, 15, 3); g.fill();
+      spInk(2.5); g.beginPath(); g.roundRect(nx + 24, ny + 6, 13, 15, 3); g.stroke();
+      g.beginPath(); g.arc(nx + 30, ny + 13, 9, -Math.PI * .5, Math.PI * .5); g.stroke();
+      spInk(2);
+      g.beginPath();
+      g.moveTo(nx + 28, ny - 2); g.quadraticCurveTo(nx + 25, ny - 8, nx + 29, ny - 13);
+      g.moveTo(nx + 34, ny - 2); g.quadraticCurveTo(nx + 31, ny - 8, nx + 35, ny - 13);
+      g.stroke();
+      g.fillStyle = SP_INK; g.font = "bold 30px sans-serif"; g.textAlign = "center";
+      g.fillText("+1", 130, 56);
+    },
+  };
   function attachSpecial(cv, key) {
+    if (CUT_SPECIALS[key]) {
+      cv.width = SPW; cv.height = SPH;
+      cv.classList.add("cut-scene");
+      start(cv, CUT_SPECIALS[key]);
+      return;
+    }
     cv.width = 84; cv.height = 56;
     if (SPECIAL_P[key]) start(cv, SPECIAL_P[key]);
   }
