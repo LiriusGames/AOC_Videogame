@@ -508,7 +508,8 @@ const Main = (() => {
     document.addEventListener("keydown", (ev) => {
       if ((ev.key === "p" || ev.key === "P") && !ev.ctrlKey && !ev.altKey && !ev.metaKey) cycleFilm();
     });
-    try { applyFilm(localStorage.getItem("aoc-film") || "off", true); } catch (_e) { applyFilm("off", true); }
+    // Sunday Matinee is the house look; a stored choice (incl. "off") wins
+    try { applyFilm(localStorage.getItem("aoc-film") || "matinee", true); } catch (_e) { applyFilm("matinee", true); }
     // AI taunts once in a while
     setInterval(() => {
       const e = UI.engine;
