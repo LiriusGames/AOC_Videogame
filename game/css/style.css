@@ -1315,6 +1315,50 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 }
 .req-chip.ok { color: #2c6b2f; }
 .req-chip.miss { color: #a00; border-color: #a00; background: #f6dede; }
+.team-recommendation {
+  margin-bottom: 7px; padding: 6px 9px; border-left: 4px solid var(--gold);
+  background: rgba(245, 200, 110, .18); font-size: 13px;
+}
+.print-team-grid {
+  display: flex; gap: 8px; overflow-x: auto; padding: 3px 2px 8px;
+  scrollbar-width: thin;
+}
+.print-genre-lane {
+  flex: 0 0 155px; border: 2px solid var(--paper-dark); border-radius: 7px;
+  background: rgba(255,255,255,.2); overflow: hidden;
+}
+.print-genre-lane.target-genre { border-color: var(--gold); box-shadow: inset 0 0 0 2px rgba(245,200,110,.25); }
+.print-genre-head {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  min-height: 31px; padding: 3px; background: var(--paper-dark); font-size: 12px;
+}
+.print-genre-head span:last-child { font-family: var(--f-display); font-size: 8px; color: #8a2f22; }
+.print-role-row { min-height: 94px; padding: 3px; border-top: 1px dashed #8d7759; text-align: center; }
+.print-role-label {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  height: 20px; font-family: var(--f-display); font-size: 8px; color: #57452c;
+}
+.print-role-empty { display: block; padding: 25px 0; color: #8d7759; }
+.figure.compact { display: inline-flex; width: 68px; padding: 3px 2px; vertical-align: top; }
+.figure.compact .fig-face { height: 45px; transform: scale(.78); transform-origin: bottom center; margin: -4px 0; }
+.figure.compact .fig-name { max-width: 66px; font-size: 11px; }
+.figure.compact .fig-meta { transform: scale(.8); margin: -2px -8px; }
+.figure.team-best::after {
+  content: "BEST"; position: absolute; top: 1px; right: 1px; padding: 1px 3px;
+  border-radius: 3px; background: var(--gold); color: var(--ink);
+  font-family: var(--f-display); font-size: 7px;
+}
+.print-ledger { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 7px; }
+.resource-counter {
+  display: inline-flex; align-items: center; gap: 7px; min-width: 155px;
+  padding: 4px 8px; border: 2px solid #2c6b2f; border-radius: 7px; background: rgba(255,255,255,.3);
+  font-family: var(--f-display); font-size: 10px; line-height: 1.25;
+}
+.resource-counter .spr { flex: 0 0 auto; }
+.resource-counter small { font-family: var(--f-body); font-size: 11px; }
+.resource-counter.miss { color: #a00; border-color: #a00; background: #f6dede; }
+.print-result { min-height: 20px; }
+.projection-note { display: inline-block; margin-left: 6px; padding: 2px 5px; background: #e9ddc4; font-size: 11px; }
 #review-bar .rb-text { font-family: var(--f-display); font-size: 14px; color: #8a2f22; }
 #review-bar .rb-buttons { display: flex; gap: 12px; align-items: center; }
 #review-bar .rb-keys { font-size: 11px; color: #57452c; }
@@ -1535,6 +1579,13 @@ html.booting #app { opacity: 0; }
 .mp-seat-name.bot { color: #57452c; }
 .mp-seat-name.open { color: #8a8272; font-style: italic; }
 .mp-foot { display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.mp-room-live { display: grid; gap: 10px; }
+.mp-trust-note {
+  border: 2px solid #8a2f22; border-radius: 6px; padding: 8px 10px;
+  background: #f2d7b4; color: #6f241c; font-family: var(--f-display);
+  font-size: 10px; line-height: 1.5; letter-spacing: .5px;
+}
+#btn-room.mp-alert { background: #8a2f22; color: #fff; }
 
 /* tutorial memo: a proper CITY DESK note (letterhead, die-cut, next/skip) */
 #tutor-card { border-radius: 10px; }

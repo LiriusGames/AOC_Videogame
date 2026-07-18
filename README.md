@@ -10,7 +10,7 @@ In this digital adaptation, you run a Manhattan publishing house during the Gold
 
 ## Current Project Status: Where We Are At
 
-**Solo play implements the base-game rules (V27). The guided First Day tutorial and the private two-player room are release candidates pending invite-only staging.**
+**Solo play implements the base-game rules (V27). The guided First Day tutorial is a release candidate; 2–4 player trusted rooms are a lockstep preview pending staging.**
 
 It currently features:
 * **Full Rules Implementation:** Worker placement, hiring, developing, getting ideas, printing originals and rip-offs, royalties, Manhattan sales map, the chart, mastery tokens, all 6 special actions, creative learning/training, and full end-game scoring.
@@ -23,7 +23,7 @@ It currently features:
 * **Retro Vibes:** Chiptune sound effects and a lo-fi swing background track.
 * **Automated Asset Generation:** A Python-based build tool (`tools/build_assets.py`) that proceduraly generates the 16-bit spritesheets from the original high-resolution board game assets.
 * **Headless Testing:** A built-in headless simulator (`test/sim.js`) that runs 180 all-AI games in Node.js to constantly check rule invariants and ensure balance.
-* **Private Multiplayer:** An authoritative Cloudflare Durable Object stores each room, validates commands, and sends a different privacy-safe view to each seat.
+* **Trusted-Room Multiplayer Preview:** A Cloudflare Durable Object orders and replays moves while every invited browser runs the same deterministic game. This phase is for trusted friends; it is not yet authoritative or hidden-information-safe.
 * **No Client Build Step:** The browser remains plain HTML, CSS, canvas, and vanilla JavaScript. Wrangler is only needed to develop or deploy multiplayer.
 
 ## Project Structure
@@ -32,7 +32,7 @@ It currently features:
 * `/Assets/` — Original high-resolution graphical assets from the physical board game, used as the source for the 16-bit generator.
 * `/Rulebook/` — Digital PDF versions of the official physical board game manuals.
 * `/docs/architecture.md` — Shared command/session boundary and module graph.
-* `/docs/cloudflare-multiplayer.md` — Private-room operations, persistence, privacy, and deployment.
+* `/docs/cloudflare-multiplayer.md` — Trusted-room operations, reconnect behavior, limitations, and deployment.
 * `/docs/staging-playtest.md` — Invite-only release gate and playtest script.
 
 ## How to Play

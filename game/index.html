@@ -49,7 +49,7 @@ if (location.protocol === "file:") {
         <button id="btn-new-game" class="btn btn-big">START THE PRESSES</button>
         <button id="btn-continue" class="btn btn-big" hidden>CONTINUE</button>
         <button id="btn-tutorial" class="btn btn-big">FIRST DAY ON THE JOB &mdash; LEARN TO PLAY</button>
-        <button id="btn-private-room" class="btn">TWO-PLAYER PRIVATE ROOM</button>
+        <button id="btn-private-room" class="btn">PRIVATE TABLE &mdash; 2&ndash;4 PLAYERS</button>
         <button id="btn-how" class="btn">HOW TO PLAY</button>
         <p class="credits">Based on the board game by S&oacute;nia Gon&ccedil;alves &amp; Giacomo Cimini &middot; Artwork by Laura Guglielmo<br>Videogame reinterpretation &middot; The Print Edition, est. 1938</p>
       </div>
@@ -114,6 +114,7 @@ if (location.protocol === "file:") {
       <div id="top-buttons">
         <!-- laptop widths: the chart collapses into this topbar button -->
         <button id="chart-mini" class="btn btn-small" aria-expanded="false" aria-controls="sidebar"></button>
+        <button id="btn-room" class="btn btn-small" title="Room connection and desk controls" hidden>ROOM</button>
         <button id="btn-undo" class="btn btn-small" title="Rewind to the start of your turn">&#8630; UNDO</button>
         <button id="btn-chart" class="btn btn-small" title="View the Manhattan sales map">CITY</button>
         <button id="btn-menu" class="btn btn-small" title="Picture, sound and screen settings">MENU</button>
@@ -210,6 +211,7 @@ if (location.protocol === "file:") {
   </div>
 </div>
 
+<script src="js/build.js"></script>
 <script src="assets/atlas.js"></script>
 <script src="js/data.js"></script>
 <script src="js/engine.js"></script>

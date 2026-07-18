@@ -8,33 +8,40 @@ and anonymized results below before promoting multiplayer.
 
 - Five pairs (10 people): two novice/novice, two mixed, one experienced pair.
 - At least two desktop browsers and one mobile/tablet viewport across the run.
-- Share guest links privately. Never paste live tickets into issues or chat logs.
+- Use trusted participants and share room links privately. Remind everyone that
+  this preview does not protect hidden state from developer tools.
 
 ## Script per pair
 
 1. Host creates a room and sends the invite; guest joins in another profile.
 2. Both complete founding and at least one normal action without coaching.
-3. Guest closes the tab during their turn, waits 20 seconds, and rejoins with
-   the original invite. Verify the exact turn and private hand return.
-4. Host opens the room in a second tab. Verify the old tab is replaced and no
-   seat can submit twice.
-5. Each player deliberately clicks one stale/invalid choice after the opponent
-   changes state. Verify resync, no duplicate cost, and no leaked card data.
-6. Complete at least two rounds; one pair completes the full game.
-7. Separately, every novice completes **FIRST DAY ON THE JOB** and answers the
+3. Guest closes the tab during their turn, waits 20 seconds, and reconnects
+   with the original invite. Verify the same desk and exact game state return.
+4. Guest closes again. Host opens **ROOM**, hands the disconnected desk to a
+   bot, and verifies play continues. Guest returns, chooses **RESUME MY DESK**,
+   and verifies control returns without a desync.
+5. Open a third browser after the game starts. Verify it can watch without a
+   rendering error and can take an automated desk when one is available.
+6. Put one participating browser in the background while a bot takes a turn.
+   Bring it back after the next human move and verify both state hashes still
+   match and no desync warning appears.
+7. Duplicate a participating tab. Verify the original tab reports that its
+   desk moved elsewhere and only the newer tab can continue.
+8. Complete at least two rounds; one pair completes the full game.
+9. Separately, every novice completes **FIRST DAY ON THE JOB** and answers the
    five comprehension questions in `tutorial-design.md`.
 
 ## Promotion criteria
 
 - 5/5 pairs create and join without developer intervention.
-- 5/5 reconnect drills restore the same authoritative revision and private hand.
-- Zero duplicate moves, cross-seat control, hidden-card leaks, or unrecoverable
-  rooms. Any one is an automatic stop-ship.
+- 5/5 reconnect and bot-handoff drills restore the intended desk and state.
+- Zero state-hash mismatches, duplicate costs, unauthorized seat control, or
+  unrecoverable rooms. Any one is an automatic stop-ship.
 - At least 90% of valid commands settle within one second on staging.
 - At least 4/5 novice players finish the tutorial without help and score 4/5 on
   comprehension. No tutorial blocker or keyboard trap.
 - Browser, accessibility, rules, protocol, tutorial-scenario, and Worker suites
-  pass on the exact staged commit.
+  and lockstep suites pass on the exact staged commit.
 
 ## Result log
 
@@ -45,6 +52,6 @@ and anonymized results below before promoting multiplayer.
 ## After the gate
 
 Fix and repeat failed cases on a new staging version. Only after every stop-ship
-item is clear should production promotion be considered. Matchmaking, accounts,
-spectators, friends, chat, and social discovery begin as separate design work
-after private-room stability—not during this gate.
+item is clear should a clearly labelled trusted-friends production preview be
+considered. Authoritative rules and per-seat privacy are the next multiplayer
+phase; matchmaking, accounts, chat, and social discovery remain out of scope.

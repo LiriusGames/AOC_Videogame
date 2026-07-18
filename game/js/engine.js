@@ -411,9 +411,29 @@ class Engine {
 
   // ---------------------------------------------------------------- actions
   // HIRE: picks = {writer: cardId|"deck", artist: cardId|"deck"}
+  canHirePair(picks) {
+    if (!picks || typeof picks !== "object") return false;
+    const s = this.state;
+    return ["writer", "artist"].every((kind) => {
+      const key = kind + "s";
+      const choice = picks[kind];
+      if (choice === "deck") return s.decks[key].length + s.discards[key].length > 0;
+      const chosen = typeof choice === "string" ? this.card(choice) : null;
+      return !!chosen && s.display[key].includes(choice) && chosen.kind === kind;
+    });
+  }
+
+  canHireAnyPair() {
+    const s = this.state;
+    return ["writers", "artists"].every((key) =>
+      s.display[key].length + s.decks[key].length + s.discards[key].length > 0);
+  }
+
   actHire(pid, picks) {
     const s = this.state, p = this.player(pid);
-    if (!this.canAct(pid, "hire")) return false;
+    // Resolve both sources before spending the editor. A Hire is atomic: it
+    // either signs exactly one writer and one artist, or changes no state.
+    if (!this.canAct(pid, "hire") || !this.canHirePair(picks)) return false;
     this.placeEditor(pid, "hire");
     const got = [], blind = []; // blind = drawn unseen (the UI reveals those)
     for (const kind of ["writer", "artist"]) {
@@ -423,17 +443,14 @@ class Engine {
       if (cardId === "deck") { cardId = this.drawCard(key); wasBlind = true; }
       else {
         const di = s.display[key].indexOf(cardId);
-        if (di >= 0) s.display[key].splice(di, 1);
-        else { cardId = this.drawCard(key); wasBlind = true; } // safety
+        s.display[key].splice(di, 1);
       }
-      if (cardId) {
-        p.hand.push(cardId);
-        got.push(cardId);
-        if (wasBlind) blind.push(cardId);
-        if (this.card(cardId).value === 1) {
-          p.ideas[this.card(cardId).genre]++;
-          this.emit("gainIdea", { player: pid, genre: this.card(cardId).genre, from: "rookie" });
-        }
+      p.hand.push(cardId);
+      got.push(cardId);
+      if (wasBlind) blind.push(cardId);
+      if (this.card(cardId).value === 1) {
+        p.ideas[this.card(cardId).genre]++;
+        this.emit("gainIdea", { player: pid, genre: this.card(cardId).genre, from: "rookie" });
       }
     }
     this.emit("hire", { player: pid, cards: got, blind });

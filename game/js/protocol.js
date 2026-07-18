@@ -243,9 +243,16 @@ function stateHash(value) {
   return (h >>> 0).toString(16).padStart(8, "0");
 }
 
+// Deterministic lockstep includes the PRNG cursor as well as visible state.
+// Two clients with equal boards but different future random rolls are already
+// divergent and must be stopped before accepting another command.
+function engineHash(engine) {
+  return stateHash({ state: engine.state, rngA: engine.rng && engine.rng.a });
+}
+
 return {
   COMMAND_VERSION, MAX_COMMAND_BYTES, SPECIAL_COMMANDS,
   validateEnvelope, applyEngineCommand, projectEvent, projectState,
-  stableStringify, stateHash,
+  stableStringify, stateHash, engineHash,
 };
 });

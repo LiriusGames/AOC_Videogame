@@ -1,6 +1,6 @@
 # AGE OF COMICS: The Golden Years — 16-bit Videogame
 
-A solo and private two-player videogame reinterpretation of the board game *Age of Comics: The
+A solo and trusted-room videogame reinterpretation of the board game *Age of Comics: The
 Golden Years* (design: Sónia Gonçalves & Giacomo Cimini, artwork: Laura
 Guglielmo). You run a Manhattan publishing house in 1938–54 against 1–3 AI
 rival publishers, each with their own personality. All the original artwork has
@@ -34,8 +34,9 @@ game half-loaded. Use `PLAY.bat` or one of the local server commands above.
   chiptune SFX and a lo-fi swing loop (toggle with the ♪ button).
 - A deterministic **First Day on the Job** tutorial with guided actions,
   proof/undo practice, separate resume data, and a pinned scenario regression.
-- Invite-link two-player rooms on Cloudflare. The server owns the engine state;
-  room tickets select seats, and reconnect restores the current private view.
+- Invite-link rooms for 2–4 publishers on Cloudflare. Every trusted client runs
+  the same deterministic Engine; the relay orders/replays moves and reconnects.
+  This preview does not hide full state from a player's developer tools.
 
 ## Dev notes
 

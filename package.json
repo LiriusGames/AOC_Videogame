@@ -4,9 +4,11 @@
   "private": true,
   "description": "Age of Comics: The Golden Years — a no-build vanilla browser game with solo AI, a guided tutorial, and Cloudflare private rooms.",
   "scripts": {
-    "test": "node game/test/assets.js && node game/test/rules.js && node game/test/protocol.js && node game/test/tutorial.js && node game/test/sim.js",
+    "test": "node game/test/assets.js && node game/test/rules.js && node game/test/protocol.js && node game/test/lockstep.js && node game/test/tutorial.js && node game/test/sim.js",
     "test:worker": "vitest run",
     "test:browser": "node game/test/browser.js",
+    "test:action-panels": "node game/test/action-panels.js",
+    "test:multiplayer-browser": "node game/test/multiplayer-browser.js",
     "test:tutorial-browser": "node game/test/tutorial-browser.js",
     "test:a11y": "node game/test/a11y.js",
     "dev:cloudflare": "wrangler dev",

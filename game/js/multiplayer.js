@@ -57,30 +57,136 @@ const Multiplayer = (() => {
 
   function leave() {
     if (session) { session.close(); session = null; }
+    const roomBtn = document.getElementById("btn-room");
+    if (roomBtn) roomBtn.hidden = true;
     try { history.replaceState(null, "", location.pathname); } catch (_e) {}
     closeModal();
   }
 
   function wire(s) {
-    s.addEventListener("lobby", () => { cfgSync(s); renderLobby(s); });
+    s.addEventListener("lobby", () => { cfgSync(s); renderLobby(s); renderRoomStatus(s); updateRoomButton(s); });
     s.addEventListener("start", () => {
       closeModal();
       Main.enterRemote(s);
+      updateRoomButton(s);
       toast(s.seat >= 0 ? "The newsroom opens &mdash; good luck, publisher." : "The table is already playing &mdash; you are watching.");
     });
     s.addEventListener("applied", (ev) => {
-      if (ev.detail.kind === "seat" && ev.detail.seat === s.seat)
-        toast("You were away &mdash; an automated publisher runs your desk. Reload the link to reclaim it.");
+      if (ev.detail.kind === "seat" && ev.detail.seat === s.formerSeat)
+        toast("Your desk is automated. Open ROOM when you are ready to resume it.");
+      if (ev.detail.kind === "claim" && ev.detail.seat === s.seat)
+        toast("Your desk is yours again.");
       Main.remoteUpdated(s);
+      renderRoomStatus(s);
+      updateRoomButton(s);
     });
     s.addEventListener("status", (ev) => {
       if (!s.engine) return;
       if (ev.detail === "disconnected") toast("Connection lost &mdash; rejoining the table&hellip;");
-      else toast("Back at the table.");
+      else if (ev.detail === "synced") toast("Back at the table.");
+      updateRoomButton(s);
+      renderRoomStatus(s);
     });
     s.addEventListener("desync", () => {
       toast("&#9888; Out of sync with the table &mdash; reload the page to rejoin this room.");
     });
+    s.addEventListener("roomerror", () => {
+      toast("The room rejected that message. Reopen ROOM or reload before trying again.");
+      renderRoomStatus(s);
+    });
+    s.addEventListener("replaced", () => blockingConnectionModal(
+      "DESK OPENED ELSEWHERE",
+      "This player desk was opened in another tab or browser. That newer connection now controls it."
+    ));
+    s.addEventListener("versionerror", (ev) => blockingConnectionModal(
+      "NEWSROOM UPDATED",
+      `This tab runs ${esc(ev.detail.local)} but the table runs ${esc(ev.detail.remote)}. Reload before rejoining.`
+    ));
+  }
+
+  function blockingConnectionModal(title, message) {
+    openModal((m) => {
+      m.appendChild(el("h2", "", title));
+      m.appendChild(el("div", "modal-sub", message));
+      modalButtons(m, [{ label: "RELOAD", cls: "btn-go", fn: () => location.reload() }]);
+    }, { width: "520px", onDismiss: () => {} });
+  }
+
+  function updateRoomButton(s) {
+    const btn = document.getElementById("btn-room");
+    if (!btn || !s.engine) return;
+    btn.hidden = false;
+    const offline = (s.roster && s.roster.players || []).filter((p) => !p.on && s.pids.includes(p.pid)).length;
+    btn.textContent = offline ? `ROOM !${offline}` : "ROOM";
+    btn.classList.toggle("mp-alert", offline > 0 || s.seat < 0);
+    btn.onclick = () => { SFX.play("paper"); roomStatusModal(s); };
+  }
+
+  function appendInviteRow(body, s) {
+    const link = roomLink(s.room);
+    const row = el("div", "mp-invite");
+    const inp = document.createElement("input");
+    inp.readOnly = true;
+    inp.value = link;
+    inp.setAttribute("aria-label", "Table invitation link");
+    const copy = el("button", "btn btn-small", "COPY LINK");
+    copy.onclick = async () => {
+      try { await navigator.clipboard.writeText(link); copy.textContent = "COPIED"; }
+      catch (_e) { inp.select(); document.execCommand("copy"); copy.textContent = "COPIED"; }
+    };
+    row.append(inp, copy);
+    body.appendChild(row);
+  }
+
+  function renderRoomStatus(s) {
+    const body = document.querySelector("#modal-root .mp-room-live");
+    if (!body || !s.engine) return;
+    body.innerHTML = "";
+    appendInviteRow(body, s);
+    body.appendChild(el("div", "mp-trust-note",
+      "TRUSTED TABLE &mdash; every player runs the full game locally. Share this link only with people you trust."));
+
+    const online = {};
+    ((s.roster && s.roster.players) || []).forEach((p) => { online[p.pid] = p.on; });
+    const list = el("div", "mp-seats");
+    s.seats.forEach((ctl, i) => {
+      const row = el("div", "mp-seat");
+      row.appendChild(el("span", "mp-seat-dot", sprHTML("idea_" + GENRES[i % GENRES.length], 0.45)));
+      const player = s.engine.player(i);
+      const pid = s.pids[i];
+      const isMine = s.isLocalSeat(i);
+      const connected = ctl === "human" && !!online[pid];
+      let label = `${esc(player.pubName)} &middot; `;
+      if (ctl === "bot") label += "automated";
+      else label += (isMine ? "you &middot; " : esc(player.name) + " &middot; ") + (connected ? "online" : "disconnected");
+      row.appendChild(el("span", "mp-seat-name " + (ctl === "bot" ? "bot" : connected ? "on" : "off"), label));
+
+      if (ctl === "human" && !connected && s.isHost) {
+        const hand = el("button", "btn btn-small", "HAND TO BOT");
+        hand.onclick = () => { hand.disabled = true; s.replaceWithBot(i); };
+        row.appendChild(hand);
+      } else if (ctl === "bot" && s.seat < 0) {
+        const ownDesk = s.formerSeat === i || pid === s.pid;
+        const claim = el("button", "btn btn-small btn-go", ownDesk ? "RESUME MY DESK" : "TAKE THIS DESK");
+        claim.onclick = () => { claim.disabled = true; s.claimSeat(i); };
+        row.appendChild(claim);
+      }
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+    body.appendChild(el("div", "modal-sub", s.isHost
+      ? "As host, you can hand a disconnected desk to a bot. The player can reclaim it later from this panel."
+      : "Disconnected desks stay reserved until the host hands them to a bot."));
+  }
+
+  function roomStatusModal(s) {
+    openModal((m) => {
+      m.appendChild(el("h2", "", "PRIVATE TABLE &mdash; " + s.room));
+      m.appendChild(el("div", "mp-room-live"));
+      // openModal appends the built panel after this callback returns.
+      queueMicrotask(() => renderRoomStatus(s));
+      modalButtons(m, [{ label: "BACK TO NEWSROOM", fn: () => closeModal() }]);
+    }, { width: "660px", onDismiss: () => {} });
   }
 
   // ---- host-managed seat plan (broadcast as cfg): arriving friends fill
@@ -88,7 +194,8 @@ const Multiplayer = (() => {
   function cfgSync(s) {
     if (!s.isHost || s.engine || !s.roster) return;
     const players = (s.roster.players || []).filter((p) => p.on);
-    const cfg = s.cfg && s.cfg.seats ? s.cfg : { n: 3, seats: [] };
+    const before = s.cfg && s.cfg.seats ? JSON.stringify(s.cfg) : "";
+    const cfg = s.cfg && s.cfg.seats ? structuredClone(s.cfg) : { n: 3, seats: [] };
     cfg.n = Math.max(2, Math.min(4, cfg.n || 3));
     while (cfg.seats.length < cfg.n) cfg.seats.push({ kind: "open" });
     cfg.seats.length = cfg.n;
@@ -101,7 +208,8 @@ const Multiplayer = (() => {
       const openSeat = cfg.seats.find((x) => x.kind === "open");
       if (openSeat) { openSeat.kind = "human"; openSeat.pid = p.pid; seated.add(p.pid); }
     }
-    s.sendCfg(cfg);
+    s.cfg = cfg;
+    if (JSON.stringify(cfg) !== before) s.sendCfg(cfg);
   }
   function cycleSeat(s, i) {
     const seat = s.cfg && s.cfg.seats[i];
@@ -125,7 +233,6 @@ const Multiplayer = (() => {
     if (!s.isHost || !cfg || cfg.seats.some((x) => x.kind === "open")) return;
     const nameOf = {};
     ((s.roster && s.roster.players) || []).forEach((p) => { nameOf[p.pid] = p.name; });
-    let bots = 0;
     const players = [], seats = [], pids = [];
     cfg.seats.forEach((seat, i) => {
       const color = PLAYER_COLORS[i];
@@ -133,11 +240,12 @@ const Multiplayer = (() => {
         players.push({ color, human: true, name: nameOf[seat.pid] || "Publisher" });
         seats.push("human"); pids.push(seat.pid);
       } else {
-        players.push({ color, human: false, name: PUBLISHERS[color].boss + (bots++ ? "" : "") });
+        players.push({ color, human: false, name: PUBLISHERS[color].boss });
         seats.push("bot"); pids.push(null);
       }
     });
     s.sendHello({
+      build: AOC_BUILD_ID,
       seed: (Math.random() * 0x7fffffff) | 0,
       players, seats, pids,
       useRipoffs: true,
@@ -149,19 +257,7 @@ const Multiplayer = (() => {
     const body = document.querySelector("#modal-root .mp-lobby");
     if (!body) return;
     body.innerHTML = "";
-    const link = roomLink(s.room);
-    const row = el("div", "mp-invite");
-    const inp = document.createElement("input");
-    inp.readOnly = true;
-    inp.value = link;
-    inp.setAttribute("aria-label", "Table invitation link");
-    const copy = el("button", "btn btn-small", "COPY LINK");
-    copy.onclick = async () => {
-      try { await navigator.clipboard.writeText(link); copy.textContent = "COPIED"; }
-      catch (_e) { inp.select(); document.execCommand("copy"); copy.textContent = "COPIED"; }
-    };
-    row.append(inp, copy);
-    body.appendChild(row);
+    appendInviteRow(body, s);
     body.appendChild(el("div", "modal-sub", "Send the link on WhatsApp &mdash; whoever opens it sits down at this table."));
 
     if (s.isHost) {
@@ -180,7 +276,7 @@ const Multiplayer = (() => {
     const list = el("div", "mp-seats");
     seats.forEach((seat, i) => {
       const rowEl = el("div", "mp-seat");
-      rowEl.appendChild(el("span", "mp-seat-dot", sprHTML("idea_" + GENRES[i % GENRES.length], 0)));
+      rowEl.appendChild(el("span", "mp-seat-dot", sprHTML("idea_" + GENRES[i % GENRES.length], 0.45)));
       let label, cls = "";
       if (seat.kind === "human") {
         const inf = nameOf[seat.pid];

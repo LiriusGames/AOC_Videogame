@@ -131,6 +131,40 @@ const AI = (() => {
     return plans;
   }
 
+  // Shared deterministic ranking for the print-floor UI. Unlike printPlans,
+  // this can evaluate a particular book against projected book-two resources
+  // and exclude creatives already assigned to book one.
+  function rankPrintTeams(engine, pid, spec, opts = {}) {
+    const p = engine.player(pid);
+    const excluded = new Set(opts.excluded || []);
+    const money = opts.money === undefined ? p.money : opts.money;
+    const ideas = opts.ideas || p.ideas;
+    const target = spec && spec.type === "ripoff" ? engine.state.chart[spec.target] : null;
+    const comic = spec && spec.type === "original" ? card(spec.comic) : null;
+    const genre = comic ? comic.genre : target ? target.genre : null;
+    if (!genre) return [];
+    const ws = handOf(engine, pid, "writer").filter((id) => !excluded.has(id));
+    const as = handOf(engine, pid, "artist").filter((id) => !excluded.has(id));
+    const wgt = W(engine, pid);
+    const plans = [];
+    for (const writer of ws) for (const artist of as) {
+      const cost = card(writer).value + card(artist).value;
+      const feasible = money >= cost && (spec.type === "ripoff" || (ideas[genre] || 0) >= 2);
+      const hy = comic && p.hyped.find((h) => h.cardId === spec.comic);
+      const fans = comboFans(engine, pid, writer, artist, genre, spec.type === "ripoff",
+        comic && comic.bonus, hy ? hy.tokens : 0);
+      let score = fans * 2.2 * wgt.fans + specVP(writer, artist, genre) * 0.9 * wgt.spec
+        + orderBonus(engine, pid, genre, cost) * 2 * wgt.orders - cost * 0.25;
+      if (comic && comic.bonus === "money") score += 2;
+      if (comic && comic.bonus === "ticket") score += 1.2;
+      if (comic && comic.bonus === "ideas") score += 1.6;
+      plans.push({ writer, artist, genre, cost, fans, feasible, score });
+    }
+    plans.sort((a, b) => Number(b.feasible) - Number(a.feasible) || b.score - a.score ||
+      a.cost - b.cost || a.writer.localeCompare(b.writer) || a.artist.localeCompare(b.artist));
+    return plans;
+  }
+
   // ----------------------------------------------------------- action choice
   function chooseAction(engine, pid) {
     const s = engine.state, p = engine.player(pid);
@@ -219,6 +253,7 @@ const AI = (() => {
 
   function bestHirePick(engine, pid) {
     const s = engine.state, p = engine.player(pid);
+    if (!engine.canHireAnyPair()) return null;
     const wgt = W(engine, pid);
     const myComicGenres = handComics(engine, pid).map((c) => card(c).genre);
     const wantGenres = new Set(myComicGenres.concat(s.display.comics.map((c) => card(c).genre)));
@@ -237,8 +272,11 @@ const AI = (() => {
     let bestA = null, bestAv = -1;
     for (const c of s.display.artists) if (value(c) > bestAv) { bestA = c; bestAv = value(c); }
     // consider blind deck draws when display is weak
-    if (bestWv < 2.4) { bestW = "deck"; bestWv = 2.2; }
-    if (bestAv < 2.4) { bestA = "deck"; bestAv = 2.2; }
+    const blindW = s.decks.writers.length + s.discards.writers.length > 0;
+    const blindA = s.decks.artists.length + s.discards.artists.length > 0;
+    if (blindW && bestWv < 2.4) { bestW = "deck"; bestWv = 2.2; }
+    if (blindA && bestAv < 2.4) { bestA = "deck"; bestAv = 2.2; }
+    if (!bestW || !bestA) return null;
     const need = (haveW === 0 ? 3 : 0) + (haveA === 0 ? 3 : 0);
     const surplus = Math.max(0, haveW + haveA - 3);
     return {
@@ -340,15 +378,21 @@ const AI = (() => {
       if (engine.nextSlot("royalties") >= 0) engine.actRoyalties(pid);
       else if (engine.nextSlot("ideas") >= 0) engine.actIdeas(pid, autoIdeas(engine, pid));
       else {
+        let acted = false;
         for (const a of ACTIONS) {
           if (engine.nextSlot(a) < 0) continue;
-          if (a === "royalties") { engine.actRoyalties(pid); break; }
-          if (a === "ideas") { engine.actIdeas(pid, autoIdeas(engine, pid)); break; }
-          if (a === "hire") { engine.actHire(pid, { writer: "deck", artist: "deck" }); break; }
-          if (a === "develop") { engine.actDevelop(pid, { comic: "deck" }); break; }
-          if (a === "sales") { engine.actSalesStart(pid); engine.salesEnd(pid); break; }
+          if (a === "royalties") { acted = engine.actRoyalties(pid); break; }
+          if (a === "ideas") { acted = engine.actIdeas(pid, autoIdeas(engine, pid)); break; }
+          if (a === "hire") {
+            const pick = bestHirePick(engine, pid);
+            if (pick && engine.actHire(pid, pick.picks)) { acted = true; break; }
+            continue;
+          }
+          if (a === "develop") { if (engine.actDevelop(pid, { comic: "deck" })) { acted = true; break; } continue; }
+          if (a === "sales") { if (engine.actSalesStart(pid)) { engine.salesEnd(pid); acted = true; break; } continue; }
           if (a === "print") continue;
         }
+        if (!acted) engine.actPass(pid);
       }
       settle(engine, pid);
       return;
@@ -634,7 +678,7 @@ const AI = (() => {
     engine.resolveStartingPicks(pid, comicId, ideas);
   }
 
-  return { takeTurn, doIncrease, doStartingPicks, settle, resolveOwnPendings, chooseAction };
+  return { takeTurn, doIncrease, doStartingPicks, settle, resolveOwnPendings, chooseAction, rankPrintTeams };
 })();
 
 return { AI };

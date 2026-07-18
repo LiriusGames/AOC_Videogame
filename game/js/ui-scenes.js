@@ -47,6 +47,25 @@ const Scenes = (() => {
     d.classList.add("selected");
     d.setAttribute("aria-pressed", "true");
   }
+
+  function confirmHandOverflow(addCount, actionLabel, onContinue, onBack) {
+    const p = P(me());
+    const total = p.hand.length + p.hyped.length;
+    const discard = Math.max(0, total + addCount - HAND_LIMIT);
+    if (!discard) return onContinue();
+    openModal((m) => {
+      m.appendChild(el("h2", "", "DESK LIMIT CHECK"));
+      m.appendChild(el("div", "modal-sub",
+        `${actionLabel} adds <b>${addCount} card${addCount === 1 ? "" : "s"}</b>: ` +
+        `<b>${total} + ${addCount} = ${total + addCount}</b>, over your ${HAND_LIMIT}-card desk limit.<br><br>` +
+        `If you continue, you must discard <b>${discard}</b> card${discard === 1 ? "" : "s"}. ` +
+        `Nothing has been drawn or committed yet.`));
+      modalButtons(m, [
+        { label: "GO BACK & REASSESS", fn: () => { closeModal(); onBack(); } },
+        { label: `CONTINUE — DISCARD ${discard}`, cls: "btn-go", fn: onContinue },
+      ]);
+    }, { width: "620px", onDismiss: () => { onBack(); } });
+  }
   // animated pictogram explaining a cube special (drawn in loc-art.js)
   function specialArt(key, wpx = 168) {
     const cv = document.createElement("canvas");
@@ -75,9 +94,9 @@ const Scenes = (() => {
   }
 
   // ------------------------------------------------------------------- HIRE
-  function hireScene() {
+  function hireScene(initial = {}) {
     const e = E(), s = e.state;
-    const sel = { writer: null, artist: null };
+    const sel = { writer: initial.writer || null, artist: initial.artist || null };
     openModal((m) => {
       panelHead(m, "hire", "TALENT AGENCY &mdash; HIRE",
         "Sign one writer and one artist from the lobby — or gamble on whoever answered the classified ad. &#10022;-rookies bring a free idea.");
@@ -87,7 +106,7 @@ const Scenes = (() => {
         const row = el("div", "card-row balloon-row");
         for (const c of s.display[key]) {
           const card = CARD_BY_ID[c];
-          row.appendChild(personFigure(c, {
+          const figure = personFigure(c, {
             cls: "pickable",
             balloon: `${kind === "writer" ? "I write" : "I draw"} <b style="color:${GENRE_INFO[card.genre].color}">${GENRE_INFO[card.genre].name}</b>!`,
             onpick: (d) => {
@@ -97,14 +116,18 @@ const Scenes = (() => {
                 toast(`${sprHTML("idea_" + card.genre, 0.55)} ${esc(card.name)} is a rookie — signs with a FREE ${GENRE_INFO[card.genre].name} idea!`);
               refresh();
             },
-          }));
+          });
+          if (sel[kind] === c) figure.classList.add("selected");
+          row.appendChild(figure);
         }
         if (s.decks[key].length + s.discards[key].length > 0) {
           const topVal = s.decks[key].length ? CARD_BY_ID[s.decks[key][s.decks[key].length - 1]].value : 1;
-          row.appendChild(mysteryFigure(kind, topVal, {
+          const mystery = mysteryFigure(kind, topVal, {
             cls: "pickable",
             onpick: (d) => { sel[kind] = "deck"; selectOne(row, d); refresh(); },
-          }));
+          });
+          if (sel[kind] === "deck") mystery.classList.add("selected");
+          row.appendChild(mystery);
         }
         body.appendChild(row);
       }
@@ -112,10 +135,13 @@ const Scenes = (() => {
       modalButtons(m, [
         { label: "CANCEL", fn: () => { closeModal(); } },
         { label: "SIGN THEM", cls: "btn-go", id: "hire-ok", fn: () => {
-            const result = command("action_hire", sel);
-            if (!result.ok) return;
             closeModal();
-            Main.afterHumanMove();
+            confirmHandOverflow(2, "Hiring this team", () => {
+              const result = command("action_hire", sel);
+              if (!result.ok) return;
+              closeModal();
+              Main.afterHumanMove();
+            }, () => hireScene(sel));
           }, disabled: true },
       ]);
       function pickName(id, kind) {
@@ -136,19 +162,21 @@ const Scenes = (() => {
   }
 
   // ---------------------------------------------------------------- DEVELOP
-  function developScene() {
+  function developScene(initial = null) {
     const e = E(), s = e.state;
-    let sel = null; // {comic} | {searchGenre}
+    let sel = initial ? { ...initial } : null; // {comic} | {searchGenre}
     openModal((m) => {
       panelHead(m, "develop", "WRITERS' ROOM &mdash; DEVELOP",
         "Option one comic for future printing. Getting it on the presses later takes a writer + artist team, their fee, and 2 matching ideas.");
       const body = panelSection(m, "ON OFFER &mdash; PITCHES ON THE TABLE");
       const row = el("div", "card-row");
       for (const c of s.display.comics) {
-        row.appendChild(comicTile(c, {
+        const tile = comicTile(c, {
           cls: "pickable",
           onpick: (d) => { sel = { comic: c }; selectOne(m, d); refresh(); },
-        }));
+        });
+        if (sel && sel.comic === c) tile.classList.add("selected");
+        row.appendChild(tile);
       }
       if (s.decks.comics.length + s.discards.comics.length > 0) {
         // blind draw off the slush pile: a face-down back + the "?" mark
@@ -158,6 +186,7 @@ const Scenes = (() => {
           onpick: (d) => { sel = { comic: "deck" }; selectOne(m, d); refresh(); },
         });
         blind.appendChild(el("div", "pc-cost", "?"));
+        if (sel && sel.comic === "deck") blind.classList.add("selected");
         blind.setAttribute("aria-label", "Slush pile — option the top comic of the deck, blind");
       }
       body.appendChild(row);
@@ -177,6 +206,7 @@ const Scenes = (() => {
           sel = { searchGenre: g };
           refresh();
         };
+        if (sel && sel.searchGenre === g) t.classList.add("selected");
         grow.appendChild(t);
       }
       gbody.appendChild(grow);
@@ -184,10 +214,13 @@ const Scenes = (() => {
       modalButtons(m, [
         { label: "CANCEL", fn: () => closeModal() },
         { label: "OPTION IT", cls: "btn-go", id: "dev-ok", disabled: true, fn: () => {
-            const result = command("action_develop", sel);
-            if (!result.ok) return;
             closeModal();
-            Main.afterHumanMove();
+            confirmHandOverflow(1, "Optioning this comic", () => {
+              const result = command("action_develop", sel);
+              if (!result.ok) return;
+              closeModal();
+              Main.afterHumanMove();
+            }, () => developScene(sel));
           } },
       ]);
       function refresh() {
@@ -345,6 +378,7 @@ const Scenes = (() => {
     function buildBook(n) {
       const sel = { type: "original", comic: null, target: null, writer: null, artist: null };
       const usedCards = books.flatMap((b) => [b.writer, b.artist, b.comic].filter(Boolean));
+      let recommended = null;
       openModal((m) => {
         const head = panelHead(m, "print", `PRINT FLOOR &mdash; BOOK ${n}${x2 ? " of up to 2" : ""}`, "&nbsp;");
         const sub = head.querySelector(".ph-tag"); // filled per ORIGINAL/RIP-OFF below
@@ -357,10 +391,12 @@ const Scenes = (() => {
             const b = el("button", "choice" + (v === sel.type ? " active" : ""), lbl);
             b.onclick = () => {
               SFX.play("click");
-              sel.type = v; sel.comic = sel.target = null;
+              sel.type = v; sel.comic = sel.target = sel.writer = sel.artist = null;
+              recommended = null;
               tg.querySelectorAll(".choice").forEach((x) => x.classList.remove("active"));
               b.classList.add("active");
               renderComicRow();
+              renderTeamGrid();
               refresh();
             };
             tg.appendChild(b);
@@ -372,19 +408,12 @@ const Scenes = (() => {
         const comicRow = el("div", "card-row");
         bookBody.appendChild(comicRow);
 
-        const teamBody = panelSection(m, "YOUR PICK &mdash; THE TEAM (from your roster)");
-        for (const kind of ["writer", "artist"]) {
-          const row = el("div", "card-row");
-          const cards = p.hand.filter((c) => CARD_BY_ID[c].kind === kind && !usedCards.includes(c));
-          if (!cards.length) row.appendChild(el("i", "", `No ${kind}s on the roster — visit the Talent Agency first.`));
-          for (const c of cards) {
-            row.appendChild(personFigure(c, {
-              cls: "pickable", noRookie: true,
-              onpick: (d) => { sel[kind] = c; selectOne(row, d); refresh(); },
-            }));
-          }
-          teamBody.appendChild(row);
-        }
+        const teamBody = panelSection(m, "YOUR TEAM &mdash; MATCHED BY GENRE");
+        const teamHint = el("div", "team-recommendation",
+          "Choose a book first. The strongest affordable team will be selected for you.");
+        const teamGrid = el("div", "print-team-grid");
+        teamBody.appendChild(teamHint);
+        teamBody.appendChild(teamGrid);
 
         const preview = panelFooter(m);
 
@@ -410,26 +439,108 @@ const Scenes = (() => {
             for (const c of comics) {
               const card = CARD_BY_ID[c];
               const hy = p.hyped.find((h) => h.cardId === c);
-              const enough = p.ideas[card.genre] >= 2;
-              comicRow.appendChild(comicTile(c, {
+              const resources = projectedResources(card.genre);
+              const enough = resources.ideas[card.genre] >= 2;
+              const tile = comicTile(c, {
                 cls: "pickable",
                 extra: (hy ? ` <span class="chip" style="background:#d94f43;color:#fff">HYPE +${hy.tokens * 2}</span>` : "") +
                   `<div style="font-size:14px">${enough ? `needs 2 ${GENRE_INFO[card.genre].name} ideas` : `<b style='color:#a00'>not enough ideas!</b>`}</div>`,
-                onpick: (d) => { sel.comic = c; selectOne(comicRow, d); refresh(); },
-              }));
+                onpick: (d) => { sel.comic = c; selectOne(comicRow, d); recommendTeam(); refresh(); },
+              });
+              tile.dataset.cardId = c;
+              comicRow.appendChild(tile);
             }
           } else {
-            for (const t of ripTargets) {
+            for (const t of ripTargets.filter((target) => !books.some((b) => b.type === "ripoff" && b.target === target.idx))) {
               const idxInGenre = COMICS.filter((c) => c.genre === t.genre).findIndex((c) => c.id === t.cardId) + 1;
               const d = el("div", "comic-tile pickable");
               d.appendChild(sprHD(`cover_rip_${t.genre}_${idxInGenre}`, 1.2));
               d.appendChild(el("div", "ct-info",
                 `<div class="ct-title">${esc(RIPOFF_TITLES[t.cardId])}</div>` +
                 `<div style="font-size:14px">${genreMark(t.genre, 0.5)} rips off <b>${esc(t.title)}</b><br>(${esc(P(t.owner).pubName)})</div>`));
-              d.onclick = () => { SFX.play("click"); sel.target = t.idx; selectOne(comicRow, d); refresh(); };
+              d.onclick = () => { SFX.play("click"); sel.target = t.idx; selectOne(comicRow, d); recommendTeam(); refresh(); };
               comicRow.appendChild(d);
             }
           }
+        }
+        function targetGenre() {
+          if (sel.type === "original" && sel.comic) return CARD_BY_ID[sel.comic].genre;
+          if (sel.type === "ripoff" && sel.target !== null) return s.chart[sel.target].genre;
+          return null;
+        }
+        function projectedResources(forGenre) {
+          let money = p.money;
+          const ideas = Object.fromEntries(GENRES.map((g) => [g, p.ideas[g]]));
+          let flexibleIdeaBonuses = 0;
+          for (const book of books) {
+            money -= CARD_BY_ID[book.writer].value + CARD_BY_ID[book.artist].value;
+            if (book.type !== "original") continue;
+            const comic = CARD_BY_ID[book.comic];
+            ideas[comic.genre] -= 2;
+            if (comic.bonus === "money") money += 4;
+            if (comic.bonus === "ideas") flexibleIdeaBonuses += 2;
+          }
+          if (forGenre && flexibleIdeaBonuses) ideas[forGenre] += flexibleIdeaBonuses;
+          return { money, ideas, flexibleIdeaBonuses };
+        }
+        function plansForSelection() {
+          const genre = targetGenre();
+          if (!genre) return [];
+          const resources = projectedResources(genre);
+          return AI.rankPrintTeams(e, me(), toSpec(), {
+            excluded: usedCards, money: resources.money, ideas: resources.ideas,
+          });
+        }
+        function recommendTeam() {
+          recommended = plansForSelection()[0] || null;
+          sel.writer = recommended ? recommended.writer : null;
+          sel.artist = recommended ? recommended.artist : null;
+          renderTeamGrid();
+        }
+        function renderTeamGrid() {
+          teamGrid.innerHTML = "";
+          const available = p.hand.filter((c) => CARD_BY_ID[c].kind && !usedCards.includes(c));
+          const genre = targetGenre();
+          const order = genre ? [genre, ...GENRES.filter((g) => g !== genre)] : GENRES;
+          for (const g of order) {
+            const inGenre = available.filter((id) => CARD_BY_ID[id].genre === g);
+            if (!inGenre.length) continue;
+            const lane = el("div", "print-genre-lane" + (g === genre ? " target-genre" : ""));
+            lane.appendChild(el("div", "print-genre-head", `${genreMark(g, 0.62)} <b>${GENRE_INFO[g].name}</b>${g === genre ? " <span>MATCH</span>" : ""}`));
+            for (const kind of ["writer", "artist"]) {
+              const row = el("div", "print-role-row");
+              row.appendChild(el("div", "print-role-label", `${sprHTML("tag_" + kind, 0.58)}<span>${kind.toUpperCase()}</span>`));
+              const cards = inGenre.filter((id) => CARD_BY_ID[id].kind === kind)
+                .sort((a, b) => CARD_BY_ID[b].value - CARD_BY_ID[a].value || a.localeCompare(b));
+              if (!cards.length) row.appendChild(el("span", "print-role-empty", "—"));
+              for (const id of cards) {
+                const isBest = recommended && recommended[kind] === id;
+                const figure = personFigure(id, {
+                  cls: "pickable compact" + (isBest ? " team-best" : ""), noRookie: true, noZoom: true,
+                  onpick: (d) => {
+                    sel[kind] = id;
+                    teamGrid.querySelectorAll(`[data-kind="${kind}"]`).forEach((x) => x.classList.remove("selected"));
+                    d.classList.add("selected");
+                    refresh();
+                  },
+                });
+                figure.dataset.kind = kind;
+                figure.dataset.cardId = id;
+                if (sel[kind] === id) figure.classList.add("selected");
+                if (isBest) figure.setAttribute("aria-label", figure.getAttribute("aria-label") + ", recommended team");
+                row.appendChild(figure);
+              }
+              lane.appendChild(row);
+            }
+            teamGrid.appendChild(lane);
+          }
+          if (!available.some((id) => CARD_BY_ID[id].kind === "writer") ||
+              !available.some((id) => CARD_BY_ID[id].kind === "artist")) {
+            teamGrid.appendChild(el("i", "", "A print team needs one available writer and one available artist."));
+          }
+          teamHint.innerHTML = recommended
+            ? `<b>RECOMMENDED TEAM PRESELECTED</b> &middot; ${esc(CARD_BY_ID[recommended.writer].name)} + ${esc(CARD_BY_ID[recommended.artist].name)} &middot; ${recommended.fans} projected fans`
+            : "Choose a book first. The strongest affordable team will be selected for you.";
         }
         function toSpec() {
           return sel.type === "original"
@@ -439,50 +550,38 @@ const Scenes = (() => {
         function refresh() {
           const w = sel.writer && CARD_BY_ID[sel.writer], a = sel.artist && CARD_BY_ID[sel.artist];
           const cost = (w ? w.value : 0) + (a ? a.value : 0);
-          // the packing slip: every requirement and its gap, at a glance
-          const chip = (label, good) =>
-            `<span class="req-chip ${good ? "ok" : "miss"}">${good ? "&#10004;" : "&#10008;"} ${label}</span>`;
-          const chips = [];
+          const genre = targetGenre();
+          const resources = projectedResources(genre);
+          const counter = (icon, label, need, have, good) =>
+            `<span class="resource-counter ${good ? "ok" : "miss"}">${sprHTML(icon, 0.62)}` +
+            `<span><b>${need}</b> needed<br><small>${have} available &middot; ${label}</small></span></span>`;
+          const counters = [];
           if (sel.type === "original") {
             const c = sel.comic && CARD_BY_ID[sel.comic];
-            chips.push(chip("COMIC", !!c), chip("WRITER", !!w), chip("ARTIST", !!a));
-            chips.push(c
-              ? chip(`2 ${GENRE_INFO[c.genre].name.toUpperCase()} IDEAS &middot; have ${p.ideas[c.genre]}`, p.ideas[c.genre] >= 2)
-              : chip("2 MATCHING IDEAS", false));
-          } else {
-            chips.push(chip("RIP-OFF TARGET", sel.target !== null), chip("WRITER", !!w), chip("ARTIST", !!a));
+            if (c) counters.push(counter("idea_" + c.genre, GENRE_INFO[c.genre].name + " ideas",
+              2, resources.ideas[c.genre], resources.ideas[c.genre] >= 2));
           }
-          chips.push(chip(`$${cost} TEAM FEE &middot; have $${p.money}`, p.money >= cost));
-          const strip = `<div class="req-strip">${chips.join("")}</div>`;
-          let txt = `Printing cost: <b>$${cost}</b> (team value)`;
-          let ok = false;
-          if (sel.type === "original" && sel.comic) {
+          counters.push(counter("coin_1", "team fee", `$${cost}`, `$${resources.money}`, resources.money >= cost));
+          let txt = "";
+          const matchingPlan = plansForSelection().find((plan) => plan.writer === sel.writer && plan.artist === sel.artist);
+          let ok = !!matchingPlan && matchingPlan.feasible;
+          if (sel.type === "original" && sel.comic && w && a) {
             const c = CARD_BY_ID[sel.comic];
-            txt += ` + <b>2 ${GENRE_INFO[c.genre].name} ideas</b> (you have ${p.ideas[c.genre]})`;
-            if (w && a) {
-              let fans = 1 + (c.bonus === "fan" ? 1 : 0) + (w.genre === c.genre ? 1 : 0) + (a.genre === c.genre ? 1 : 0);
-              const hy = p.hyped.find((h) => h.cardId === sel.comic);
-              if (hy) fans += hy.tokens * 2;
-              if (s.mastery[c.genre] === me()) fans += 1;
-              txt += ` &rarr; launches with ~<b>${fans} fans</b>, bonus: ${bonusLabel(c.bonus)}`;
-              ok = e.canPrintBook(me(), toSpec());
-            }
-          } else if (sel.type === "ripoff" && sel.target !== null) {
-            if (w && a) {
-              const t = s.chart[sel.target];
-              const fans = (w.genre === t.genre ? 1 : 0) + (a.genre === t.genre ? 1 : 0) + (s.mastery[t.genre] === me() ? 1 : 0);
-              txt += ` &rarr; no ideas needed &middot; launches with ~<b>${fans} fans</b>${fans === 0 ? " (off the chart until it gains one!)" : ""}`;
-              ok = e.canPrintBook(me(), toSpec());
-            }
+            txt = `<b>${esc(c.title)}</b> &middot; launches with ~<b>${matchingPlan ? matchingPlan.fans : 0} fans</b> &middot; bonus: ${bonusLabel(c.bonus)}`;
+          } else if (sel.type === "ripoff" && sel.target !== null && w && a) {
+            txt = `No ideas needed &middot; launches with ~<b>${matchingPlan ? matchingPlan.fans : 0} fans</b>`;
           }
-          if (w && a && cost > p.money) txt += ` — <b style="color:#a00">you only have $${p.money}!</b>`;
-          preview.innerHTML = strip + txt;
+          if (resources.flexibleIdeaBonuses && n === 2)
+            txt += ` <span class="projection-note">Book 1's idea bonus is assigned before this book.</span>`;
+          preview.innerHTML = `<div class="print-ledger">${counters.join("")}</div>` +
+            `<div class="print-result">${txt || "Pick a book and a complete team to see the result."}</div>`;
           m.querySelector("#print-ok").disabled = !ok;
+          sub.innerHTML = sel.type === "original"
+            ? "Choose a comic. A recommended writer + artist team is selected automatically; change either person if you prefer."
+            : "Choose a rival original to copy. No ideas are required; the recommended team is selected automatically.";
         }
-        sub.innerHTML = sel.type === "original"
-          ? "Choose a comic + writer + artist. Pay the team's value in $ and 2 matching ideas."
-          : "Copy a rival's original: team + $ only. No fans for originality, obviously.";
         renderComicRow();
+        renderTeamGrid();
         refresh();
       }, { width: "900px", onDismiss: n === 1 ? () => {} : undefined });
     }

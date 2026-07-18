@@ -66,6 +66,9 @@ contracts AOC's port must honor.
   deterministic given (engine state, rng) → every client advances bot turns locally
   when currentPlayerId() is a bot seat. No bot messages on the wire.
 - Undo: none in multiplayer (published moves are final on every screen).
-- View hashes already exist in protocol.js → the desync sentinel rides on them.
+- Protocol hashes include rules state and the seeded RNG cursor, so divergence
+  is detected before it can alter a later random outcome.
+- The AOC port stores ordered messages under append-only Durable Object keys,
+  refuses mismatched build stamps, and keeps only the newest socket per pid.
 - The old authoritative DO (revision control, redaction, hashed tickets) is RETIRED —
   private tables among friends don't need server-side hidden information.

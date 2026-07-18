@@ -1,30 +1,64 @@
-/* AGE OF COMICS — room relay (Cloudflare Worker + Durable Object).
-   The Yokai model (handoff/yokai/NOTES.md): deliberately DUMB — no game
-   rules live here, ever. The Worker serves the static game; each room is one
-   Durable Object that assigns player ids, stores the host's one-time session
-   setup ("hello"), stamps every game message with a global sequence number
-   and rebroadcasts it to everyone — sender included, because clients apply a
-   message only when it comes back ordered. The whole ordered log is kept so
-   a reconnecting client replays from any point (`since`). Rooms self-delete
-   a day after the last activity.
+/* AGE OF COMICS — trust-based lockstep room relay.
+   The relay deliberately contains no game rules. It authenticates a socket to
+   one room identity, stores the host's setup, orders messages, and replays an
+   append-only log. Every browser runs the deterministic Engine locally. */
 
-   The previous authoritative room (engine in the DO, revision control,
-   redacted views, hashed tickets) is retired: private tables among friends
-   run the deterministic engine on every client instead. */
+import "../js/build.js";
+
+const BUILD_ID = globalThis.AOC_BUILD_ID;
+const EXPIRE_MS = 24 * 60 * 60 * 1000;
+const MAX_FRAME_CHARS = 16 * 1024;
+const MAX_LOG_ENTRIES = 4000;
+const PID_RE = /^[a-f0-9]{8,16}$/; // accept old 8-char ids; mint 16-char ids
+const ENTRY_PREFIX = "e:";
 
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
     const m = url.pathname.match(/^\/api\/room\/([A-Za-z0-9]{4,8})\/ws$/);
     if (m) return env.GAME_ROOMS.get(env.GAME_ROOMS.idFromName(m[1].toUpperCase())).fetch(req);
-    if (url.pathname === "/api/build") // stale-tab check: clients compare with their baked-in stamp
-      return new Response(env.BUILD || "dev", { headers: { "cache-control": "no-store" } });
+    if (url.pathname === "/api/build")
+      return new Response(BUILD_ID, { headers: { "cache-control": "no-store" } });
     if (url.pathname.startsWith("/api/")) return new Response("not found", { status: 404 });
     return env.ASSETS.fetch(req);
   }
 };
 
-const EXPIRE_MS = 24 * 60 * 60 * 1000;
+function isObject(v) { return !!v && typeof v === "object" && !Array.isArray(v); }
+function isSeat(v, n) { return Number.isSafeInteger(v) && v >= 0 && v < n; }
+function entryKey(n) { return ENTRY_PREFIX + String(n).padStart(8, "0"); }
+function validCfg(cfg) {
+  if (!isObject(cfg) || !Number.isSafeInteger(cfg.n) || cfg.n < 2 || cfg.n > 4 ||
+      !Array.isArray(cfg.seats) || cfg.seats.length !== cfg.n) return false;
+  const humans = [];
+  for (const seat of cfg.seats) {
+    if (!isObject(seat) || !["human", "bot", "open"].includes(seat.kind)) return false;
+    if (seat.kind === "human") {
+      if (!PID_RE.test(seat.pid || "")) return false;
+      humans.push(seat.pid);
+    }
+  }
+  return new Set(humans).size === humans.length;
+}
+function validHello(hello) {
+  if (!isObject(hello) || hello.build !== BUILD_ID || !Number.isSafeInteger(hello.seed) ||
+      typeof hello.useRipoffs !== "boolean" || !["easy", "normal", "hard"].includes(hello.difficulty) ||
+      !Array.isArray(hello.players) || hello.players.length < 2 || hello.players.length > 4 ||
+      !Array.isArray(hello.seats) || !Array.isArray(hello.pids) ||
+      hello.seats.length !== hello.players.length || hello.pids.length !== hello.players.length) return false;
+  const humans = [];
+  for (let i = 0; i < hello.players.length; i++) {
+    const player = hello.players[i];
+    if (!isObject(player) || typeof player.color !== "string" || player.color.length > 24 ||
+        typeof player.name !== "string" || player.name.length > 48 ||
+        !["human", "bot"].includes(hello.seats[i]) || player.human !== (hello.seats[i] === "human")) return false;
+    if (hello.seats[i] === "human") {
+      if (!PID_RE.test(hello.pids[i] || "")) return false;
+      humans.push(hello.pids[i]);
+    } else if (hello.pids[i] !== null) return false;
+  }
+  return new Set(humans).size === humans.length;
+}
 
 export class GameRoom {
   constructor(ctx) { this.ctx = ctx; }
@@ -32,34 +66,61 @@ export class GameRoom {
   async load() {
     if (this.loaded) return;
     const s = this.ctx.storage;
-    this.hello = (await s.get("hello")) || null; // host's session setup, replayed to late joiners
-    this.cfg = (await s.get("cfg")) || null;     // host's lobby seat plan, mutable until hello
-    this.seq = (await s.get("seq")) || 0;
-    this.log = (await s.get("log")) || [];
-    this.order = (await s.get("order")) || [];   // pids by first join; host = first still connected
-    this.names = (await s.get("names")) || {};
+    const stored = await s.get(["hello", "cfg", "seq", "log", "order", "names", "seats", "pids"]);
+    this.hello = stored.get("hello") || null;
+    this.cfg = stored.get("cfg") || null;
+    this.seq = stored.get("seq") || 0;
+    this.order = stored.get("order") || [];
+    this.names = stored.get("names") || {};
+    this.seats = stored.get("seats") || (this.hello ? this.hello.seats.slice() : []);
+    this.pids = stored.get("pids") || (this.hello ? this.hello.pids.slice() : []);
+
+    // One-time migration for rooms created by the previous single-value log.
+    const legacy = stored.get("log");
+    if (Array.isArray(legacy) && legacy.length) {
+      for (let i = 0; i < legacy.length; i += 120) {
+        const batch = {};
+        for (const e of legacy.slice(i, i + 120)) {
+          if (e && Number.isSafeInteger(e.n)) batch[entryKey(e.n)] = e;
+        }
+        if (Object.keys(batch).length) await s.put(batch);
+      }
+      if (this.hello) {
+        for (const entry of legacy) this.applySeatCache(entry && entry.m, this.seats, this.pids);
+      }
+      this.seq = Math.max(this.seq, ...legacy.map((e) => e && Number.isSafeInteger(e.n) ? e.n : 0));
+      await s.put({ seq: this.seq, seats: this.seats, pids: this.pids });
+      await s.delete("log");
+    } else if (legacy !== undefined) {
+      await s.delete("log");
+    }
     this.loaded = true;
   }
-  async save() {
+
+  async saveLobby() {
     await this.ctx.storage.put({
       hello: this.hello, cfg: this.cfg, seq: this.seq,
-      log: this.log, order: this.order, names: this.names,
+      order: this.order, names: this.names, seats: this.seats, pids: this.pids,
     });
   }
 
-  connectedPids() {
+  connectedPids(excludeWs = null) {
     const out = new Set();
-    for (const ws of this.ctx.getWebSockets()) out.add(ws.deserializeAttachment().pid);
+    for (const ws of this.ctx.getWebSockets()) {
+      if (ws === excludeWs) continue;
+      const attachment = ws.deserializeAttachment();
+      if (attachment && attachment.pid) out.add(attachment.pid);
+    }
     return out;
   }
-  hostPid() {
-    const on = this.connectedPids();
+  hostPid(excludeWs = null) {
+    const on = this.connectedPids(excludeWs);
     return this.order.find((pid) => on.has(pid)) || null;
   }
-  roster() {
-    const on = this.connectedPids();
+  roster(excludeWs = null) {
+    const on = this.connectedPids(excludeWs);
     return {
-      host: this.hostPid(),
+      host: this.hostPid(excludeWs),
       players: this.order.map((pid) => ({ pid, name: this.names[pid] || "?", on: on.has(pid) })),
     };
   }
@@ -67,62 +128,139 @@ export class GameRoom {
   broadcast(obj) { for (const ws of this.ctx.getWebSockets()) this.send(ws, obj); }
   async bumpAlarm() { await this.ctx.storage.setAlarm(Date.now() + EXPIRE_MS); }
 
+  async replay(ws, since) {
+    let cursor = entryKey(since);
+    while (true) {
+      const page = await this.ctx.storage.list({ prefix: ENTRY_PREFIX, startAfter: cursor, limit: 128 });
+      if (!page.size) return;
+      for (const [key, entry] of page) { cursor = key; this.send(ws, entry); }
+      if (page.size < 128) return;
+    }
+  }
+
   async fetch(req) {
     await this.load();
     if (req.headers.get("Upgrade") !== "websocket")
       return new Response("expected websocket", { status: 426 });
     const url = new URL(req.url);
+    const origin = req.headers.get("Origin");
+    if (origin && origin !== url.origin) return new Response("cross-origin websocket denied", { status: 403 });
+    if (url.searchParams.get("build") !== BUILD_ID)
+      return new Response("client update required", { status: 409 });
+
     const name = (url.searchParams.get("name") || "Publisher").slice(0, 24);
-    let pid = url.searchParams.get("pid") || ""; // a returning player reclaims their id
-    if (!/^[a-f0-9]{8}$/.test(pid)) pid = crypto.randomUUID().slice(0, 8);
-    const since = parseInt(url.searchParams.get("since") || "0", 10) || 0;
+    let pid = url.searchParams.get("pid") || "";
+    if (!PID_RE.test(pid)) pid = crypto.randomUUID().replaceAll("-", "").slice(0, 16);
+    const since = Math.max(0, parseInt(url.searchParams.get("since") || "0", 10) || 0);
+
+    // Newest tab wins. This prevents two live sockets from issuing commands as
+    // the same trusted player identity after a refresh or duplicated tab.
+    for (const old of this.ctx.getWebSockets()) {
+      const attachment = old.deserializeAttachment();
+      if (attachment && attachment.pid === pid) {
+        this.send(old, { t: "replaced" });
+        try { old.close(4001, "desk opened elsewhere"); } catch (_e) {}
+      }
+    }
 
     const pair = new WebSocketPair();
-    this.ctx.acceptWebSocket(pair[1]); // hibernation API: no memory held while idle
+    this.ctx.acceptWebSocket(pair[1]);
     pair[1].serializeAttachment({ pid });
     if (!this.order.includes(pid)) this.order.push(pid);
     this.names[pid] = name;
-    await this.save();
+    await this.saveLobby();
 
     this.send(pair[1], { t: "you", pid, host: this.hostPid() === pid });
     if (this.cfg) this.send(pair[1], { t: "cfg", cfg: this.cfg });
     if (this.hello) this.send(pair[1], { t: "hello", hello: this.hello });
-    for (const e of this.log) if (e.n > since) this.send(pair[1], e);
+    await this.replay(pair[1], since);
+    this.send(pair[1], { t: "sync", seq: this.seq });
     this.broadcast({ t: "roster", ...this.roster() });
     await this.bumpAlarm();
     return new Response(null, { status: 101, webSocket: pair[0] });
   }
 
+  applySeatCache(m, seats, pids) {
+    if (!m || !seats.length) return;
+    if (m.k === "seat" && isSeat(m.seat, seats.length) && m.ctl === "bot") seats[m.seat] = "bot";
+    else if (m.k === "claim" && isSeat(m.seat, seats.length) && seats[m.seat] === "bot") {
+      seats[m.seat] = "human";
+      pids[m.seat] = m.pid;
+    }
+  }
+
+  seatState() { return { seats: this.seats.slice(), pids: this.pids.slice() }; }
+
   async webSocketMessage(ws, data) {
     await this.load();
+    if (typeof data !== "string" || data.length > MAX_FRAME_CHARS) {
+      this.send(ws, { t: "error", code: "BAD_FRAME" });
+      return;
+    }
     let msg;
     try { msg = JSON.parse(data); } catch (_e) { return; }
     const { pid } = ws.deserializeAttachment();
     if (msg.t === "hello") {
-      if (this.hello || pid !== this.hostPid()) return; // only the host, only once
+      if (this.hello || pid !== this.hostPid() || !validHello(msg.hello)) return;
       this.hello = msg.hello;
-      await this.save();
+      this.seats = this.hello.seats.slice();
+      this.pids = this.hello.pids.slice();
+      await this.saveLobby();
       this.broadcast({ t: "hello", hello: this.hello });
-    } else if (msg.t === "cfg") { // lobby seat plan: host-only, mutable until the game starts
-      if (this.hello || pid !== this.hostPid()) return;
+    } else if (msg.t === "cfg") {
+      if (this.hello || pid !== this.hostPid() || !validCfg(msg.cfg)) return;
       this.cfg = msg.cfg;
-      await this.save();
+      await this.saveLobby();
       this.broadcast({ t: "cfg", cfg: this.cfg });
     } else if (msg.t === "m") {
-      const e = { t: "m", n: ++this.seq, m: msg.m };
-      this.log.push(e);
-      await this.save();
-      this.broadcast(e);
+      if (!this.validRoomMessage(msg.m, pid) || this.seq >= MAX_LOG_ENTRIES) {
+        this.send(ws, { t: "error", code: "BAD_ROOM_MESSAGE" });
+        return;
+      }
+      const next = this.seq + 1;
+      const entry = { t: "m", n: next, m: msg.m };
+      const seats = this.seats.slice(), pids = this.pids.slice();
+      this.applySeatCache(msg.m, seats, pids);
+      const batch = { seq: next, [entryKey(next)]: entry };
+      if (msg.m.k === "seat" || msg.m.k === "claim") {
+        batch.seats = seats;
+        batch.pids = pids;
+      }
+      await this.ctx.storage.put(batch);
+      this.seq = next;
+      this.seats = seats;
+      this.pids = pids;
+      this.broadcast(entry);
     } else if (msg.t === "ping") {
       this.send(ws, { t: "pong" });
     }
     await this.bumpAlarm();
   }
 
-  async webSocketClose() { await this.load(); this.broadcast({ t: "roster", ...this.roster() }); }
-  async webSocketError() { await this.load(); this.broadcast({ t: "roster", ...this.roster() }); }
+  validRoomMessage(m, pid) {
+    if (!this.hello || !isObject(m) || typeof m.k !== "string") return false;
+    const n = this.hello.players.length;
+    const current = this.seatState();
+    if (m.k === "cmd") {
+      return isSeat(m.seat, n) && current.seats[m.seat] === "human" && current.pids[m.seat] === pid &&
+        typeof m.kind === "string" && m.kind.length > 0 && m.kind.length <= 64 && isObject(m.payload) &&
+        typeof m.h === "string" && /^[a-f0-9]{8}$/.test(m.h);
+    }
+    if (m.k === "seat") {
+      if (pid !== this.hostPid() || !isSeat(m.seat, n) || m.ctl !== "bot" || current.seats[m.seat] !== "human") return false;
+      return !this.connectedPids().has(current.pids[m.seat]);
+    }
+    if (m.k === "claim") {
+      if (!isSeat(m.seat, n) || current.seats[m.seat] !== "bot" || m.pid !== pid || typeof m.name !== "string") return false;
+      return !current.pids.some((owner, i) => current.seats[i] === "human" && owner === pid);
+    }
+    return false;
+  }
 
-  async alarm() { // room expired: drop everything
+  async webSocketClose(ws) { await this.load(); this.broadcast({ t: "roster", ...this.roster(ws) }); }
+  async webSocketError(ws) { await this.load(); this.broadcast({ t: "roster", ...this.roster(ws) }); }
+
+  async alarm() {
     for (const ws of this.ctx.getWebSockets()) { try { ws.close(1001, "room expired"); } catch (_e) {} }
     await this.ctx.storage.deleteAll();
     this.loaded = false;

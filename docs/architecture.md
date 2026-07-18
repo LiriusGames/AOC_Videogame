@@ -1,74 +1,62 @@
-# Runtime architecture and trust boundary
-
-The browser UI and the Cloudflare room now speak the same versioned command
-language. Solo play applies a command to a local engine; multiplayer sends that
-same command to the authoritative room. UI code does not choose an actor ID and
-does not directly mutate an authoritative multiplayer state.
-
-## Module graph
-
-```text
-data.js ─────► engine.js ─────► ai.js
-   │              │
-   └──────────────┴───────────► protocol.js
-                                   │
-                         ┌─────────┴──────────┐
-                         ▼                    ▼
-                    session.js       worker/index.mjs
-                         │           (GameRoom + SQLite)
-                         ▼
-        tutorial.js / ui-core.js / ui-scenes.js / main.js
-```
-
-- `data.js`: immutable cards, map, slots, and rule tables.
-- `engine.js`: deterministic state machine, seeded RNG, snapshot/restore.
-- `ai.js`: local solo rivals; never runs an opponent seat in a private room.
-- `protocol.js`: command schema, actor-aware validation, rollback on failure,
-  event/state privacy projection, and stable view hashes.
-- `session.js`: `LocalSession` and reconnecting `RemoteSession` implementations.
-- `tutorial.js`: a policy layer over `LocalSession`; it permits only the next
-  teaching command while the core engine continues to enforce normal rules.
-- `worker/index.mjs`: room creation, ticket authentication, Durable Object
-  routing, command deduplication, revision control, persistence, and broadcast.
+# Game and multiplayer architecture
 
 ## Shared command boundary
 
-A command envelope is at most 16 KiB and contains:
+UI code sends rules actions through `UI.session.dispatch(kind, payload)`.
+`LocalSession` applies them directly for solo/tutorial. `RemoteSession`
+validates against a scratch snapshot and sends them to the room relay; the real
+multiplayer Engine changes only when the ordered echo returns.
 
-```json
-{
-  "type": "command",
-  "v": 1,
-  "commandId": "browser-generated UUID",
-  "expectedRevision": 12,
-  "kind": "action_print",
-  "payload": { "books": [] }
-}
-```
+Main modules:
 
-The authenticated WebSocket attachment supplies the actor. Any actor value in
-client data is ignored. `applyEngineCommand` snapshots state and RNG before
-validation and restores both if the engine rejects or throws. Successful room
-commands atomically update the snapshot, revision, and deduplication ledger.
+- `engine.js`: deterministic rules state and seeded RNG.
+- `ai.js`: deterministic automated-publisher choices.
+- `protocol.js`: command validation/application and stable rules-plus-RNG hashes.
+- `session.js`: local and remote command ownership.
+- `multiplayer.js`: invite lobby and live room/desk controls.
+- `worker/index.mjs`: Durable Object relay, ordering, replay, and room expiry.
 
-Founding is intentionally genre-based over the network: the client asks for a
-genre and the authoritative engine selects the hidden card. Deck order is never
-sent merely to make the founding UI work.
+## Trusted lockstep flow
 
-## Session behavior
+1. The host sends one `hello` containing the seed, players, controls, and pids.
+2. Every client constructs the identical Engine with fixed seat order.
+3. A human client validates a move on a temporary rewind and sends
+   `{k:"cmd", seat, kind, payload, h}`.
+4. The relay verifies message shape/seat ownership, assigns a global sequence,
+   stores it, and echoes it to every socket including the sender.
+5. Every client checks `h`, applies the command, and synchronously drains any
+   bot decisions until another human decision is required.
+6. UI rendering and animations run after that deterministic state transition.
 
-`LocalSession` returns a synchronous result because its engine is in the same
-page. `RemoteSession` queues a command and may predict it against its disposable
-redacted view so synchronous scenes remain responsive; hidden-deck commands are
-never predicted. Only the room's accepted/rejected message and next snapshot are
-authoritative, and every snapshot replaces the prediction. A reconnect sends
-its last revision and receives the latest snapshot; revision conflicts clear
-queued predictions and force a resync.
+The browser and Worker also share a build stamp. A mismatched client is refused
+before entering a room, and active clients poll the stamp every 10 minutes.
+Sequence gaps are fatal: clients never skip an entry and continue silently.
 
-Undo is a solo proofing feature. Published multiplayer commands are immutable.
+This separation is important: timers and background-tab throttling may delay a
+visual, but they cannot delay or reorder bot state mutations.
 
-## Deferred graph
+## Reconnect and seat changes
 
-Matchmaking, accounts, spectators, friends, chat, and social discovery are not
-dependencies of `GameRoom` and must not enter this graph until invite-only
-private rooms pass the stability gate in `staging-playtest.md`.
+The browser stores `{room,pid,name}` locally. An automatic reconnect supplies
+the last applied sequence and receives only missed entries. The relay finishes
+with an ordered `sync` marker; until it arrives, the browser keeps input locked.
+This resolves the case where a socket dies after send but before its command
+echo. A full reload rebuilds from `hello` and replays the complete append-only
+log. Only the newest socket for a stored player id remains active, so a
+duplicated tab cannot issue concurrent commands for one desk.
+
+The host may order a disconnected human seat to become a bot. A returning or
+late player can claim a bot seat. These messages share the same ordered log as
+commands, so every client changes control at the same point in history.
+
+## Explicit trust boundary
+
+The relay is not a game referee. All clients contain full state, and rules are
+enforced locally. State hashes detect accidental divergence; they are not an
+anti-cheat mechanism. The current design is suitable for invited trusted
+playtests, not adversarial or privacy-sensitive public play.
+
+The later authoritative phase should move Engine/AI ownership to the Durable
+Object, authenticate seats with high-entropy credentials, validate commands on
+the server, persist official snapshots/revisions, and send a redacted view to
+each player.

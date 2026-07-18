@@ -32,6 +32,12 @@ jobs:
       - name: Rule regression tests
         run: node game/test/rules.js
 
+      - name: Protocol, lockstep, and tutorial contracts
+        run: |
+          node game/test/protocol.js
+          node game/test/lockstep.js
+          node game/test/tutorial.js
+
       - name: Simulation matrix (360 AI games, invariants checked)
         run: node game/test/sim.js
 
@@ -40,10 +46,24 @@ jobs:
           npm ci
           npm run test:worker
 
+      - name: Real-socket multiplayer browser smoke
+        run: |
+          npx wrangler dev --port 8787 > /tmp/aoc-wrangler.log 2>&1 &
+          wrangler_pid=$!
+          trap 'kill "$wrangler_pid"' EXIT
+          for attempt in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8787/api/build && break
+            sleep 1
+          done
+          npm run test:multiplayer-browser
+
       - name: Browser smoke test (save/resume in headless Chrome)
         run: |
           node game/test/browser.js
           node game/test/tutorial-browser.js
+
+      - name: Action-panel browser contracts
+        run: node game/test/action-panels.js
 
       - name: Accessibility gate (axe + keyboard-only scenario)
         run: node game/test/a11y.js
