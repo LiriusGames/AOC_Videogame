@@ -80,7 +80,6 @@ const FX = (() => {
         const front = el("div", "rev-front" + (it.front ? " has-back" : ""));
         if (it.front) // what the pick looked like before the flip
           front.appendChild(sprHD(it.front, it.frontScale || 1.2, it.frontRound ? "round-spr" : ""));
-        front.appendChild(el("b", "", "?"));
         const back = el("div", "rev-back");
         back.appendChild(sprHD(it.sprite, it.scale || 2, it.round ? "round-spr" : ""));
         back.appendChild(el("div", "fx-title", it.title || ""));

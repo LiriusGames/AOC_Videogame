@@ -700,7 +700,7 @@ const Scenes = (() => {
               const item = el("div", "preview-face-slot");
               if (id) {
                 item.appendChild(spr(faceBigOf(id), 0.55));
-                item.appendChild(el("span", "", `${CARD_BY_ID[id].name.split(" ")[0]} v${CARD_BY_ID[id].value}`));
+                item.appendChild(el("span", "", `${CARD_BY_ID[id].name.split(" ")[0]} $${CARD_BY_ID[id].value}`));
               } else {
                 item.appendChild(el("div", "face-placeholder-circle", "?"));
                 item.appendChild(el("span", "", kind.toUpperCase()));
@@ -730,7 +730,7 @@ const Scenes = (() => {
               const item = el("div", "preview-face-slot");
               if (id) {
                 item.appendChild(spr(faceBigOf(id), 0.55));
-                item.appendChild(el("span", "", `${CARD_BY_ID[id].name.split(" ")[0]} v${CARD_BY_ID[id].value}`));
+                item.appendChild(el("span", "", `${CARD_BY_ID[id].name.split(" ")[0]} $${CARD_BY_ID[id].value}`));
               } else {
                 item.appendChild(el("div", "face-placeholder-circle", "?"));
                 item.appendChild(el("span", "", kind.toUpperCase()));

@@ -716,7 +716,7 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
   overflow-x: auto; overflow-y: hidden;
 }
 #hud-hand::before {
-  content: "\2605 TEAM & PROJECTS \2605"; position: absolute; top: -3px; left: -3px;
+  content: attr(data-label); position: absolute; top: -3px; left: -3px;
   background: var(--gold); color: var(--ink); border: 2px solid var(--ink);
   font-family: var(--f-display); font-size: 10px; padding: 3px 6px; z-index: 2;
 }
@@ -927,6 +927,7 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
   display: inline-flex; align-items: baseline; gap: 1px; padding: 1px 4px;
   border: 1px solid currentColor; border-radius: 2px; background: rgba(245,200,110,.88);
   color: var(--ink); font: 600 10px/1 var(--f-display); letter-spacing: 0;
+  text-shadow: none !important;
 }
 .value-mark > span { font-size: 7px; opacity: .75; }
 .help-actions { margin: 7px 0 10px 20px; display: grid; gap: 5px; }
@@ -1069,8 +1070,9 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 .genre-mark .spr {
   vertical-align: middle;
   box-sizing: content-box !important;
-  border: 1px solid var(--ink) !important;
+  border: none !important;
   background-color: transparent !important;
+  /* genre icons show as raw sprites — no square frame */
 }
 .spr.round-spr { border-radius: 50%; }
 .ctx-strip {

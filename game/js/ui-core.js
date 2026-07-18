@@ -690,8 +690,7 @@ function offerStrip(action) {
         const g0 = s.decks.comics.length ? CARD_BY_ID[s.decks.comics[s.decks.comics.length - 1]].genre : "scifi";
         const bd = el("div", "offer-comic offer-blind");
         bd.appendChild(spr("back_orig_" + g0, 0.38));
-        bd.appendChild(el("b", "ob-q", "?"));
-        bd.title = "Slush pile — a face-down comic can be drawn blind";
+        bd.title = "Freelance Pitch — draw the top project card face-down";
         strip.appendChild(bd);
       }
       break;
@@ -1164,6 +1163,7 @@ function renderHUD() {
   const entries = p.hand.map((c) => ({ id: c, hyped: false }))
     .concat(p.hyped.map((h) => ({ id: h.cardId, hyped: true, tokens: h.tokens })))
     .filter((c) => !(UI.handRevealPending && UI.handRevealPending[c.id]));
+  hand.setAttribute("data-label", `\u2605 TEAM & PROJECTS \u00b7 ${entries.length}/6 \u2605`);
   const groups = [
     { kind: "writer", label: "WRITERS", list: [] },
     { kind: "artist", label: "ARTISTS", list: [] },
