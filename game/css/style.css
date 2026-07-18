@@ -353,6 +353,9 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 #ai-status .dots::after { content: ""; animation: think 1.2s steps(4) infinite; }
 @keyframes think { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
 .your-turn #locations { outline: 4px solid var(--gold); outline-offset: -4px; }
+/* during the tutorial the memo's gold ring is the ONLY highlight — the
+   your-turn frame reads as a second, competing ring */
+.tutorial-active .your-turn #locations { outline: none; }
 
 /* hover magnify: scale in place + inspector dock on the far side */
 .magnified { transform: scale(1.22); z-index: 8; position: relative; }
@@ -954,9 +957,12 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 .map-hud b { font-family: var(--f-display); font-size: 14px; }
 
 /* toast + zoom */
-#toast-root { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); z-index: 80; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
+/* toasts must clear the tutorial veil (z 920) or the ring's dim swallows
+   them mid-message */
+#toast-root { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); z-index: 930; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
 .toast {
   background: var(--ink); color: var(--paper); border: 2px solid var(--gold); border-radius: 8px; padding: 6px 14px; font-size: 17px;
+  max-width: 680px; text-align: center;
   animation: toast-in 2.6s forwards;
 }
 .toast.big { font-family: var(--f-display); font-size: 18px; padding: 12px 20px; background: var(--red); color: #fff; }

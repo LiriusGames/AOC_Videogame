@@ -34,6 +34,7 @@ const Tutor = (() => {
   let active = false;
   let state = freshState();
   let currentMemo = "";
+  let renderedGate = ""; // last beat|salesStep the board was rendered under
 
   function freshState() {
     return {
@@ -140,6 +141,14 @@ const Tutor = (() => {
       state.beat = "free";
       state.completedCore = true;
       persistFlag();
+    }
+    // the tiles bake Tutor.allowedAction into their render: a beat change
+    // MUST re-render the board or tiles rendered during an interstitial
+    // stay blocked forever (the "cannot progress at ideas" stall)
+    const gateKey = state.beat + "|" + state.salesStep;
+    if (gateKey !== renderedGate) {
+      renderedGate = gateKey;
+      if (UI.engine && typeof renderLocations === "function") renderLocations();
     }
     const memo = MEMOS[state.beat] || MEMOS.free;
     let text = memo[1];

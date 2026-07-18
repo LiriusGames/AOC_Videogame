@@ -24,13 +24,7 @@ const Main = (() => {
     };
     document.getElementById("btn-tutorial").onclick = () => {
       SFX.unlock(); SFX.play("click"); SFX.startMusic();
-      // a saved first day can be resumed or torn up for a fresh start
-      if (Save.peek("tutorial") && confirm("Resume your saved first day?\n\nOK resumes where you left off. Cancel tears it up and starts the lesson from scratch.")) {
-        resumeGame("tutorial");
-      } else {
-        Save.clear("tutorial");
-        newTutorial();
-      }
+      tutorialEntry();
     };
     document.getElementById("btn-how").onclick = () => { SFX.unlock(); Scenes.helpModal(); };
     refreshContinue();
@@ -153,6 +147,29 @@ const Main = (() => {
     flushEvents();
     renderAll();
     advance();
+  }
+
+  // a saved first day gets a real choice: pick the lesson up or tear it up
+  function tutorialEntry() {
+    const saved = Save.peek("tutorial");
+    if (!saved) return newTutorial();
+    openModal((m) => {
+      m.appendChild(el("h2", "", "FIRST DAY ON THE JOB"));
+      m.appendChild(el("div", "modal-sub",
+        `A lesson is already in progress &mdash; round ${saved.state.round} of 5.`));
+      modalButtons(m, [
+        { label: "CANCEL", fn: () => closeModal() },
+        { label: "START OVER", fn: () => {
+            closeModal();
+            Save.clear("tutorial");
+            newTutorial();
+          } },
+        { label: "&#9654; CONTINUE THE LESSON", cls: "btn-go", fn: () => {
+            closeModal();
+            resumeGame("tutorial");
+          } },
+      ]);
+    }, { width: "460px", onDismiss: () => {} });
   }
 
   function newTutorial() {
@@ -296,7 +313,7 @@ const Main = (() => {
         UI.busy = false;
         const p = e.player(pid);
         const key = `inc-${s.round}-${pid}`;
-        if (UI.lastTurnKey !== key) { UI.lastTurnKey = key; UI.undoSnap = e.snapshot(); }
+        if (UI.lastTurnKey !== key) { UI.lastTurnKey = key; UI.undoSnap = e.snapshot(); UI.undoDirty = false; }
         if (p.startingPicks) Scenes.startingPicksModal();
         else if (e.increaseOptions(pid).length) {
           const wait = (typeof heroRemaining === "function" ? heroRemaining() : 0) + 650;
@@ -331,6 +348,7 @@ const Main = (() => {
         if (UI.lastTurnKey !== key) {
           UI.lastTurnKey = key;
           UI.undoSnap = e.snapshot();
+          UI.undoDirty = false; // nothing taken back yet: UNDO would be a no-op
           renderTopbar();
           // show the whole newsroom: bright = still to assign, ghost = spent
           const p = e.player(pid);
@@ -373,6 +391,7 @@ const Main = (() => {
       return;
     }
     UI.pendingReview = true; // a proof stamp is owed once the transaction resolves
+    UI.undoDirty = true;     // there is now a real move for UNDO to take back
     const delay = flushEvents();
     renderAll();
     queueAdvance(Math.max(120, Math.min(delay, 500)));
@@ -433,12 +452,13 @@ const Main = (() => {
   // (includes any AI moves shown since — they replay from the same rng).
   function doUndo() {
     if (UI.session && UI.session.mode === "remote") return toast("Published room moves cannot be rewound.");
-    if (!UI.undoSnap || UI.autoplay) return;
+    if (!UI.undoSnap || !UI.undoDirty || UI.autoplay) return;
     clearTimeout(advanceTimer);
     UI.pendingReview = false;
     hideReview();
     UI.engine.restore(UI.undoSnap);
     UI.undoSnap = null;
+    UI.undoDirty = false;
     UI.eventCursor = UI.engine.events.length;
     UI.lastTurnKey = null;
     UI.busy = false;
