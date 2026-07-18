@@ -118,7 +118,13 @@ function fmtGenre(g) { return `${genreMark(g, 0.48)} ${GENRE_INFO[g].name}`; }
 // Values are rules information, not decoration. A numbered printer's slug is
 // clearer than the old row of star glyphs and remains readable at small sizes.
 function valueMark(value) {
-  return `<span class="value-mark" title="Value ${value}"><span>V</span>${value}</span>`;
+  return `<span class="value-mark" title="Salary: $${value}">$${value}</span>`;
+}
+function valueTierName(val) {
+  if (val === 1) return "Rookie ($1)";
+  if (val === 2) return "Veteran ($2)";
+  if (val === 3) return "Superstar ($3)";
+  return `$${val}`;
 }
 function P(pid) { return UI.engine.player(pid); }
 function isHuman(pid) { return UI.session ? UI.session.isLocalSeat(pid) : P(pid).human; }
@@ -226,7 +232,7 @@ function personFigure(creativeId, opts = {}) {
   if (c.value === 1 && !opts.noRookie)
     d.appendChild(el("div", "fig-extra", `<span class="chip" style="background:#33716c;color:#fff">+IDEA</span> rookie`));
   if (opts.extra) d.appendChild(el("div", "fig-extra", opts.extra));
-  d.setAttribute("aria-label", `${c.name} — ${GENRE_INFO[c.genre].name} ${c.kind}, value ${c.value}` +
+  d.setAttribute("aria-label", `${c.name} — ${GENRE_INFO[c.genre].name} ${c.kind}, ${valueTierName(c.value)}` +
     (c.value === 1 && !opts.noRookie ? ", rookie: signs with a free idea" : ""));
   if (opts.balloon) d.appendChild(el("div", "balloon", opts.balloon));
   if (opts.onpick) d.onclick = () => { SFX.play("click"); opts.onpick(d); };
@@ -234,7 +240,7 @@ function personFigure(creativeId, opts = {}) {
   // hover: the face up close + the facts — no trading card at runtime
   if (opts.noZoom) return d;
   attachZoom(d, faceBigOf(creativeId),
-    `<b>${esc(c.name)}</b><br>${GENRE_INFO[c.genre].name} ${c.kind} &middot; value ${c.value}`);
+    `<b>${esc(c.name)}</b><br>${GENRE_INFO[c.genre].name} ${c.kind} &middot; ${valueTierName(c.value)}`);
   return d;
 }
 // a blind deck draw: the same cream disc as every real face, holding the
@@ -244,14 +250,13 @@ function mysteryFigure(kind, value, opts = {}) {
   const d = el("div", "figure mystery" + (opts.cls ? " " + opts.cls : ""));
   const face = el("div", "fig-face mystery");
   face.appendChild(spr("mysterybig_" + kind, 1)); // 56px native
-  face.appendChild(el("b", "", "?"));
   d.appendChild(face);
   d.appendChild(el("div", "fig-name", opts.name || "Scout the field"));
   const meta = el("div", "fig-meta");
   meta.appendChild(spr("tag_" + kind, 0.7));
   meta.appendChild(el("b", "fig-val", valueMark(value)));
   d.appendChild(meta);
-  d.setAttribute("aria-label", `Scout the field — mystery ${kind} of value ${value}, signed blind from the deck`);
+  d.setAttribute("aria-label", `Scout the field — mystery ${kind} of ${valueTierName(value)}, signed blind from the deck`);
   if (opts.onpick) d.onclick = () => { SFX.play("click"); opts.onpick(d); };
   return d;
 }
@@ -1184,9 +1189,9 @@ function renderHUD() {
         hc = el("div", "team-chip");
         hc.appendChild(spr(faceBigOf(c.id), 0.55, "no-frame"));
         hc.appendChild(el("span", "tc-meta", `${genreMark(card.genre, 0.45)}${valueMark(card.value)}`));
-        hc.title = `${card.name} — ${GENRE_INFO[card.genre].name} ${card.kind} v${card.value}`;
+        hc.title = `${card.name} — ${GENRE_INFO[card.genre].name} ${card.kind} ${valueTierName(card.value)}`;
         hc.setAttribute("aria-label",
-          `${card.name}: ${GENRE_INFO[card.genre].name} ${card.kind}, value ${card.value}. Open details.`);
+          `${card.name}: ${GENRE_INFO[card.genre].name} ${card.kind}, ${valueTierName(card.value)}. Open details.`);
       } else {
         hc = el("div", "project-chip");
         hc.appendChild(spr(coverOf(c.id), 0.55));
@@ -1245,7 +1250,7 @@ function comicInfoModal(c) {
       chip.appendChild(el("span", "sc-label", `${esc(cr.name)}<br>${kind}` +
         (cr.genre === c.genre ? " &middot; <b>SPECIALIZED</b>" : "")));
       attachZoom(chip, faceBigOf(cr.id),
-        `<b>${esc(cr.name)}</b><br>${GENRE_INFO[cr.genre].name} ${kind} &middot; v${cr.curValue}`);
+        `<b>${esc(cr.name)}</b><br>${GENRE_INFO[cr.genre].name} ${kind} &middot; ${valueTierName(cr.curValue)}`);
       teamRow.appendChild(chip);
     }
     team.appendChild(teamRow);
@@ -1281,13 +1286,12 @@ function handCardInfoModal(entry) {
       head.appendChild(el("div", "ph-tag",
         `${sprHTML("tag_" + card.kind, 0.8)} ${genreMark(card.genre, 0.8)} ` +
         `<b>${GENRE_INFO[card.genre].name}</b> ${card.kind} &middot; ` +
-        `<b class="fig-val" style="font-style:normal">${valueMark(card.value)}</b>` +
-        (card.value === 1 ? ` &middot; rookie` : "")));
+        `<b>${valueTierName(card.value)}</b>`));
       right.appendChild(head);
       
       const body = panelSection(right, "THE CONTRACT");
       body.appendChild(el("div", "modal-sub",
-        `Printing a book with them costs their value (<b>$${card.value}</b>) as part of the team fee.<br>` +
+        `Printing a book with them costs their salary (<b>$${card.value}</b>) as part of the team fee.<br>` +
         `<span style="font-size:15px;color:#57452c">On a ${GENRE_INFO[card.genre].name} book they are <b>SPECIALIZED</b>: ` +
         `+1 fan at print, and they can train during Creative Development.</span>` +
         (card.value === 1 ? `<br><span style="font-size:15px;color:#33716c"><b>Rookie:</b> signed with a free ${GENRE_INFO[card.genre].name} idea.</span>` : "")));
@@ -1362,8 +1366,8 @@ function animateEvent(ev) {
             front: "mysterybig_" + cd.kind, frontScale: 1.15,
             isPerson: true,
             title: cd.name.toUpperCase(),
-            sub: `${GENRE_INFO[cd.genre].name} ${cd.kind} &middot; <b>value ${cd.value}</b>` +
-              (cd.value === 1 ? " &middot; rookie (+1 idea)" : ""),
+            sub: `${genreMark(cd.genre, 0.45)} ${cd.kind} &middot; <b>${valueTierName(cd.value)}</b>` +
+              (cd.value === 1 ? " &middot; +1 free idea!" : ""),
             toRef: () => document.querySelector(`#hud-hand [data-card="${c}"]`) ||
               document.getElementById("hud-hand"),
             onLand: () => {
@@ -1391,7 +1395,7 @@ function animateEvent(ev) {
           front: "back_orig_" + cd.genre,
           isComic: true,
           title: cd.title.toUpperCase(),
-          sub: `${GENRE_INFO[cd.genre].name} original &middot; prints with ${BONUS_CHIP[cd.bonus][0]}`,
+          sub: `${genreMark(cd.genre, 0.45)} original &middot; prints with ${BONUS_CHIP[cd.bonus][0]}`,
           toRef: () => document.querySelector(`#hud-hand [data-card="${ev.cardId}"]`) ||
             document.getElementById("hud-hand"),
           onLand: () => {

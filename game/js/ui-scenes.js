@@ -129,13 +129,21 @@ const Scenes = (() => {
         if (!id) return `<b style="color:#8a2f22">pick a ${kind}</b>`;
         if (id === "deck") return `the scouted ${kind} <i>(blind)</i>`;
         const c = CARD_BY_ID[id];
-        return `<b>${esc(c.name)}</b> (${GENRE_INFO[c.genre].name} &middot; value ${c.value})`;
+        return `<b>${esc(c.name)}</b> (${GENRE_INFO[c.genre].name} &middot; ${valueTierName(c.value)})`;
       }
       function refresh() {
         const rookies = [sel.writer, sel.artist]
           .filter((c) => c && c !== "deck" && CARD_BY_ID[c].value === 1).length;
+        const currentCount = P(me()).hand.length;
+        const capacityWarning = (currentCount > 4)
+          ? `<div class="capacity-warning" style="margin-top: 8px;">` +
+            `<span class="warning-title">&#9888; OFFICE CAPACITY WARNING</span>` +
+            `<p>Your desk is at capacity (${currentCount}/6). Signing these two creatives will exceed the limit, forcing you to discard down to 6 at the end of the turn.</p>` +
+            `</div>`
+          : "";
         foot.innerHTML = `<b>Free.</b> You sign ${pickName(sel.writer, "writer")} + ${pickName(sel.artist, "artist")}` +
-          (rookies ? ` &middot; <b>+${rookies} free idea${rookies > 1 ? "s" : ""}</b> (rookie)` : "");
+          (rookies ? ` &middot; <b>+${rookies} free idea${rookies > 1 ? "s" : ""}</b> (rookie)` : "") +
+          capacityWarning;
         m.querySelector("#hire-ok").disabled = !(sel.writer && sel.artist);
       }
       refresh();
@@ -144,7 +152,7 @@ const Scenes = (() => {
 
   // ---------------------------------------------------------------- DEVELOP
   function developScene(initial = null) {
-    const e = E(), s = e.state;
+    const e = E(), s = e.state, p = P(me());
     let sel = initial ? { ...initial } : null; // {comic} | {searchGenre}
     openModal((m) => {
       panelHead(m, "develop", "WRITERS' ROOM &mdash; DEVELOP",
@@ -166,17 +174,16 @@ const Scenes = (() => {
         row.appendChild(tile);
       }
       if (s.decks.comics.length + s.discards.comics.length > 0) {
-        // blind draw off the slush pile: a face-down back + the "?" mark
+        // blind draw off the Freelance Pitch: a face-down back
         const blind = cardPick(row, null, {
           back: "back_orig_" + (s.decks.comics.length ? CARD_BY_ID[s.decks.comics[s.decks.comics.length - 1]].genre : "scifi"),
-          label: "Slush pile<br><i>blind draw</i>",
+          label: "Freelance Pitch<br><i>blind draw</i>",
           onpick: (d) => { sel = { comic: "deck" }; selectOne(m, d); refresh(); },
         });
-        blind.appendChild(el("div", "pc-cost", "?"));
         blind.addEventListener("mouseenter", () => showcaseSlush());
         blind.addEventListener("mouseleave", () => restoreShowcase());
         if (sel && sel.comic === "deck") blind.classList.add("selected");
-        blind.setAttribute("aria-label", "Slush pile — option the top comic of the deck, blind");
+        blind.setAttribute("aria-label", "Freelance Pitch — option the top comic of the deck, blind");
       }
       body.appendChild(row);
       
@@ -221,6 +228,17 @@ const Scenes = (() => {
           } },
       ]);
       
+      function capacityWarningHTML(addedCount) {
+        const currentCount = p.hand.length;
+        if (currentCount + addedCount > 6) {
+          return `<div class="capacity-warning">` +
+            `<span class="warning-title">&#9888; OFFICE CAPACITY WARNING</span>` +
+            `<p>Your desk is at maximum capacity (${currentCount}/6). Optioning this project will exceed the limit, forcing you to discard a card at the end of the turn.</p>` +
+            `</div>`;
+        }
+        return "";
+      }
+
       function showcaseComic(c) {
         const card = CARD_BY_ID[c];
         rightCol.innerHTML = "";
@@ -231,7 +249,8 @@ const Scenes = (() => {
         info.innerHTML = `<h3 class="showcase-title">${esc(card.title)}</h3>` +
           `<div class="showcase-meta">${genreMark(card.genre, 0.7)} <b>${GENRE_INFO[card.genre].name.toUpperCase()}</b></div>` +
           `<div class="showcase-bonus">PRINT BONUS: ${bonusChip(card.bonus)}</div>` +
-          `<div class="showcase-desc">Option this project. When printed with 2 matching ideas and a specialized team, it launches with the print bonus and starts earning fans on the chart.</div>`;
+          `<div class="showcase-desc">Option this project. When printed with 2 matching ideas and a specialized team, it launches with the print bonus and starts earning fans on the chart.</div>` +
+          capacityWarningHTML(1);
         rightCol.appendChild(info);
       }
       
@@ -242,9 +261,10 @@ const Scenes = (() => {
         sc.appendChild(sprHD("back_orig_" + lastGenre, 1.5));
         rightCol.appendChild(sc);
         const info = el("div", "showcase-info");
-        info.innerHTML = `<h3 class="showcase-title">SLUSH PILE DRAW</h3>` +
+        info.innerHTML = `<h3 class="showcase-title">FREELANCE PITCH</h3>` +
           `<div class="showcase-meta"><b>BLIND DECK DRAW</b></div>` +
-          `<div class="showcase-desc">Draw the top card of the comic project deck face-down. You won't know the exact title or launch bonus until it lands on your desk.</div>`;
+          `<div class="showcase-desc">Draw the top card of the comic project deck face-down. You won't know the exact title or launch bonus until it is added to your desk.</div>` +
+          capacityWarningHTML(1);
         rightCol.appendChild(info);
       }
       
@@ -256,7 +276,8 @@ const Scenes = (() => {
         const info = el("div", "showcase-info");
         info.innerHTML = `<h3 class="showcase-title">COMMISSION ${GENRE_INFO[g].name.toUpperCase()}</h3>` +
           `<div class="showcase-meta"><b>SEARCH FEE: $4</b></div>` +
-          `<div class="showcase-desc">Search the entire project deck for any <b>${GENRE_INFO[g].name}</b> comic and put it on your desk. Useful when you have matching artists/writers ready in that genre!</div>`;
+          `<div class="showcase-desc">Search the entire project deck for any <b>${GENRE_INFO[g].name}</b> comic and put it on your desk. Useful when you have matching artists/writers ready in that genre!</div>` +
+          capacityWarningHTML(1);
         rightCol.appendChild(info);
       }
       
@@ -1267,12 +1288,10 @@ const Scenes = (() => {
         });
       }
       modalButtons(m, buttons);
-    }, { width: "780px", onDismiss: () => {
-        if (UI.undoAllowed) {
-          closeModal();
-          Main.undo();
-        }
-      } });
+    }, { width: "780px", onDismiss: UI.undoAllowed ? () => {
+        closeModal();
+        Main.undo();
+      } : null });
   }
 
   function chooseIdeasModal(pd) {
@@ -1791,7 +1810,7 @@ const Scenes = (() => {
           const cr = c.creatives[o.kind];
           const line = el("div", "card-row");
           line.appendChild(el("span", "modal-sub",
-            `${sprHTML(faceBigOf(cr.id), 0.5)} <b>${esc(cr.name)}</b> (${o.kind} on <b>${esc(c.title)}</b>) v${cr.curValue} &rarr; v${o.newValue} &middot; ${o.mode} for <b>$${o.cost}</b>`));
+            `${sprHTML(faceBigOf(cr.id), 0.5)} <b>${esc(cr.name)}</b> (${o.kind} on <b>${esc(c.title)}</b>) $${cr.curValue} &rarr; $${o.newValue} &middot; ${o.mode} for <b>$${o.cost}</b>`));
           const b = el("button", "btn btn-small", o.mode.toUpperCase() + " $" + o.cost);
           b.onclick = () => {
             SFX.play("cash");
