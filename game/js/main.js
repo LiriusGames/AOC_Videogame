@@ -207,8 +207,15 @@ const Main = (() => {
     show("screen-game");
     document.getElementById("dialogue").innerHTML = "";
     say(null, `<b>Back at the office.</b> Resuming round ${d.state.round} of 5.`);
-    if (UI.mode === "tutorial") Tutor.restore(d.tutorial);
-    else Tutor.hide();
+    if (UI.mode === "tutorial") {
+      if (!Tutor.restore(d.tutorial)) {
+        // stale lesson save (older scenario edition): a tutorial without its
+        // guide is a broken tutorial — tear it up and start the day fresh
+        Save.clear("tutorial");
+        toast("Your saved lesson was from an older edition &mdash; starting the first day fresh.");
+        return newTutorial();
+      }
+    } else Tutor.hide();
     renderAll();
     advance();
   }
@@ -229,10 +236,9 @@ const Main = (() => {
     renderAll();
 
     if (s.gameOver) { if (!remote) Save.clear(); Scenes.endgameModal(s.scores); return; }
-    // autosave: the state is always consistent here, but an unconfirmed
-    // action is not saved — reloading during review returns to the last
-    // confirmed state (see reviewHold)
-    if (!remote && !reviewHold(s)) Save.store();
+    // autosave: actions file themselves, so the state here is always the
+    // real, committed state
+    if (!remote) Save.store();
 
     // spectator mode: the AI drives the human seat through engine calls
     if (UI.autoplay) {
@@ -276,12 +282,11 @@ const Main = (() => {
       return;
     }
 
-    // the completed action holds here until the human confirms or undoes;
-    // results (hero presentations) finish playing before the bar appears
-    if (reviewHold(s)) {
-      if (heroRemaining() > 0) { queueAdvance(heroRemaining() + 80); return; }
-      showReview();
-      return;
+    // a completed human action files itself: a transient proof stamp names
+    // it, the top-bar UNDO stays armed, and the world keeps moving
+    if (UI.pendingReview && !s.pending && !s.awaitingSpecial && !s.salesSession && !s.printX2) {
+      UI.pendingReview = false;
+      fileProof();
     }
 
     if (s.phase === "increase") {
@@ -367,64 +372,45 @@ const Main = (() => {
       UI.busy = true;
       return;
     }
-    UI.pendingReview = true; // the action awaits confirm/undo before AI acts
+    UI.pendingReview = true; // a proof stamp is owed once the transaction resolves
     const delay = flushEvents();
     renderAll();
     queueAdvance(Math.max(120, Math.min(delay, 500)));
   }
 
-  // ------------------------------------------------------ post-action review
-  // The world holds after a completed human action: no AI mutation, no AI
-  // timer, and no autosave (reloading mid-review returns to the last
-  // confirmed state — an unconfirmed action is effectively undone).
-  // The hold only engages once the whole transaction is resolved and there
-  // is a snapshot to undo to. Autoplay is unaffected.
-  function reviewHold(s) {
-    return UI.pendingReview && !UI.autoplay && !s.gameOver && !!UI.undoSnap &&
-      !s.pending && !s.awaitingSpecial && !s.salesSession && !s.printX2;
-  }
-  // the slip names what was just done (placement diary for actions; the
-  // founding/development dialogs stash a hint before committing)
+  // -------------------------------------------------------- the proof stamp
+  // No confirm step: a finished action names itself on a transient slip and
+  // the game rolls on. The top-bar UNDO stays armed until the next decision
+  // arms a fresh snapshot, so any latest move can still be rewound.
   const REVIEW_LABELS = {
     hire: "TALENT SIGNED", develop: "COMIC OPTIONED", ideas: "IDEAS COLLECTED",
     print: "BOOKS PRINTED", royalties: "ROYALTIES COLLECTED", sales: "SALES RUN FILED",
   };
+  function lastHumanAction() {
+    const s = UI.engine.state;
+    const last = s.placeSeq && s.placeSeq[s.placeSeq.length - 1];
+    return last && last.player === UI.humanId ? last.action : null;
+  }
   function reviewLabel() {
     if (UI.reviewHint) return UI.reviewHint;
-    const s = UI.engine.state;
-    const last = s.placeSeq && s.placeSeq[s.placeSeq.length - 1];
-    if (last && last.player === UI.humanId && REVIEW_LABELS[last.action]) return REVIEW_LABELS[last.action];
-    return "ACTION COMPLETE";
+    const action = lastHumanAction();
+    return (action && REVIEW_LABELS[action]) || "ACTION COMPLETE";
   }
-  function showReview() {
+  let proofTimer = null;
+  function fileProof() {
     const bar = document.getElementById("review-bar");
-    if (!bar.hidden) return;
-    UI.busy = false;
-    setAIStatus(null);
     const label = reviewLabel();
+    UI.reviewHint = null;
     bar.querySelector(".rb-text").innerHTML = "&#10004; PROOF &mdash; " + label;
     bar.hidden = false;
-    document.getElementById("screen-game").classList.add("reviewing");
-    announce(label.toLowerCase() + ". Confirm to continue, or undo.");
-    document.getElementById("btn-review-confirm").focus();
-    if (Tutor.active) Tutor.onReviewShown();
+    announce(label.toLowerCase() + " filed. Undo rewinds it until your next move.");
+    clearTimeout(proofTimer);
+    proofTimer = setTimeout(hideReview, 2600);
+    if (Tutor.active) Tutor.onProofFiled(lastHumanAction());
   }
   function hideReview() {
+    clearTimeout(proofTimer);
     document.getElementById("review-bar").hidden = true;
-    document.getElementById("screen-game").classList.remove("reviewing");
-  }
-  function confirmReview() {
-    const s = UI.engine.state;
-    const last = s.placeSeq && s.placeSeq[s.placeSeq.length - 1];
-    const action = last && last.player === UI.humanId ? last.action : null;
-    UI.pendingReview = false;
-    UI.undoSnap = null; // the action is locked in
-    UI.reviewHint = null;
-    hideReview();
-    if (Tutor.active) Tutor.onReviewConfirmed(action);
-    const loc = document.querySelector('#locations [role="button"]');
-    if (loc) loc.focus();
-    advance();
   }
 
   // ------------------------------------------------------------- UI scale
@@ -559,9 +545,9 @@ const Main = (() => {
     addEventListener("resize", updateMatNav);
     document.getElementById("btn-undo").onclick = () => { SFX.play("click"); doUndo(); };
     document.getElementById("btn-review-undo").onclick = () => { SFX.play("click"); doUndo(); };
-    document.getElementById("btn-review-confirm").onclick = () => { SFX.play("click"); confirmReview(); };
+    // U / Ctrl+Z rewind the latest move whenever an undo point is armed
     document.addEventListener("keydown", (ev) => {
-      if (document.getElementById("review-bar").hidden || modalIsOpen()) return;
+      if (modalIsOpen() || (ev.target && ev.target.closest && ev.target.closest("input, textarea"))) return;
       if (ev.key === "u" || ev.key === "U" || (ev.key === "z" && ev.ctrlKey)) {
         ev.preventDefault();
         doUndo();

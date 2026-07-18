@@ -53,17 +53,19 @@ function check(value, name) {
         token.click(); token.click();
         document.querySelector("#sp-ok").click();
       });
-      await page.waitForFunction(() => !document.querySelector("#review-bar").hidden);
+      // the founding files itself: the stamp lands and the proof note follows
+      await page.waitForFunction(() => Tutor.state.beat === "proof_confirm", { timeout: 10000 });
     }
     await foundHouse();
-    check(await page.evaluate(() => Tutor.state.beat === "proof_confirm"), "founding proof is ready to stamp at once (no forced undo drill)");
-    // undo stays voluntary: rewinding reopens the vault, then the proof returns
-    await page.click("#btn-review-undo");
+    check(await page.evaluate(() => !document.querySelector("#review-bar").hidden),
+      "the founding files itself with a proof stamp (no confirm step)");
+    // undo stays voluntary: the top-bar button rewinds and reopens the vault
+    await page.click("#btn-undo");
     await page.waitForFunction(() => Tutor.state.beat === "founding" && !!document.querySelector("#modal-root.active"));
     await foundHouse();
-    check(await page.evaluate(() => Tutor.state.beat === "proof_confirm"), "voluntary undo reopens the vault and returns to the proof");
-    await page.click("#btn-review-confirm");
-    // the premises tour: rail, board, chart — with one BACK re-read on the way
+    check(await page.evaluate(() => Tutor.state.beat === "proof_confirm"), "voluntary undo reopens the vault and returns to the proof note");
+    // the proof note is an interstitial now: NEXT starts the premises tour
+    await page.$eval("#tutor-card .tutor-next", (btn) => btn.click());
     await page.waitForFunction(() => Tutor.state.beat === "tour_rail", { timeout: 10000 });
     await page.$eval("#tutor-card .tutor-next", (btn) => btn.click());
     await page.waitForFunction(() => Tutor.state.beat === "tour_board");
@@ -95,8 +97,7 @@ function check(value, name) {
           Main.advance();
         }
       });
-      await page.waitForFunction(() => !document.querySelector("#review-bar").hidden, { timeout: 15000 });
-      await page.click("#btn-review-confirm");
+      // no confirm step: the stamp files the action and the beat moves on
       await waitTurn(nextBeat);
     }
 
@@ -121,8 +122,6 @@ function check(value, name) {
       }
       Main.afterHumanMove();
     });
-    await page.waitForFunction(() => !document.querySelector("#review-bar").hidden, { timeout: 5000 });
-    await page.click("#btn-review-confirm");
     await page.waitForFunction(() => UI.engine.state.round === 2 && Tutor.state.beat === "free", { timeout: 20000 });
 
     const completion = await page.evaluate(() => ({

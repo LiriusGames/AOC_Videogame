@@ -161,15 +161,14 @@ if (location.protocol === "file:") {
     </div>
   </section>
 
-  <!-- post-action review: a proof slip stamped over the dimmed board —
-       inspect the result, then undo or continue -->
-  <div id="review-bar" role="group" aria-label="Action complete: review the result" hidden>
+  <!-- the proof stamp: a finished action names itself on a transient slip
+       and the game rolls on; UNDO stays one click away -->
+  <div id="review-bar" role="status" aria-label="Action filed" hidden>
     <span class="rb-text">&#10004; PROOF &mdash; ACTION COMPLETE</span>
     <div class="rb-buttons">
-      <button id="btn-review-undo" class="btn" title="Rewind to the start of your turn (U or Ctrl+Z)">&#8630; UNDO</button>
-      <button id="btn-review-confirm" class="btn btn-go" title="Lock it in — the rivals move next (Enter)">CONFIRM &amp; CONTINUE &#9654;</button>
+      <button id="btn-review-undo" class="btn" title="Rewind your latest move (U or Ctrl+Z)">&#8630; UNDO</button>
     </div>
-    <span class="rb-keys" aria-hidden="true">&#9166; confirm &nbsp;&middot;&nbsp; U undo</span>
+    <span class="rb-keys" aria-hidden="true">U undo</span>
   </div>
 
   <!-- modals & fx -->

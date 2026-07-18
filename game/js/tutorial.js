@@ -23,7 +23,7 @@ const Tutor = (() => {
     wire: ["THE RIVALS MOVE", "Now the other houses take their shifts — the wire up top keeps the gossip. You don't wait politely in this town; you read the ticker."],
     mastery_note: ["MASTERY CLAIMED", "First original in a genre claims its mastery token: +1 fan on every book you print in that genre, and 2 points at the final bell. Another house can steal it by out-printing you."],
     founding: ["YOUR STARTING TEAM", "Your writer and artist specialize in different genres. Each teammate who matches a book adds one launch fan. Choose the highlighted Crime project and two Crime ideas."],
-    proof_confirm: ["THE PROOF SLIP", "Every decision pauses on this slip before the world moves. UNDO takes it back — any turn, all game long. The stamp makes it real. Stamp your founding and the rival houses will answer."],
+    proof_confirm: ["THE PROOF STAMP", "Every move files itself — the stamp you just saw is the receipt, no paperwork to sign. Second thoughts? The UNDO button on the desk rail rewinds your latest decision, any turn, all game long."],
     ideas: ["FIRST SHIFT — CAFE BIZARRE", "Send your first editor for ideas. Take the highlighted Crime ideas from the counter; table ideas are a limited bonus."],
     print: ["SECOND SHIFT — PRINT FLOOR", "Build the highlighted package: comic, writer, artist, team fee, and two matching ideas. The first press can run two books, but today you own one complete team."],
     accounting: ["THIRD SHIFT — ACCOUNTING", "Printing costs cash. Earlier Accounting desks pay more, so take the highlighted desk now."],
@@ -76,16 +76,16 @@ const Tutor = (() => {
   }
 
   const NEXT_FLOW = {
-    masthead: "founding", tour_rail: "tour_board", tour_board: "tour_chart",
-    tour_chart: "ideas", wire: "print", mastery_note: "accounting",
+    masthead: "founding", proof_confirm: "tour_rail", tour_rail: "tour_board",
+    tour_board: "tour_chart", tour_chart: "ideas", wire: "print", mastery_note: "accounting",
   };
   // BACK re-reads the previous lesson; NEXT (or the beat's own trigger)
   // returns. Only beats whose predecessor is safe to re-enter are listed.
   const PREV_FLOW = {
-    founding: "masthead", tour_board: "tour_rail", tour_chart: "tour_board",
-    ideas: "tour_chart", print: "wire", accounting: "mastery_note",
+    founding: "masthead", tour_rail: "proof_confirm", tour_board: "tour_rail",
+    tour_chart: "tour_board", ideas: "tour_chart", print: "wire", accounting: "mastery_note",
   };
-  const INTERSTITIAL = { masthead: 1, tour_rail: 1, tour_board: 1, tour_chart: 1, wire: 1, mastery_note: 1 };
+  const INTERSTITIAL = { masthead: 1, proof_confirm: 1, tour_rail: 1, tour_board: 1, tour_chart: 1, wire: 1, mastery_note: 1 };
   function next() {
     const to = NEXT_FLOW[state.beat];
     if (!to) return;
@@ -107,7 +107,6 @@ const Tutor = (() => {
     flip: "Click the newsstand circled in gold to flip its order face-up.",
     collect: "Click it again to collect — it fills straight from your chart.",
     end: "Press END SALES RUN to file the day.",
-    review: "Stamp the proof.",
   };
   function targetForBeat() {
     if (state.beat === "masthead") return null;
@@ -120,7 +119,7 @@ const Tutor = (() => {
       return state.foundingStep === "vault" ? '#modal-root [data-tut="vault"]'
         : state.foundingStep === "tokens" ? '#modal-root [data-tut="tokens"]'
         : "#modal-root #sp-ok";
-    if (state.beat === "proof_confirm") return "#review-bar";
+    if (state.beat === "proof_confirm") return "#btn-undo";
     if (state.beat === "ideas") return '#locations [data-action="ideas"]';
     if (state.beat === "print") return '#locations [data-action="print"]';
     if (state.beat === "accounting") return '#locations [data-action="royalties"]';
@@ -130,7 +129,6 @@ const Tutor = (() => {
       if (state.salesStep === "start")
         return document.querySelector("#modal-root.active .btn-go") ? "#modal-root.active .btn-go" : '#locations [data-action="sales"]';
       if (state.salesStep === "end") return "#btn-end-run";
-      if (state.salesStep === "review") return "#review-bar";
       return null;
     }
     if (state.beat === "round_close") return "#sidebar";
@@ -284,7 +282,6 @@ const Tutor = (() => {
       else if (kind === "sales_move") state.salesStep = "flip";
       else if (kind === "sales_flip") state.salesStep = "collect";
       else if (kind === "sales_collect") state.salesStep = "end";
-      else if (kind === "sales_end") state.salesStep = "review";
     }
     queueMicrotask(sync);
   }
@@ -293,26 +290,25 @@ const Tutor = (() => {
     const step = !hasComic ? "vault" : nIdeas < 2 ? "tokens" : "confirm";
     if (step !== state.foundingStep) { state.foundingStep = step; sync(); }
   }
-  function onReviewShown() {
+  // actions file themselves now (no confirm step): the stamp notification
+  // is the beat boundary that the review bar used to be
+  function onProofFiled(action) {
     if (!active) return;
     if (state.beat === "founding") state.beat = "proof_confirm";
+    else if (state.beat === "ideas" && action === "ideas") state.beat = "wire";
+    else if (state.beat === "print" && action === "print") state.beat = "mastery_note";
+    else if (state.beat === "accounting" && action === "royalties") state.beat = "sales";
+    else if (state.beat === "sales" && action === "sales") state.beat = "round_close";
     sync();
   }
   function onUndo() {
     if (!active) return;
-    // undo is voluntary now: rewinding the founding proof reopens the vault,
-    // rewinding mid-sales restarts the run script from its first step
+    // undo is voluntary: rewinding steps the lesson back to the decision it
+    // erased — the founding reopens the vault, a rewound sales run restarts
     if (state.beat === "proof_confirm") state.beat = "founding";
-    if (state.beat === "sales") state.salesStep = "start";
-    sync();
-  }
-  function onReviewConfirmed(action) {
-    if (!active) return;
-    if (state.beat === "proof_confirm") state.beat = "tour_rail";
-    else if (action === "ideas") state.beat = "wire";
-    else if (action === "print") state.beat = "mastery_note";
-    else if (action === "royalties") state.beat = "sales";
-    else if (action === "sales") state.beat = "round_close";
+    else if (state.beat === "wire") state.beat = "ideas";
+    else if (state.beat === "mastery_note") state.beat = "print";
+    else if (state.beat === "sales") state.salesStep = "start";
     sync();
   }
 
@@ -341,7 +337,7 @@ const Tutor = (() => {
     begin, restore, exportState, skip, sync, hide, reanchor, detachFromModal,
     next, back, onHumanTurn, pingFounding,
     allowedAction, allowCommand, afterCommand,
-    onReviewShown, onUndo, onReviewConfirmed, takeBotTurn,
+    onProofFiled, onUndo, takeBotTurn,
   };
 })();
 // a top-level const never lands on globalThis: session.js reaches the Tutor

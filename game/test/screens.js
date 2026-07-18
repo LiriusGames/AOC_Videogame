@@ -128,7 +128,6 @@ function findBrowser() {
       });
       await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
       await shot("review");
-      await page.$eval("#btn-review-confirm", (b) => b.click());
       await new Promise((r) => setTimeout(r, 200));
 
       const hasDrawer = await page.evaluate(() =>

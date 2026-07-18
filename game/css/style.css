@@ -1273,31 +1273,27 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 }
 
 /* -------------------------------------------- post-action review proof slip
-   center stage over the board, which dims behind it: the world is holding
-   for your say-so, so covering the rooms costs nothing */
+   a transient slip under the top bar: it names the filed move and offers
+   UNDO, but never blocks — the world keeps rolling */
 #review-bar {
-  position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%);
-  display: flex; flex-direction: column; gap: 10px; align-items: center; z-index: 45;
-  border-radius: 10px;
-  background: var(--paper); color: var(--ink); border: 3px solid var(--ink);
-  box-shadow: 0 0 0 3px var(--gold), 0 12px 0 rgba(0,0,0,.55);
-  padding: 12px 22px 8px;
+  position: absolute; top: 46px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 14px; align-items: center; z-index: 45;
+  border-radius: 8px;
+  background: var(--paper); color: var(--ink); border: 2px solid var(--ink);
+  box-shadow: 0 0 0 2px var(--gold), 0 6px 0 rgba(0,0,0,.45);
+  padding: 7px 16px 6px;
+  animation: proofdrop .18s steps(3) both;
 }
+@keyframes proofdrop { from { transform: translate(-50%, -12px); opacity: 0; } }
 #review-bar::before {
   /* proof-slip perforation along the top */
-  content: ""; position: absolute; top: 3px; left: 8px; right: 8px; height: 3px;
+  content: ""; position: absolute; top: 2px; left: 8px; right: 8px; height: 2px;
   background: repeating-linear-gradient(90deg, var(--paper-dark) 0 6px, transparent 6px 12px);
 }
 #review-bar[hidden] { display: none; }
-#review-bar .rb-text { font-family: var(--f-display); font-size: 15px; color: #8a2f22; }
+#review-bar .rb-text { font-family: var(--f-display); font-size: 14px; color: #8a2f22; }
 #review-bar .rb-buttons { display: flex; gap: 12px; align-items: center; }
-#review-bar .rb-keys { font-size: 12px; color: #57452c; }
-/* the six rooms hold their breath behind the slip */
-#screen-game.reviewing #locations { position: relative; }
-#screen-game.reviewing #locations::after {
-  content: ""; position: absolute; inset: 0; z-index: 5;
-  background: rgba(10, 10, 18, .58);
-}
+#review-bar .rb-keys { font-size: 11px; color: #57452c; }
 
 /* ------------------------------------------------- file:// launch guard */
 .file-guard {
