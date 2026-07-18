@@ -109,15 +109,17 @@ const Film = (() => {
   }
   return { LOOKS, setLook, getLook, setLens, lensOn, setGrain, grainOn, cycle };
 })();
-function genreDot(g) {
-  return `<span class="genre-dot" style="background:${GENRE_INFO[g].color}" title="${GENRE_INFO[g].name}"></span>`;
-}
 // the user-drawn genre symbol (gun/heart/boot/…) — reads at a glance where
 // the little color dot needed squinting
 function genreMark(g, scale = 0.6) {
   return `<span class="genre-mark" title="${GENRE_INFO[g].name}">${sprHTML("genreicon_" + g, scale)}</span>`;
 }
-function fmtGenre(g) { return `${genreDot(g)} ${GENRE_INFO[g].name}`; }
+function fmtGenre(g) { return `${genreMark(g, 0.48)} ${GENRE_INFO[g].name}`; }
+// Values are rules information, not decoration. A numbered printer's slug is
+// clearer than the old row of star glyphs and remains readable at small sizes.
+function valueMark(value) {
+  return `<span class="value-mark" title="Value ${value}"><span>V</span>${value}</span>`;
+}
 function P(pid) { return UI.engine.player(pid); }
 function isHuman(pid) { return UI.session ? UI.session.isLocalSeat(pid) : P(pid).human; }
 function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
@@ -219,7 +221,7 @@ function personFigure(creativeId, opts = {}) {
   const meta = el("div", "fig-meta");
   meta.appendChild(spr("tag_" + c.kind, 0.7));
   meta.appendChild(spr("genreicon_" + c.genre, 0.8));
-  meta.appendChild(el("b", "fig-val", "&#10022;".repeat(opts.value !== undefined ? opts.value : c.value)));
+  meta.appendChild(el("b", "fig-val", valueMark(opts.value !== undefined ? opts.value : c.value)));
   d.appendChild(meta);
   if (c.value === 1 && !opts.noRookie)
     d.appendChild(el("div", "fig-extra", `<span class="chip" style="background:#33716c;color:#fff">+IDEA</span> rookie`));
@@ -232,7 +234,7 @@ function personFigure(creativeId, opts = {}) {
   // hover: the face up close + the facts — no trading card at runtime
   if (opts.noZoom) return d;
   attachZoom(d, faceBigOf(creativeId),
-    `<b>${esc(c.name)}</b><br>${GENRE_INFO[c.genre].name} ${c.kind} &middot; ${"&#10022;".repeat(c.value)}`);
+    `<b>${esc(c.name)}</b><br>${GENRE_INFO[c.genre].name} ${c.kind} &middot; value ${c.value}`);
   return d;
 }
 // a blind deck draw: the same cream disc as every real face, holding the
@@ -247,7 +249,7 @@ function mysteryFigure(kind, value, opts = {}) {
   d.appendChild(el("div", "fig-name", opts.name || "Classified ad"));
   const meta = el("div", "fig-meta");
   meta.appendChild(spr("tag_" + kind, 0.7));
-  meta.appendChild(el("b", "fig-val", "&#10022;".repeat(value)));
+  meta.appendChild(el("b", "fig-val", valueMark(value)));
   d.appendChild(meta);
   d.setAttribute("aria-label", `Classified ad — mystery ${kind} of value ${value}, signed blind from the deck`);
   if (opts.onpick) d.onclick = () => { SFX.play("click"); opts.onpick(d); };
@@ -531,12 +533,13 @@ function heroToLog(main, sub) {
   say(null, `<b>${main}</b>${sub ? " — " + String(sub).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim() : ""}`);
 }
 
-function showBanner(main, sub = "") {
+function showBanner(main, sub = "", kind = "") {
   announce(main + ". " + sub);
   if (modalIsOpen()) return heroToLog(main, sub);
   const show = () => {
     if (modalIsOpen()) return heroToLog(main, sub); // went stale while queued
     const b = document.getElementById("big-banner");
+    b.classList.toggle("turn-notice", kind === "turn");
     b.querySelector(".bb-main").innerHTML = main;
     b.querySelector(".bb-sub").innerHTML = sub;
     b.classList.remove("show");
@@ -550,10 +553,12 @@ function showBanner(main, sub = "") {
   else show();
 }
 function setAIStatus(pid) {
-  const st = document.getElementById("ai-status");
-  if (pid === null || pid === undefined) { st.classList.remove("show"); return; }
-  st.innerHTML = `${sprHTML(bossSprite(pid), 0.55)} <span>${esc(P(pid).name)} is working<span class="dots"></span></span>`;
-  st.classList.add("show");
+  UI.workingPid = pid === null || pid === undefined ? null : pid;
+  document.querySelectorAll(".order-chip").forEach((chip) => {
+    const working = UI.workingPid !== null && +chip.dataset.pid === UI.workingPid;
+    chip.classList.toggle("working", working);
+    chip.setAttribute("aria-busy", String(working));
+  });
 }
 
 // =================================================================== RENDER
@@ -572,12 +577,17 @@ function renderTopbar() {
   for (let r = 1; r <= 5; r++) {
     const tile = el("div", "cal-tile" + (r === s.round ? " current" : r > s.round ? " future" : ""));
     const genres = s.calendar[r - 1];
+    const roman = ["I", "II", "III", "IV", "V"][r - 1];
     if (r <= s.round) {
-      tile.innerHTML = genres.map((g) => `<span class="genre-dot" style="background:${GENRE_INFO[g].color};width:10px;height:10px"></span>`).join("");
+      tile.innerHTML = `<span class="cal-round">${roman}</span><span class="cal-genres">` +
+        genres.map((g) => `<span class="cal-genre" style="--genre:${GENRE_INFO[g].color}" title="${GENRE_INFO[g].name}">${sprHTML("genreicon_" + g, 0.43)}</span>`).join("") +
+        `</span>`;
       tile.title = "Round " + r + ": " + genres.map((g) => GENRE_INFO[g].name).join(" + ") + " orders revealed";
+      tile.setAttribute("aria-label", tile.title);
     } else {
-      tile.textContent = ["I", "II", "III", "IV", "V"][r - 1];
+      tile.innerHTML = `<span class="cal-round future-round">${roman}</span>`;
       tile.title = "Round " + r;
+      tile.setAttribute("aria-label", `Round ${r}, genre not yet revealed`);
     }
     cal.appendChild(tile);
   }
@@ -593,11 +603,14 @@ function renderTopbar() {
   const curr = UI.engine.currentPlayerId();
   s.turnOrder.forEach((pid) => {
     const p = P(pid);
-    const chip = el("div", "order-chip" + (pid === curr && s.phase === "actions" ? " current" : ""));
+    const working = UI.workingPid === pid;
+    const chip = el("div", "order-chip" + (pid === curr && s.phase === "actions" ? " current" : "") + (working ? " working" : ""));
     chip.dataset.pid = pid; // stable landing pad for AI mastery tokens
     chip.style.background = PUBLISHERS[p.color].color;
     chip.appendChild(spr(bossSprite(pid), 0.42));
-    chip.appendChild(el("span", "", `${esc(p.human ? "YOU" : p.name.split(" ")[0])} <b style="font-size:14px">&#9998;${p.editorsLeft}</b>`));
+    chip.appendChild(el("span", "", `${esc(p.human ? "YOU" : p.name.split(" ")[0])} <b class="editors-left">${p.editorsLeft} ED</b>`));
+    chip.setAttribute("aria-label", `${p.human ? "You" : p.name}, ${p.editorsLeft} editors left${working ? ", taking a turn" : ""}`);
+    chip.setAttribute("aria-busy", String(working));
     to.appendChild(chip);
   });
 }
@@ -642,7 +655,7 @@ function offerStrip(action) {
         const d = el("div", "offer-person");
         d.appendChild(spr(faceBigOf(c), 0.5));
         d.appendChild(el("span", "op-meta",
-          `${sprHTML("genreicon_" + card.genre, 0.42)}<b>${"&#10022;".repeat(card.value)}</b>`));
+          `${sprHTML("genreicon_" + card.genre, 0.42)}${valueMark(card.value)}`));
         d.title = `${card.name} — ${GENRE_INFO[card.genre].name} ${kind} v${card.value}`;
         strip.appendChild(d);
       };
@@ -793,7 +806,7 @@ function renderLocations() {
     head.appendChild(slots);
     const sp = e.cubeSpecialFor(UI.humanId, action);
     if (sp) {
-      const badge = el("div", "special-badge", "&#9733; " + SPECIALS[sp].name);
+      const badge = el("div", "special-badge", "SPECIAL: " + SPECIALS[sp].name);
       badge.title = SPECIALS[sp].desc;
       head.appendChild(badge);
     }
@@ -1141,7 +1154,8 @@ function renderHUD() {
   const hand = document.getElementById("hud-hand");
   hand.innerHTML = "";
   const entries = p.hand.map((c) => ({ id: c, hyped: false }))
-    .concat(p.hyped.map((h) => ({ id: h.cardId, hyped: true, tokens: h.tokens })));
+    .concat(p.hyped.map((h) => ({ id: h.cardId, hyped: true, tokens: h.tokens })))
+    .filter((c) => !(UI.handRevealPending && UI.handRevealPending[c.id]));
   const groups = [
     { kind: "writer", label: "WRITERS", list: [] },
     { kind: "artist", label: "ARTISTS", list: [] },
@@ -1166,7 +1180,7 @@ function renderHUD() {
       if (card.kind) {
         hc = el("div", "team-chip");
         hc.appendChild(spr(faceBigOf(c.id), 0.55, "no-frame"));
-        hc.appendChild(el("span", "tc-meta", `${genreMark(card.genre, 0.45)}<b>${"&#10022;".repeat(card.value)}</b>`));
+        hc.appendChild(el("span", "tc-meta", `${genreMark(card.genre, 0.45)}${valueMark(card.value)}`));
         hc.title = `${card.name} — ${GENRE_INFO[card.genre].name} ${card.kind} v${card.value}`;
         hc.setAttribute("aria-label",
           `${card.name}: ${GENRE_INFO[card.genre].name} ${card.kind}, value ${card.value}. Open details.`);
@@ -1210,7 +1224,7 @@ function comicInfoModal(c) {
     const row = panelSection(m, "THE LEDGER");
     row.appendChild(el("div", "modal-sub",
       `BOOK VALUE <b>${c.value}</b> &middot; <b>${c.fans}</b>&#9829; fans` +
-      (c.bettercolor ? "<br>&#9733; Better Colors (+2 VP at the end)" : "") +
+      (c.bettercolor ? "<br><b>BETTER COLORS</b> (+2 VP at the end)" : "") +
       `<br><span style="font-size:15px;color:#57452c">delivers ${GENRE_INFO[c.genre].name} orders of minimum value up to ${c.value}</span>`));
     const team = panelSection(m, "THE TEAM ON THIS BOOK");
     const teamRow = el("div", "card-row");
@@ -1218,9 +1232,9 @@ function comicInfoModal(c) {
       const cr = c.creatives[kind];
       const chip = el("div", "swap-cr" + (cr.genre === c.genre ? " spec" : ""));
       chip.appendChild(spr(faceBigOf(cr.id), 0.7));
-      chip.appendChild(el("span", "sc-meta", `${genreMark(cr.genre, 0.45)} <b>${"&#10022;".repeat(cr.curValue)}</b>`));
+      chip.appendChild(el("span", "sc-meta", `${genreMark(cr.genre, 0.45)} ${valueMark(cr.curValue)}`));
       chip.appendChild(el("span", "sc-label", `${esc(cr.name)}<br>${kind}` +
-        (cr.genre === c.genre ? " &middot; &#9733; specialized" : "")));
+        (cr.genre === c.genre ? " &middot; <b>SPECIALIZED</b>" : "")));
       attachZoom(chip, faceBigOf(cr.id),
         `<b>${esc(cr.name)}</b><br>${GENRE_INFO[cr.genre].name} ${kind} &middot; v${cr.curValue}`);
       teamRow.appendChild(chip);
@@ -1246,14 +1260,14 @@ function handCardInfoModal(entry) {
       t.appendChild(el("div", "ph-tag",
         `${sprHTML("tag_" + card.kind, 0.8)} ${genreMark(card.genre, 0.8)} ` +
         `<b>${GENRE_INFO[card.genre].name}</b> ${card.kind} &middot; ` +
-        `<b class="fig-val" style="font-style:normal">${"&#10022;".repeat(card.value)}</b>` +
+        `<b class="fig-val" style="font-style:normal">${valueMark(card.value)}</b>` +
         (card.value === 1 ? ` &middot; rookie` : "")));
       head.appendChild(t);
       m.appendChild(head);
       const body = panelSection(m, "THE CONTRACT");
       body.appendChild(el("div", "modal-sub",
         `Printing a book with them costs their value (<b>$${card.value}</b>) as part of the team fee.<br>` +
-        `<span style="font-size:15px;color:#57452c">On a ${GENRE_INFO[card.genre].name} book they are &#9733; specialized: ` +
+        `<span style="font-size:15px;color:#57452c">On a ${GENRE_INFO[card.genre].name} book they are <b>SPECIALIZED</b>: ` +
         `+1 fan at print, and they can train during Creative Development.</span>` +
         (card.value === 1 ? `<br><span style="font-size:15px;color:#33716c"><b>Rookie:</b> signed with a free ${GENRE_INFO[card.genre].name} idea.</span>` : "")));
     } else {
@@ -1319,16 +1333,22 @@ function animateEvent(ev) {
       SFX.play("click");
       // blind signings get the theatrical flip: who actually answered the ad?
       if (ev.player === UI.humanId && ev.blind && ev.blind.length) {
+        UI.handRevealPending = UI.handRevealPending || {};
+        ev.blind.forEach((c) => { UI.handRevealPending[c] = true; });
         FX.reveal(ev.blind.map((c) => {
           const cd = CARD_BY_ID[c];
           return {
             sprite: faceBigOf(c), scale: 1.15,
             front: "mysterybig_" + cd.kind, frontScale: 1.15,
             title: cd.name.toUpperCase(),
-            sub: `${GENRE_INFO[cd.genre].name} ${cd.kind} &middot; <b>${"&#10022;".repeat(cd.value)}</b>` +
+            sub: `${GENRE_INFO[cd.genre].name} ${cd.kind} &middot; <b>value ${cd.value}</b>` +
               (cd.value === 1 ? " &middot; rookie (+1 idea)" : ""),
             toRef: () => document.querySelector(`#hud-hand [data-card="${c}"]`) ||
               document.getElementById("hud-hand"),
+            onLand: () => {
+              delete UI.handRevealPending[c];
+              renderHUD();
+            },
           };
         }));
         return 1500 + (ev.blind.length - 1) * 650 + 350;
@@ -1343,6 +1363,8 @@ function animateEvent(ev) {
       // the slush pile pays off face-down — flip it over center stage
       if (ev.player === UI.humanId && ev.blind && ev.cardId) {
         const cd = CARD_BY_ID[ev.cardId];
+        UI.handRevealPending = UI.handRevealPending || {};
+        UI.handRevealPending[ev.cardId] = true;
         FX.reveal([{
           sprite: coverOf(ev.cardId), scale: 1.5,
           front: "back_orig_" + cd.genre,
@@ -1350,6 +1372,10 @@ function animateEvent(ev) {
           sub: `${GENRE_INFO[cd.genre].name} original &middot; prints with ${BONUS_CHIP[cd.bonus][0]}`,
           toRef: () => document.querySelector(`#hud-hand [data-card="${ev.cardId}"]`) ||
             document.getElementById("hud-hand"),
+          onLand: () => {
+            delete UI.handRevealPending[ev.cardId];
+            renderHUD();
+          },
         }]);
         return 1850;
       }
@@ -1470,7 +1496,7 @@ function animateEvent(ev) {
     case "orderFulfilled":
       say(null, `${esc(P(ev.player).pubName)} fulfills a ${GENRE_INFO[ev.genre].name} order: <b>+${ev.fans} fans</b>.`);
       if (ev.player === UI.humanId) {
-        toast(`&#128220; ORDER DELIVERED! +${ev.fans} fan${ev.fans === 1 ? "" : "s"}`, true);
+        toast(`ORDER DELIVERED! +${ev.fans} fan${ev.fans === 1 ? "" : "s"}`, true);
         FX.burstEl(document.getElementById("chart-panel"), ["#d94f43", "#f5c86e", "#fff"], 14);
       }
       SFX.play("fan");

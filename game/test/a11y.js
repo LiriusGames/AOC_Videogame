@@ -187,13 +187,11 @@ async function axeScan(page, label) {
     await page.waitForFunction((m0) => UI.engine.player(UI.humanId).money > m0, { timeout: 10000 }, money0);
     check(true, "keyboard: Enter on the Accounting location collects royalties");
 
-    // instant filing: the proof stamp announces itself and play continues
-    // without any confirm step
-    await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
-    check(await page.evaluate(() => document.getElementById("review-bar").getAttribute("role") === "status"),
-      "proof stamp is a live status region, not a blocking dialog");
-    await page.waitForFunction(() => document.getElementById("review-bar").hidden, { timeout: 10000 });
-    check(true, "the stamp dismisses itself and play continues");
+    // completion is announced without adding another visual interruption
+    await page.waitForFunction(() => !UI.pendingCompletion, { timeout: 10000 });
+    check(await page.evaluate(() => !document.getElementById("review-bar") &&
+      !!document.getElementById("aria-status").textContent.trim()),
+      "action completion uses the existing live region without a proof popup");
 
     check(await page.evaluate(() => {
       const r = document.getElementById("aria-status");

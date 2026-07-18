@@ -61,15 +61,15 @@ const FX = (() => {
   // shutter → the real face/cover + name), then flies home to the hand.
   // Hero-lane rules apply (one presentation at a time, never over a dialog);
   // reduced motion skips straight to the fly/highlight.
-  // items: [{ sprite, scale, round, title, sub, toRef }]
+  // items: [{ sprite, scale, round, title, sub, toRef, onLand }]
   function reveal(items) {
     const land = () => items.forEach((it) =>
-      flyToken(it.sprite, null, it.toRef, { scale: it.round ? 0.65 : 0.8 }));
+      flyToken(it.sprite, null, it.toRef, { scale: it.round ? 0.65 : 0.8, onLand: it.onLand }));
     if (REDUCED_MOTION()) return land();
-    if (modalIsOpen()) return; // narrated in the log either way
+    if (modalIsOpen()) return land(); // never leave an incoming item withheld
     const dur = 1500 + (items.length - 1) * 650;
     const show = () => {
-      if (modalIsOpen()) return; // went stale while queued
+      if (modalIsOpen()) return land(); // went stale while queued
       const wrap = el("div", "fx-celebrate fx-reveal");
       wrap.appendChild(el("div", "fx-rays"));
       const row = el("div", "rev-row");

@@ -140,8 +140,10 @@ const Main = (() => {
     // let you replay decisions with the rivals' answers already revealed
     UI.undoAllowed = setup.difficulty === "easy";
     UI.eventCursor = 0;
-    UI.pendingReview = false;
-    hideReview();
+    UI.pendingCompletion = false;
+    UI.completionHint = null;
+    UI.lastCompletionLabel = null;
+    UI.handRevealPending = {};
     show("screen-game");
     document.getElementById("dialogue").innerHTML = "";
     say(null, `<b>Manhattan, 1938.</b> Four publishing houses race to own the golden age of comics. Round I begins!`);
@@ -187,10 +189,12 @@ const Main = (() => {
     UI.session = new LocalSession(UI.engine, UI.humanId);
     UI.mode = "tutorial";
     UI.eventCursor = 0;
-    UI.pendingReview = false;
+    UI.pendingCompletion = false;
+    UI.completionHint = null;
+    UI.lastCompletionLabel = null;
+    UI.handRevealPending = {};
     UI.lastTurnKey = null;
     UI.undoSnap = null;
-    hideReview();
     show("screen-game");
     document.getElementById("dialogue").innerHTML = "";
     say(null, "<b>Manhattan, 1938.</b> Your first day at Liberty Ink begins.");
@@ -223,8 +227,10 @@ const Main = (() => {
     UI.eventCursor = 0;
     UI.lastTurnKey = null;
     UI.undoSnap = null;
-    UI.pendingReview = false;
-    hideReview();
+    UI.pendingCompletion = false;
+    UI.completionHint = null;
+    UI.lastCompletionLabel = null;
+    UI.handRevealPending = {};
     show("screen-game");
     document.getElementById("dialogue").innerHTML = "";
     say(null, `<b>Back at the office.</b> Resuming round ${d.state.round} of 5.`);
@@ -310,11 +316,12 @@ const Main = (() => {
       return;
     }
 
-    // a completed human action files itself: a transient proof stamp names
-    // it, the top-bar UNDO stays armed, and the world keeps moving
-    if (UI.pendingReview && !s.pending && !s.awaitingSpecial && !s.salesSession && !s.printX2) {
-      UI.pendingReview = false;
-      fileProof();
+    // Finish a human transaction only after every chained choice resolves.
+    // The board, wire and resource movement provide the visible feedback;
+    // this boundary keeps autosave, accessibility and the tutorial in sync.
+    if (UI.pendingCompletion && !s.pending && !s.awaitingSpecial && !s.salesSession && !s.printX2) {
+      UI.pendingCompletion = false;
+      completeAction();
     }
 
     if (s.phase === "increase") {
@@ -363,13 +370,13 @@ const Main = (() => {
           UI.lastTurnKey = key;
           UI.undoSnap = e.snapshot();
           UI.undoDirty = false; // nothing taken back yet: UNDO would be a no-op
+          UI.lastCompletionLabel = null;
           renderTopbar();
-          // show the whole newsroom: bright = still to assign, ghost = spent
           const p = e.player(pid);
           const total = p.editors + (p.extraEditorUsed ? 1 : 0);
-          const pips = Array.from({ length: total }, (_, i) =>
-            `<span class="bb-meeple${i < p.editorsLeft ? "" : " spent"}">${sprHTML(`staff_${p.color}_${i % 4}`, 1)}</span>`).join("");
-          showBanner("YOUR TURN", `${pips}<br>round ${s.round} &middot; ${p.editorsLeft} of ${total} editors left`);
+          showBanner("YOUR TURN",
+            `ROUND ${["I", "II", "III", "IV", "V"][s.round - 1] || s.round} &middot; ` +
+            `<b>${p.editorsLeft}</b> OF ${total} EDITORS READY`, "turn");
           SFX.play("turn");
         }
         if (Tutor.active) Tutor.onHumanTurn();
@@ -401,23 +408,19 @@ const Main = (() => {
   // called after every human-initiated engine mutation
   function afterHumanMove() {
     if (UI.session && UI.session.mode === "remote") {
-      UI.pendingReview = false;
-      hideReview();
+      UI.pendingCompletion = false;
       UI.busy = true;
       return;
     }
-    UI.pendingReview = true; // a proof stamp is owed once the transaction resolves
+    UI.pendingCompletion = true;
     UI.undoDirty = true;     // there is now a real move for UNDO to take back
     const delay = flushEvents();
     renderAll();
     queueAdvance(Math.max(120, Math.min(delay, 500)));
   }
 
-  // -------------------------------------------------------- the proof stamp
-  // No confirm step: a finished action names itself on a transient slip and
-  // the game rolls on. The top-bar UNDO stays armed until the next decision
-  // arms a fresh snapshot, so any latest move can still be rewound.
-  const REVIEW_LABELS = {
+  // ------------------------------------------------------ action completion
+  const ACTION_LABELS = {
     hire: "TALENT SIGNED", develop: "COMIC OPTIONED", ideas: "IDEAS COLLECTED",
     print: "BOOKS PRINTED", royalties: "ROYALTIES COLLECTED", sales: "SALES RUN FILED",
   };
@@ -426,27 +429,17 @@ const Main = (() => {
     const last = s.placeSeq && s.placeSeq[s.placeSeq.length - 1];
     return last && last.player === UI.humanId ? last.action : null;
   }
-  function reviewLabel() {
-    if (UI.reviewHint) return UI.reviewHint;
+  function completionLabel() {
+    if (UI.completionHint) return UI.completionHint;
     const action = lastHumanAction();
-    return (action && REVIEW_LABELS[action]) || "ACTION COMPLETE";
+    return (action && ACTION_LABELS[action]) || "ACTION COMPLETE";
   }
-  let proofTimer = null;
-  function fileProof() {
-    const bar = document.getElementById("review-bar");
-    const label = reviewLabel();
-    UI.reviewHint = null;
-    bar.querySelector(".rb-text").innerHTML = "&#10004; PROOF &mdash; " + label;
-    bar.querySelector(".rb-keys").hidden = !UI.undoAllowed;
-    bar.hidden = false;
-    announce(label.toLowerCase() + (UI.undoAllowed ? " filed. Undo rewinds it until your next move." : " filed."));
-    clearTimeout(proofTimer);
-    proofTimer = setTimeout(hideReview, 2600);
-    if (Tutor.active) Tutor.onProofFiled(lastHumanAction());
-  }
-  function hideReview() {
-    clearTimeout(proofTimer);
-    document.getElementById("review-bar").hidden = true;
+  function completeAction() {
+    const label = completionLabel();
+    UI.lastCompletionLabel = label;
+    UI.completionHint = null;
+    announce(label.toLowerCase() + (UI.undoAllowed ? ". Undo is available until your next move." : "."));
+    if (Tutor.active) Tutor.onActionComplete(lastHumanAction());
   }
 
   // ------------------------------------------------------------- UI scale
@@ -472,8 +465,11 @@ const Main = (() => {
     if (!UI.undoAllowed) return toast("No second thoughts above CUB REPORTER &mdash; the rivals' answers are already on the record.");
     if (!UI.undoSnap || !UI.undoDirty || UI.autoplay) return;
     clearTimeout(advanceTimer);
-    const label = reviewLabel(); // name what is being taken back, pre-rewind
-    UI.pendingReview = false;
+    const label = UI.lastCompletionLabel || completionLabel(); // name what is being taken back, pre-rewind
+    UI.pendingCompletion = false;
+    UI.handRevealPending = {};
+    UI.completionHint = null;
+    UI.lastCompletionLabel = null;
     UI.engine.restore(UI.undoSnap);
     UI.undoSnap = null;
     UI.undoDirty = false;
@@ -484,13 +480,7 @@ const Main = (() => {
     closeModal();
     setAIStatus(null);
     SFX.play("paper");
-    // the rewind announces itself in the same proof-slip voice as the filing
-    const bar = document.getElementById("review-bar");
-    bar.querySelector(".rb-text").innerHTML = "&#8630; REWOUND &mdash; " + label + " TAKEN BACK";
-    bar.querySelector(".rb-keys").hidden = true;
-    bar.hidden = false;
-    clearTimeout(proofTimer);
-    proofTimer = setTimeout(hideReview, 2200);
+    toast(`REWOUND &mdash; ${label} TAKEN BACK`);
     announce(label.toLowerCase() + " taken back. Choose again.");
     renderAll();
     advance();
@@ -628,10 +618,10 @@ const Main = (() => {
     UI.mode = "multiplayer";
     UI.undoAllowed = false; // published moves are already on every screen
     UI.eventCursor = 0;
-    UI.pendingReview = false;
+    UI.pendingCompletion = false;
+    UI.handRevealPending = {};
     UI.lastTurnKey = null;
     UI.undoSnap = null;
-    hideReview();
     closeModal();
     show("screen-game");
     document.getElementById("dialogue").innerHTML = "";

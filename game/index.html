@@ -116,7 +116,7 @@ if (location.protocol === "file:") {
         <button id="chart-mini" class="btn btn-small" aria-expanded="false" aria-controls="sidebar"></button>
         <button id="btn-room" class="btn btn-small" title="Room connection and desk controls" hidden>ROOM</button>
         <button id="btn-undo" class="btn btn-small" title="Rewind to the start of your turn">&#8630; UNDO</button>
-        <button id="btn-chart" class="btn btn-small" title="View the Manhattan sales map">CITY</button>
+        <button id="btn-chart" class="btn btn-small" title="Open the Manhattan sales map">MAP</button>
         <button id="btn-menu" class="btn btn-small" title="Picture, sound and screen settings">MENU</button>
         <button id="btn-help" class="btn btn-small">?</button>
       </div>
@@ -162,13 +162,6 @@ if (location.protocol === "file:") {
     </div>
   </section>
 
-  <!-- the proof stamp: a finished action names itself on a transient slip
-       and the game rolls on; UNDO stays one click away -->
-  <div id="review-bar" role="status" aria-label="Action filed" hidden>
-    <span class="rb-text">&#10004; PROOF &mdash; ACTION COMPLETE</span>
-    <span class="rb-keys" aria-hidden="true">U undo</span>
-  </div>
-
   <!-- modals & fx -->
   <div id="modal-root"></div>
   <div id="toast-root"></div>
@@ -189,7 +182,6 @@ if (location.protocol === "file:") {
   </div>
   <div id="zoom-root"></div>
   <div id="big-banner"><div class="bb-main"></div><div class="bb-sub"></div></div>
-  <div id="ai-status"></div>
   <!-- the Projection Room: base film atmosphere + the three period looks
        (NEWSREEL '44 / TELEVISION '52 / SUNDAY MATINEE), toggled via the
        FILM topbar button or the P key; purely decorative -->

@@ -254,7 +254,7 @@ const MapView = (() => {
     b.fillStyle = "#7a5c3d"; b.fillRect(20, 282, 26, 8);
     b.fillStyle = "#8a6f4d"; b.fillRect(24, 272, 18, 10);
     b.fillStyle = "#5b4632"; b.fillRect(24, 272, 18, 3);
-    b.fillStyle = "#e8e0ce"; b.font = "9px VT323"; b.fillText("FERRY", 26, 281);
+    b.fillStyle = "#e8e0ce"; b.font = "600 9px 'Barlow SC'"; b.fillText("FERRY", 26, 281);
     b.fillStyle = "#3d3a35"; b.fillRect(-26, 296, 16, 5);
     b.fillStyle = "#e8e0ce"; b.fillRect(-23, 292, 8, 4);
     // streets (under the blocks' shadows)
@@ -358,11 +358,11 @@ const MapView = (() => {
     }
     // coherent geography, stylized: Harlem River north (the Bronx behind),
     // Hudson west (Hoboken), East River east (Greenpoint), Upper Bay south
-    b.font = "14px VT323";
+    b.font = "600 14px 'Oswald'";
     b.fillStyle = "#14344a";
     b.fillText("HARLEM RIVER", 44, 26);
     b.fillText("UPPER BAY", CW - 110, CH - 4);
-    b.font = "12px VT323";
+    b.font = "500 12px 'Barlow SC'";
     "HUDSON".split("").forEach((ch, i) => b.fillText(ch, -34, 168 + i * 13));
     "EAST RIVER".split("").forEach((ch, i) => b.fillText(ch, CW + 28, 148 + i * 13));
     // Times Square: remember where the neon marquee lives (animated later)
@@ -418,7 +418,7 @@ const MapView = (() => {
     // projection clips anything deeper into the pad)
     bank(-PAD + 4, -52, -52);
     b.fillStyle = "#514f3c";
-    b.font = "bold 13px VT323";
+    b.font = "600 13px 'Oswald'";
     b.fillText("HOBOKEN", -98, 104);
     // a loading crane on the Hoboken docks
     b.strokeStyle = "#4a4132"; b.lineWidth = 3;
@@ -591,7 +591,7 @@ const MapView = (() => {
       b.fillRect(tx + 1, ty + 1, 3, 2);
     }
     b.fillStyle = "#2e4a28";
-    b.font = "12px VT323";
+    b.font = "500 12px 'Barlow SC'";
     b.fillText("THE PARK", x0 + 8, y1 - 6);
   }
   function plaza(b, x0, y0, x1, y1) {
@@ -751,7 +751,7 @@ const MapView = (() => {
       ctx.lineWidth = 1.5;
       ctx.strokeRect(mp.x - 17, mp.y - 7, 34, 13);
       ctx.fillStyle = on ? "#f5c86e" : "#8a7442";
-      ctx.font = "bold 10px VT323"; ctx.textAlign = "center";
+      ctx.font = "600 10px 'Barlow SC'"; ctx.textAlign = "center";
       ctx.fillText("RIALTO", mp.x, mp.y + 3);
       ctx.textAlign = "left";
       if (on) {
@@ -836,7 +836,7 @@ const MapView = (() => {
         ctx.closePath(); ctx.fill();
         ctx.strokeStyle = "#221d16"; ctx.lineWidth = 1.5; ctx.stroke();
         if (t.fulfilled) {
-          ctx.fillStyle = "#fff"; ctx.font = "bold 11px VT323"; ctx.textAlign = "center";
+          ctx.fillStyle = "#fff"; ctx.font = "600 11px 'Barlow SC'"; ctx.textAlign = "center";
           ctx.fillText("✓", pos.x + 7, pos.y - 5);
           ctx.textAlign = "left";
         }
@@ -910,7 +910,7 @@ const MapView = (() => {
       const p = vp(nodePos(currentNode)), label = currentNode === "X" ? "CENTRAL · YOU" : "YOU";
       ctx.strokeStyle = PUBLISHERS[e.player(myPid).color].color; ctx.lineWidth = 4;
       ctx.beginPath(); ctx.arc(p.x, p.y + 2, 22, 0, 7); ctx.stroke();
-      ctx.font = "bold 11px VT323";
+      ctx.font = "600 11px 'Barlow SC'";
       const tw = currentNode === "X" ? 78 : 34;
       ctx.fillStyle = "#221d16"; ctx.fillRect(p.x - tw / 2, p.y + 20, tw, 14);
       ctx.fillStyle = "#fff"; ctx.textAlign = "center"; ctx.fillText(label, p.x, p.y + 31); ctx.textAlign = "left";
@@ -1026,13 +1026,13 @@ const MapView = (() => {
     ctx.fillStyle = "#14342a";
     ctx.fillRect(x - 9, y - 17, 18, 8);
     ctx.fillStyle = "#e8e0ce";
-    ctx.font = "bold 10px VT323"; ctx.textAlign = "center";
+    ctx.font = "600 10px 'Barlow SC'"; ctx.textAlign = "center";
     ctx.fillText("NEWS", x, y - 10.5);
     ctx.textAlign = "left";
   }
   // a fare plate; rides that need a taxi show one, so the cost is pictured
   function fareTag(x, y, tag, col, showCab) {
-    ctx.font = "bold 11px VT323";
+    ctx.font = "600 11px 'Barlow SC'";
     const tw = Math.max(30, ctx.measureText(tag).width + 8) + (showCab ? 15 : 0);
     ctx.fillStyle = "#221d16";
     ctx.fillRect(x - tw / 2, y, tw, 14);
@@ -1076,7 +1076,7 @@ const MapView = (() => {
     drawSprite(gi.icon, x, y - 6, 0.6);
     ctx.fillStyle = "#221d16"; ctx.fillRect(x - 13, y + 8, 26, 13);
     ctx.fillStyle = "#efe6d0"; ctx.fillRect(x - 12, y + 9, 24, 11);
-    ctx.fillStyle = "#221d16"; ctx.font = "bold 12px VT323"; ctx.textAlign = "center";
+    ctx.fillStyle = "#221d16"; ctx.font = "600 12px 'Barlow SC'"; ctx.textAlign = "center";
     ctx.fillText("+" + t.fans, x - 4, y + 18);
     heart(x + 6, y + 14, "#c0392b", 0.6);
     ctx.textAlign = "left";
@@ -1088,9 +1088,9 @@ const MapView = (() => {
     drawSprite(gi.icon, x - 21, y, 0.65);
     ctx.fillStyle = "#efe6d0"; ctx.fillRect(x - 11, y - 16, 42, 32);
     ctx.fillStyle = "#221d16"; ctx.textAlign = "center";
-    ctx.font = "bold 14px VT323";
+    ctx.font = "600 14px 'Oswald'";
     ctx.fillText("v" + t.minVal + "+", x + 10, y - 3);
-    ctx.font = "bold 16px VT323";
+    ctx.font = "600 16px 'Oswald'";
     ctx.fillText("+" + t.fans, x + 3, y + 12);
     heart(x + 17, y + 8, "#c0392b", 0.8);
     ctx.textAlign = "left";
@@ -1143,7 +1143,7 @@ const MapView = (() => {
         lines.push(here ? (ses.flipsLeft > 0 ? "click to FLIP" : ses.collectsLeft > 0 ? "click to collect blind" : "nothing left") : "move your agent here");
       }
     } else return;
-    ctx.font = "15px VT323";
+    ctx.font = "500 15px 'Barlow SC'";
     const w = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 12;
     const x = Math.min(CW - w - 4, mouse.x + 14), y = Math.max(20, mouse.y - 12);
     ctx.fillStyle = "rgba(24,20,14,.92)";

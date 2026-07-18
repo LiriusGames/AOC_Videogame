@@ -99,6 +99,12 @@ function check(cond, name) {
     await page.waitForFunction(() => document.querySelector(".screen.active").id === "screen-game");
     const resumed = await page.evaluate(() => ({ round: UI.engine.state.round, human: UI.humanId }));
     check(resumed.round === 1 && resumed.human === 0, "resume restores the game");
+    check(await page.evaluate(() => {
+      const tiles = [...document.querySelectorAll("#calendar .cal-tile")];
+      return tiles.length === 5 && !!tiles[0].querySelector(".cal-genre .spr") &&
+        tiles.slice(1).every((tile) => tile.querySelector(".future-round")) &&
+        !document.querySelector("#calendar .genre-dot");
+    }), "calendar uses genre artwork for revealed rounds and keeps future genres hidden");
 
     // --------------------------------------- 4. reload during a sales run
     await page.evaluate(() => {
@@ -248,23 +254,24 @@ function check(cond, name) {
     check(await page.evaluate(() => document.getElementById("wire-latest").textContent.trim().length > 0),
       "the press wire strip carries the latest dispatch");
 
-    // ------------------------- 9. instant filing + always-armed undo
-    // (continues from 8: the cube decision dialog is open, stamp owed)
-    check(await page.evaluate(() => document.getElementById("review-bar").hidden),
-      "proof stamp stays hidden while a chained decision is open");
+    // --------------------- 9. quiet completion + always-armed undo
+    // (continues from 8: the cube decision dialog is open)
+    check(await page.evaluate(() => UI.pendingCompletion && !document.getElementById("review-bar")),
+      "a chained decision remains pending without adding a proof popup");
     await page.evaluate(() => {
       const e = UI.engine;
       e.resolvePending(UI.humanId, { special: e.state.pending.data.options[0] });
       closeModal();
       Main.advance();
     });
-    await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
-    check(true, "proof stamp appears once the chained decision resolves");
+    await page.waitForFunction(() => !UI.pendingCompletion, { timeout: 10000 });
+    check(await page.evaluate(() => !document.getElementById("review-bar")),
+      "the chained decision resolves without a visual proof layer");
     const rivalsHash = () => page.evaluate(() =>
       JSON.stringify(UI.engine.state.players.filter((p) => !p.human).map((p) => [p.editorsLeft, p.money, p.hand.length])));
     // documented save semantics: mid-transaction checkpoints (a pending
     // decision existed) ARE saved — revealed information must not be
-    // undoable via reload. The pure review window is tested below.
+    // undoable via reload. The post-completion Undo window is tested below.
     check(await page.evaluate(() =>
       JSON.parse(localStorage.getItem("aoc_save")).state.chart.length === UI.engine.state.chart.length),
       "chained transaction checkpoint is saved (reload resumes, not undoes)");
@@ -272,36 +279,33 @@ function check(cond, name) {
     await page.keyboard.press("u"); // keyboard undo shortcut
     check(await page.evaluate((sj) => JSON.stringify(UI.engine.state) === sj, snapJson),
       "undo restores the exact pre-action state");
-    check(await page.evaluate(() => /REWOUND/.test(document.querySelector("#review-bar .rb-text").textContent) &&
+    check(await page.evaluate(() => /REWOUND/.test(document.getElementById("toast-root").textContent) &&
       UI.engine.currentPlayerId() === UI.humanId), "undo announces the rewind and returns control to the human");
-    // simple action -> files instantly: stamped, autosaved, and the AI
+    // simple action -> completes instantly, autosaves, and the AI
     // proceeds without any confirm click
-    await page.evaluate(() => { document.getElementById("review-bar").hidden = true; });
     const mBefore = await page.evaluate(() => UI.engine.player(UI.humanId).money);
     await page.evaluate(() => { UI.engine.actRoyalties(UI.humanId); Main.afterHumanMove(); });
-    await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
-    check(true, "simple action (royalties) files a proof stamp");
+    await page.waitForFunction(() => !UI.pendingCompletion, { timeout: 10000 });
+    check(await page.evaluate(() => !document.getElementById("review-bar")), "simple royalties action completes quietly");
     check(await page.evaluate((m0) =>
       JSON.parse(localStorage.getItem("aoc_save")).state.players[UI.humanId].money > m0 &&
       UI.engine.player(UI.humanId).money > m0, mBefore),
-      "filed action autosaves immediately (reload resumes it)");
+      "completed action autosaves immediately (reload resumes it)");
     const beforeConfirm = await rivalsHash();
     await page.waitForFunction((h) =>
       JSON.stringify(UI.engine.state.players.filter((p) => !p.human).map((p) => [p.editorsLeft, p.money, p.hand.length])) !== h,
       { timeout: 15000 }, beforeConfirm);
     check(true, "the rivals proceed on their own — no confirm step");
-    // a completed sales run stamps too (wait for the UI to arm the
-    // undo snapshot — engine-driven actions before that skip the stamp)
+    // a completed sales run completes too (wait for the UI to arm Undo)
     await page.waitForFunction(() => UI.engine.currentPlayerId() === UI.humanId && !UI.busy &&
       !!UI.undoSnap && !UI.engine.state.pending && !UI.engine.state.awaitingSpecial, { timeout: 30000 });
     await page.evaluate(() => {
-      document.getElementById("review-bar").hidden = true;
       UI.engine.actSalesStart(UI.humanId);
       UI.engine.salesEnd(UI.humanId);
       Main.afterHumanMove();
     });
-    await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
-    check(true, "completed sales run files its stamp");
+    await page.waitForFunction(() => !UI.pendingCompletion, { timeout: 10000 });
+    check(true, "completed sales run advances without confirmation");
 
     // ------------- 10. real sales interactions (canvas + DOM panel), file://
     // regression: every canvas/panel sales action once called the
@@ -451,8 +455,8 @@ function check(cond, name) {
       b.click();
     });
     await page.waitForFunction(() => !document.querySelector("#modal-root .modal"), { timeout: 10000 });
-    await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
-    check(true, "UI-driven sales run completes and files its stamp");
+    await page.waitForFunction(() => !UI.pendingCompletion, { timeout: 10000 });
+    check(true, "UI-driven sales run completes without a proof popup");
 
     // -------- 10b. placement flight: the staffer travels to the white square
     await page.waitForFunction(() => UI.engine.currentPlayerId() === UI.humanId && !UI.busy &&
@@ -484,7 +488,7 @@ function check(cond, name) {
       return pip && !!pip.querySelector(".spr") && !(UI.placeFlight && Object.keys(UI.placeFlight).length);
     }, { timeout: 10000 }, flight.slot);
     check(true, "the staffer lands: pip filled, flight flag cleared");
-    await page.waitForFunction(() => !UI.pendingReview, { timeout: 15000 });
+    await page.waitForFunction(() => !UI.pendingCompletion, { timeout: 15000 });
 
     // --------------- 11. publisher rail unification + published-catalog overflow
     check(await page.evaluate(() => !document.querySelector("#topbar #hud-resources") &&
@@ -636,8 +640,8 @@ function check(cond, name) {
       !!document.querySelector(`#desk-awards .award-socket[data-genre="${g}"].won .spr`),
       { timeout: 20000 }, g);
     const confirmIfShown = async () => {
-      // filing is automatic now: just wait for the transaction to stamp
-      await page.waitForFunction(() => !UI.pendingReview, { timeout: 15000 });
+      // completion is automatic: wait for every chained choice to settle
+      await page.waitForFunction(() => !UI.pendingCompletion, { timeout: 15000 });
     };
 
     await quiesce();

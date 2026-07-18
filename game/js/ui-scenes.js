@@ -48,23 +48,40 @@ const Scenes = (() => {
     d.setAttribute("aria-pressed", "true");
   }
 
-  function confirmHandOverflow(addCount, actionLabel, onContinue, onBack) {
+  function confirmHandOverflow(addCount, action, actionLabel, onContinue, onBack) {
     const p = P(me());
     const total = p.hand.length + p.hyped.length;
     const discard = Math.max(0, total + addCount - HAND_LIMIT);
     if (!discard) return onContinue();
     openModal((m) => {
-      m.appendChild(el("h2", "", "DESK LIMIT CHECK"));
-      m.appendChild(el("div", "modal-sub",
-        `${actionLabel} adds <b>${addCount} card${addCount === 1 ? "" : "s"}</b>: ` +
-        `<b>${total} + ${addCount} = ${total + addCount}</b>, over your ${HAND_LIMIT}-card desk limit.<br><br>` +
-        `If you continue, you must discard <b>${discard}</b> card${discard === 1 ? "" : "s"}. ` +
-        `Nothing has been drawn or committed yet.`));
+      panelHead(m, action, "DESK AT CAPACITY",
+        `${actionLabel} needs more filing space before it can be completed.`);
+      const check = panelSection(m, "SPACE CHECK");
+      const ledger = el("div", "overflow-ledger");
+      const stat = (label, value, cls = "") => {
+        const d = el("div", "overflow-stat" + (cls ? " " + cls : ""));
+        d.appendChild(el("span", "", label));
+        d.appendChild(el("b", "", value));
+        return d;
+      };
+      ledger.appendChild(stat("ON YOUR DESK", total));
+      ledger.appendChild(el("span", "overflow-op", "+"));
+      ledger.appendChild(stat("INCOMING", addCount));
+      ledger.appendChild(el("span", "overflow-op", "="));
+      ledger.appendChild(stat("AFTER ACTION", total + addCount, "over"));
+      ledger.appendChild(stat("DESK LIMIT", HAND_LIMIT, "limit"));
+      check.appendChild(ledger);
+      const next = panelSection(m, "WHAT HAPPENS NEXT");
+      next.appendChild(el("div", "overflow-note",
+        `Continue to complete the action, then choose <b>${discard}</b> item${discard === 1 ? "" : "s"} to discard. ` +
+        `Go back to change your selection. Nothing has been drawn, revealed, or committed yet.`));
+      const result = panelFooter(m);
+      result.innerHTML = `<b>${discard} space${discard === 1 ? "" : "s"} needed.</b> Your current desk remains unchanged until you continue.`;
       modalButtons(m, [
         { label: "GO BACK & REASSESS", fn: () => { closeModal(); onBack(); } },
         { label: `CONTINUE — DISCARD ${discard}`, cls: "btn-go", fn: onContinue },
       ]);
-    }, { width: "620px", onDismiss: () => { onBack(); } });
+    }, { width: "700px", onDismiss: () => { onBack(); } });
   }
   // animated pictogram explaining a cube special (drawn in loc-art.js)
   function specialArt(key, wpx = 168) {
@@ -83,9 +100,9 @@ const Scenes = (() => {
     d.style.maxWidth = (opts.w || 230) + "px";
     d.appendChild(specialArt(sp, opts.art || 200));
     d.appendChild(el("div", "pc-label",
-      `<b style="font-family:PressStart;font-size:9px">${info.name}</b><br>` +
+      `<b class="special-name">${info.name}</b><br>` +
       `<i>after ${ACTION_INFO[info.after].verb}</i><br>${info.desc}` +
-      (opts.note ? `<br><b class="sp-note">&#9632; ${opts.note}</b>` : "")));
+      (opts.note ? `<br><b class="sp-note">NOTE &mdash; ${opts.note}</b>` : "")));
     d.setAttribute("aria-label",
       `${info.name}: triggers after ${ACTION_INFO[info.after].verb}. ${String(info.desc).replace(/<[^>]*>/g, "")}` +
       (opts.note ? ` (${opts.note})` : ""));
@@ -99,7 +116,7 @@ const Scenes = (() => {
     const sel = { writer: initial.writer || null, artist: initial.artist || null };
     openModal((m) => {
       panelHead(m, "hire", "TALENT AGENCY &mdash; HIRE",
-        "Sign one writer and one artist from the lobby — or gamble on whoever answered the classified ad. &#10022;-rookies bring a free idea.");
+        "Choose exactly one writer and one artist. Rookies bring one matching idea.");
       for (const kind of ["writer", "artist"]) {
         const key = kind + "s";
         const body = panelSection(m, `ON OFFER &mdash; ${kind.toUpperCase()}S IN THE LOBBY`);
@@ -136,7 +153,7 @@ const Scenes = (() => {
         { label: "CANCEL", fn: () => { closeModal(); } },
         { label: "SIGN THEM", cls: "btn-go", id: "hire-ok", fn: () => {
             closeModal();
-            confirmHandOverflow(2, "Hiring this team", () => {
+            confirmHandOverflow(2, "hire", "Hiring this team", () => {
               const result = command("action_hire", sel);
               if (!result.ok) return;
               closeModal();
@@ -148,7 +165,7 @@ const Scenes = (() => {
         if (!id) return `<b style="color:#8a2f22">pick a ${kind}</b>`;
         if (id === "deck") return `the classified-ad ${kind} <i>(blind)</i>`;
         const c = CARD_BY_ID[id];
-        return `<b>${esc(c.name)}</b> (${GENRE_INFO[c.genre].name} ${"&#10022;".repeat(c.value)})`;
+        return `<b>${esc(c.name)}</b> (${GENRE_INFO[c.genre].name} &middot; value ${c.value})`;
       }
       function refresh() {
         const rookies = [sel.writer, sel.artist]
@@ -167,7 +184,7 @@ const Scenes = (() => {
     let sel = initial ? { ...initial } : null; // {comic} | {searchGenre}
     openModal((m) => {
       panelHead(m, "develop", "WRITERS' ROOM &mdash; DEVELOP",
-        "Option one comic for future printing. Getting it on the presses later takes a writer + artist team, their fee, and 2 matching ideas.");
+        "Option one project now; assemble its print team later.");
       const body = panelSection(m, "ON OFFER &mdash; PITCHES ON THE TABLE");
       const row = el("div", "card-row");
       for (const c of s.display.comics) {
@@ -215,7 +232,7 @@ const Scenes = (() => {
         { label: "CANCEL", fn: () => closeModal() },
         { label: "OPTION IT", cls: "btn-go", id: "dev-ok", disabled: true, fn: () => {
             closeModal();
-            confirmHandOverflow(1, "Optioning this comic", () => {
+            confirmHandOverflow(1, "develop", "Optioning this comic", () => {
               const result = command("action_develop", sel);
               if (!result.ok) return;
               closeModal();
@@ -380,7 +397,8 @@ const Scenes = (() => {
       const usedCards = books.flatMap((b) => [b.writer, b.artist, b.comic].filter(Boolean));
       let recommended = null;
       openModal((m) => {
-        const head = panelHead(m, "print", `PRINT FLOOR &mdash; BOOK ${n}${x2 ? " of up to 2" : ""}`, "&nbsp;");
+        const head = panelHead(m, "print", `PRINT FLOOR &mdash; BOOK ${n}${x2 ? " of up to 2" : ""}`,
+          "Choose a book to see its strongest available team.");
         const sub = head.querySelector(".ph-tag"); // filled per ORIGINAL/RIP-OFF below
 
         // type toggle
@@ -975,7 +993,7 @@ const Scenes = (() => {
       if (top) {
         const myBest = Math.max(0, e.bestComicFans(me()));
         pane.appendChild(el("span", "rr-lead", myBest > top.f
-          ? `&#9733; YOU LEAD the chart at ${myBest}&#9829; &middot; next: ${esc(top.pl.pubName)} ${top.f}&#9829;`
+          ? `YOU LEAD at ${myBest} fans &middot; next: ${esc(top.pl.pubName)} ${top.f} fans`
           : `Chart leader: <b>${esc(top.pl.pubName)} ${top.f}&#9829;</b> &middot; your best ${myBest}&#9829;`));
       }
     }
@@ -1055,7 +1073,7 @@ const Scenes = (() => {
     const e = E(), s = e.state, p = P(me());
     const sel = [];
     openModal((m) => {
-      panelHead(m, "ideas", "BONUS IDEAS", "&nbsp;");
+      panelHead(m, "ideas", "BONUS IDEAS", "");
       m.appendChild(el("div", "modal-sub", `Take <b>${pd.data.count}</b> idea token${pd.data.count > 1 ? "s" : ""} of any genre. Printing an original needs <b>2 matching ideas</b> — here's what's around:`));
       // context: what could use those ideas
       const ctx = el("div", "ctx-strip ctx-rows");
@@ -1114,7 +1132,7 @@ const Scenes = (() => {
     const e = E(), s = e.state;
     const o = s.mapSlots[pd.data.orderId];
     openModal((m) => {
-      panelHead(m, "sales", "WHICH BOOK TAKES THE ORDER?", "&nbsp;");
+      panelHead(m, "sales", "WHICH BOOK TAKES THE ORDER?", "");
       m.appendChild(el("div", "modal-sub", `A ${GENRE_INFO[o.genre].name} order (value ${o.minVal}+) grants <b>+${o.fans} fans</b> to one of these:`));
       const row = el("div", "card-row");
       for (const idx of pd.data.choices) {
@@ -1235,11 +1253,11 @@ const Scenes = (() => {
         const cd = CARD_BY_ID[cardId];
         const d = el("div", "swap-cr" + (cd.genre === bookGenre ? " spec" : "") + (opts.cls ? " " + opts.cls : ""));
         d.appendChild(spr(faceBigOf(cardId), 0.55));
-        d.appendChild(el("div", "sc-meta", `${genreMark(cd.genre, 0.45)}<b>${"&#10022;".repeat(value)}</b>`));
+        d.appendChild(el("div", "sc-meta", `${genreMark(cd.genre, 0.45)}${valueMark(value)}`));
         if (opts.label) d.appendChild(el("div", "sc-label", opts.label));
         attachZoom(d, faceBigOf(cardId),
           `<b>${esc(cd.name)}</b><br>${genreMark(cd.genre, 0.5)} ${GENRE_INFO[cd.genre].name} &middot; v${value}` +
-          (cd.genre === bookGenre ? "<br><span class='zc-note'>&#9733; would be specialized here</span>" : ""));
+          (cd.genre === bookGenre ? "<br><span class='zc-note'>SPECIALIZED HERE</span>" : ""));
         return d;
       }
       function renderRows() {
@@ -1301,7 +1319,7 @@ const Scenes = (() => {
     const comics = p.hand.filter((c) => !CARD_BY_ID[c].kind);
     if (!comics.length) { command("special_hype", { cardId: null }); return Main.advance(); }
     openModal((m) => {
-      panelHead(m, "hype", "&#9733; BUILD HYPE", "&nbsp;");
+      panelHead(m, "hype", "BUILD HYPE", "");
       m.appendChild(specialArt("hype", 150)).style.alignSelf = "center";
       m.appendChild(el("div", "modal-sub", "Set one unprinted comic aside. It gains a hype token (2 fans) at the start of every round; all cash in when you finally print it."));
       const row = el("div", "card-row");
@@ -1327,7 +1345,7 @@ const Scenes = (() => {
     if (!total || !mine.length) { command("special_ideas", { conversions: [] }); return Main.advance(); }
     const sel = [];
     openModal((m) => {
-      panelHead(m, "ideas", "&#9733; WORD OF MOUTH", "&nbsp;");
+      panelHead(m, "ideas", "WORD OF MOUTH", "");
       m.appendChild(specialArt("ideasconv", 150)).style.alignSelf = "center";
       m.appendChild(el("div", "modal-sub", `Convert up to ${Math.min(3, total)} idea tokens into +1 fan each (max 1 per comic). Any genre token works.`));
       const row = el("div", "card-row");
@@ -1369,7 +1387,7 @@ const Scenes = (() => {
     let tier = null;
     const dist = {};
     openModal((m) => {
-      panelHead(m, "hype", "&#9733; MARKETING BLITZ", "&nbsp;");
+      panelHead(m, "hype", "MARKETING BLITZ", "");
       m.appendChild(specialArt("marketing", 150)).style.alignSelf = "center";
       m.appendChild(el("div", "modal-sub", "Buy fans: $2 &rarr; 1 fan, $5 &rarr; 2 fans, $9 &rarr; 4 fans. Spread them over your books on the chart."));
       const tg = el("div", "choice-group");
@@ -1441,7 +1459,7 @@ const Scenes = (() => {
       em.appendChild(sprHD(pub.logo, 1.6));
       head.appendChild(em);
       const ht = el("div", "ph-text");
-      UI.reviewHint = "HOUSE FOUNDED";
+      UI.completionHint = "HOUSE FOUNDED";
       ht.appendChild(el("h2", "", `FOUNDING CATALOG &mdash; ${pub.name.toUpperCase()}`));
       ht.appendChild(el("div", "ph-tag",
         `Pick the <b>genre</b> of your first comic book project (you draw it face-down — its bonus is a surprise) and <b>${picks.ideas}</b> idea token${picks.ideas === 1 ? "" : "s"}.`));
@@ -1467,7 +1485,7 @@ const Scenes = (() => {
           cls: "vault-card",
           dimmed: inDeck.length === 0 || !tutorialAllowed,
           label: `${genreMark(g, 0.55)} ${GENRE_INFO[g].name}<br>` +
-            (teamMatch ? `<span class="match-tag">&#9733; MATCHES YOUR TEAM</span>` : "&nbsp;"),
+            (teamMatch ? `<span class="match-tag">TEAM MATCH</span>` : "&nbsp;"),
           onpick: (d) => {
             if (!tutorialAllowed) return toast("Your first assignment is a Crime original.");
             comicGenre = g;
@@ -1547,7 +1565,7 @@ const Scenes = (() => {
     const e = E(), p = P(me());
     openModal((m) => {
       const ROMAN = ["", "I", "II", "III", "IV", "V"];
-      UI.reviewHint = "CREATIVE DEVELOPMENT";
+      UI.completionHint = "CREATIVE DEVELOPMENT";
       panelHead(m, "develop", `ROUND ${ROMAN[e.state.round] || e.state.round} &mdash; CREATIVE DEVELOPMENT`,
         "Specialized creatives on printed books can grow: <b>learn</b> from a stronger specialized teammate ($1) or <b>train</b> (pay the new value). One step per creative per round. Higher team value = higher book value for orders.");
       const list = panelSection(m, "THIS ROUND'S CANDIDATES");
@@ -1733,12 +1751,14 @@ const Scenes = (() => {
       m.appendChild(el("div", "modal-sub", `
 <p><b>Goal:</b> most VP after 5 rounds. Fans = VP. Also: rank prizes each round, mastery tokens, better colors, money &amp; ideas (4:1), and originals (2/4/6 VP by team specialization).</p>
 <p><b>Each round</b> you place your 4 editors on city locations, one per turn:</p>
-<p>&#9998; <b>Talent Agency</b> — hire 1 writer + 1 artist.<br>
-&#9998; <b>Writers' Room</b> — option a comic (or $4 to pick a genre from the deck).<br>
-&#9998; <b>Cafe Bizarre</b> — collect idea tokens.<br>
-&#9998; <b>Print Floor</b> — print: comic + writer + artist, pay team value in $, plus 2 matching ideas (originals). Rip-offs skip ideas but start fanless. First editor prints TWO.<br>
-&#9998; <b>Accounting</b> — cash. Earlier desks pay more.<br>
-&#9998; <b>Manhattan Map</b> — move your agent, flip &amp; collect sales orders. Orders auto-fulfill when you own a matching comic (genre + value) and grant fans. Unfulfilled orders cost VP at the end!</p>
+<ul class="help-actions">
+<li><b>HIRE — Talent Agency:</b> take 1 writer and 1 artist.</li>
+<li><b>DEVELOP — Writers' Room:</b> option a comic, or pay $4 to commission a genre.</li>
+<li><b>IDEAS — Cafe Bizarre:</b> collect idea tokens.</li>
+<li><b>PRINT — Print Floor:</b> combine comic, writer and artist; pay the team value and 2 matching ideas for an original. The first press can print two books.</li>
+<li><b>ROYALTIES — Accounting:</b> collect cash; earlier desks pay more.</li>
+<li><b>SALES — Manhattan Map:</b> move, reveal and collect orders. Matching books deliver automatically; unfilled orders cost VP at game end.</li>
+</ul>
 <p><b>Specialized creatives</b> (matching the comic's genre) add +1 fan each at print and can grow in value at the beginning of each publishing cycle.</p>
 <p><b>Mastery</b>: first to print a genre (or overtake majority with at least one original) gets +1 fan on every book of that genre and 2 VP.</p>
 <p><b>Specials</b>: printing your 2nd/3rd/4th book unlocks cube specials that ride on main actions. 5th book: +1 VP per original. 6th+: +2 VP each.</p>

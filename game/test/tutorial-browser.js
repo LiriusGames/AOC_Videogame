@@ -53,18 +53,18 @@ function check(value, name) {
         token.click(); token.click();
         document.querySelector("#sp-ok").click();
       });
-      // the founding files itself: the stamp lands and the proof note follows
-      await page.waitForFunction(() => Tutor.state.beat === "proof_confirm", { timeout: 10000 });
+      // the founding completes immediately; the guide points at Undo directly
+      await page.waitForFunction(() => Tutor.state.beat === "undo_guide", { timeout: 10000 });
     }
     await foundHouse();
-    check(await page.evaluate(() => !document.querySelector("#review-bar").hidden),
-      "the founding files itself with a proof stamp (no confirm step)");
+    check(await page.evaluate(() => !document.querySelector("#review-bar") && !document.querySelector("#modal-root .modal")),
+      "the founding completes without a proof or confirm layer");
     // undo stays voluntary: the top-bar button rewinds and reopens the vault
     await page.click("#btn-undo");
     await page.waitForFunction(() => Tutor.state.beat === "founding" && !!document.querySelector("#modal-root.active"));
     await foundHouse();
-    check(await page.evaluate(() => Tutor.state.beat === "proof_confirm"), "voluntary undo reopens the vault and returns to the proof note");
-    // the proof note is an interstitial now: NEXT starts the premises tour
+    check(await page.evaluate(() => Tutor.state.beat === "undo_guide"), "voluntary undo reopens the vault and returns to the Undo lesson");
+    // the Undo lesson is an interstitial: NEXT starts the premises tour
     await page.$eval("#tutor-card .tutor-next", (btn) => btn.click());
     await page.waitForFunction(() => Tutor.state.beat === "tour_rail", { timeout: 10000 });
     await page.$eval("#tutor-card .tutor-next", (btn) => btn.click());
@@ -97,7 +97,7 @@ function check(value, name) {
           Main.advance();
         }
       });
-      // no confirm step: the stamp files the action and the beat moves on
+      // no confirm step: completion advances the beat directly
       await waitTurn(nextBeat);
     }
 

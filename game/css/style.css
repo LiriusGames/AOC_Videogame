@@ -69,9 +69,10 @@ body {
   font-family: var(--f-body);
   font-size: 17px;
   overflow: hidden;
-  image-rendering: pixelated;
 }
-img, .spr { image-rendering: pixelated; }
+img { image-rendering: auto; }
+/* Quantization belongs to the legacy atlas and room dioramas, not the page. */
+.spr { image-rendering: pixelated; }
 /* HD twins (sprHD): unquantized print art renders smooth, never chunky */
 .spr.spr-hd { image-rendering: auto; }
 
@@ -203,17 +204,38 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 #round-tag { font-family: var(--f-display); font-size: 11px; color: #c8b087; letter-spacing: 1px; margin-right: -8px; }
 #calendar { display: flex; gap: 6px; align-items: center; }
 .cal-tile {
-  width: 34px; height: 34px; border: 2px solid var(--ink); border-radius: 6px; display: flex; align-items: center; justify-content: center;
-  font-family: var(--f-display); font-size: 15px; background: var(--paper-dark); color: var(--ink); position: relative;
+  width: 38px; height: 38px; border: 2px solid var(--ink); border-radius: 2px;
+  display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;
+  font-family: var(--f-display); background: var(--paper); color: var(--ink);
+  box-shadow: 0 2px 0 rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.45);
 }
-.cal-tile.current { outline: 3px solid var(--gold); }
-.cal-tile.future { background: #566; color: #e2ecec; }
+.cal-tile::after {
+  content: ""; position: absolute; left: 3px; right: 3px; bottom: 2px; border-bottom: 1px dotted #9b8767;
+}
+.cal-tile.current { outline: 3px solid var(--gold); background: #fff7df; }
+.cal-tile.future { background: #4d5558; color: #efe6d0; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.cal-round { position: absolute; top: 0; left: 3px; z-index: 2; font-size: 8px; line-height: 1.2; color: #6a5638; }
+.cal-round.future-round { position: static; font-size: 15px; color: inherit; }
+.cal-genres { display: flex; align-items: center; justify-content: center; gap: 0; margin-top: 5px; line-height: 0; }
+.cal-genre {
+  width: 17px; height: 19px; display: flex; align-items: center; justify-content: center;
+  border-bottom: 3px solid var(--genre); background: rgba(255,255,255,.35);
+}
+.cal-genre .spr { flex: none; image-rendering: auto; }
 #turn-order { display: flex; gap: 6px; margin-left: auto; align-items: center; }
 .order-chip {
   display: flex; align-items: center; gap: 5px; border: 2px solid var(--ink); border-radius: 7px; padding: 2px 8px 2px 4px;
   font-size: 14px; color: var(--ink); opacity: .75;
 }
 .order-chip.current { opacity: 1; outline: 3px solid #fff; }
+.order-chip .editors-left { font-family: var(--f-display); font-size: 11px; white-space: nowrap; }
+.order-chip.working { opacity: 1; padding-right: 18px; position: relative; }
+.order-chip.working::after {
+  content: ""; position: absolute; right: 6px; top: 50%; width: 5px; height: 5px; margin-top: -2px;
+  border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 2px rgba(255,255,255,.45);
+  animation: working-dot 1.1s ease-in-out infinite;
+}
+@keyframes working-dot { 50% { opacity: .25; transform: scale(.65); } }
 #top-buttons { display: flex; gap: 6px; }
 
 /* the action board */
@@ -303,7 +325,7 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 }
 .loc .slot-pip .spr { position: relative; z-index: 1; margin-bottom: 4px; }
 .loc .slot-pip .spot-perk {
-  position: relative; z-index: 1; font: 16px "VT323", monospace; line-height: 1;
+  position: relative; z-index: 1; font: 600 12px var(--f-display); line-height: 1;
   color: #ffe9b0; text-shadow: 1px 1px 0 #000; margin-bottom: 0;
 }
 .loc .slot-pip.next::after { border-style: solid; border-color: var(--gold); }
@@ -332,9 +354,6 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
   text-shadow: 4px 4px 0 #7a2d18, 8px 8px 0 rgba(0,0,0,.6);
 }
 #big-banner .bb-sub { font-size: 20px; color: var(--paper); text-shadow: 2px 2px 0 var(--ink); margin-top: 10px; }
-#big-banner .bb-meeple { display: inline-block; margin: 0 4px; }
-#big-banner .bb-meeple .spr { filter: drop-shadow(2px 3px 0 rgba(0,0,0,.5)); }
-#big-banner .bb-meeple.spent { opacity: .25; filter: grayscale(1); }
 @keyframes banner-pop {
   0% { opacity: 0; transform: translate(-50%, -50%) scale(.6); }
   12% { opacity: 1; transform: translate(-50%, -50%) scale(1.05); }
@@ -342,16 +361,6 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
   80% { opacity: 1; }
   100% { opacity: 0; transform: translate(-50%, -55%); }
 }
-#ai-status {
-  position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
-  z-index: 40; display: none; align-items: center; gap: 8px;
-  background: var(--ink); color: var(--paper); border: 3px solid var(--gold);
-  padding: 4px 12px; font-size: 16px;
-}
-#ai-status.show { display: flex; }
-#ai-status .spr { border: 2px solid var(--gold); }
-#ai-status .dots::after { content: ""; animation: think 1.2s steps(4) infinite; }
-@keyframes think { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
 .your-turn #locations { outline: 4px solid var(--gold); outline-offset: -4px; }
 /* during the tutorial the memo's gold ring is the ONLY highlight — the
    your-turn frame reads as a second, competing ring */
@@ -732,6 +741,20 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
   padding: 4px 5px 3px; cursor: pointer; flex-shrink: 0;
   background: rgba(24,20,14,.4); border: 2px solid var(--ink); border-radius: 7px;
 }
+.team-chip {
+  color: var(--ink); background: #eee2c6; border: 1px solid #bcae90; border-radius: 1px;
+  padding: 10px 7px 5px; margin: 3px 2px 1px;
+  box-shadow: 1px 2px 0 #8a7658, 4px 5px 7px rgba(0,0,0,.34);
+  transform: rotate(-1.2deg); transform-origin: 50% 10%;
+}
+.team-chip:nth-child(even) { transform: rotate(1.1deg); }
+.team-chip:nth-child(3n) { transform: rotate(-.45deg); }
+.team-chip::before {
+  content: ""; position: absolute; z-index: 3; top: 3px; left: 50%; width: 7px; height: 7px;
+  margin-left: -4px; border-radius: 50%; background: #a43a30;
+  border: 1px solid #5c211d; box-shadow: 1px 2px 1px rgba(0,0,0,.45), inset 1px 1px 0 rgba(255,255,255,.35);
+}
+.team-chip:hover, .team-chip:focus-visible { transform: translateY(-3px) rotate(0); }
 .team-chip:hover, .team-chip:focus-visible,
 .project-chip:hover, .project-chip:focus-visible { outline: 3px solid var(--gold); z-index: 5; }
 .team-chip .spr, .project-chip .spr { border: 2px solid var(--ink); }
@@ -899,7 +922,34 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 .figure .fig-meta { display: flex; align-items: center; gap: 4px; }
 /* value stars: one standard everywhere — gold with an ink outline (the
    outline is what keeps them legible on paper backgrounds) */
-.figure .fig-val { color: #ffd75e; font-size: 14px; letter-spacing: 1px; text-shadow: 1px 1px 0 #221d16, -1px 1px 0 #221d16, 1px -1px 0 #221d16, -1px -1px 0 #221d16; }
+.figure .fig-val { color: inherit; font-size: 12px; letter-spacing: 0; text-shadow: none; }
+.value-mark {
+  display: inline-flex; align-items: baseline; gap: 1px; padding: 1px 4px;
+  border: 1px solid currentColor; border-radius: 2px; background: rgba(245,200,110,.88);
+  color: var(--ink); font: 600 10px/1 var(--f-display); letter-spacing: 0;
+}
+.value-mark > span { font-size: 7px; opacity: .75; }
+.help-actions { margin: 7px 0 10px 20px; display: grid; gap: 5px; }
+.help-actions li { padding-left: 3px; }
+.special-pick .special-name { font: 600 12px/1.25 var(--f-display); letter-spacing: .5px; }
+.overflow-ledger {
+  display: grid; grid-template-columns: 1fr auto 1fr auto 1fr 1fr;
+  gap: 8px; align-items: stretch;
+}
+.overflow-stat {
+  min-width: 92px; display: flex; flex-direction: column; justify-content: center; align-items: center;
+  padding: 8px 10px; border: 2px solid var(--ink); background: #f5edd9;
+}
+.overflow-stat span { font: 600 9px/1.1 var(--f-display); letter-spacing: .7px; color: #67563d; }
+.overflow-stat b { font: 600 28px/1 var(--f-display); }
+.overflow-stat.over { color: #8a2f22; background: #f1d8c7; border-color: #8a2f22; }
+.overflow-stat.limit { background: var(--paper-dark); }
+.overflow-op { align-self: center; font: 600 25px/1 var(--f-display); }
+.overflow-note { padding: 8px 10px; border-left: 4px solid var(--gold); background: rgba(245,200,110,.16); }
+@media (max-width: 720px) {
+  .overflow-ledger { grid-template-columns: 1fr auto 1fr auto 1fr; }
+  .overflow-stat.limit { grid-column: 1 / -1; }
+}
 .figure .fig-extra { font-size: 11px; line-height: 1.1; color: #57452c; }
 .figure.pickable { cursor: pointer; }
 .figure.pickable:hover { outline-color: var(--gold); }
@@ -957,10 +1007,17 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 .tray-slot.filled { border-style: solid; border-color: var(--gold); background: rgba(0,0,0,.3); cursor: pointer; }
 .tray-slot.filled:hover { box-shadow: 0 0 0 3px rgba(245,200,110,.4); }
 
-/* map modal */
-#map-canvas { border: 4px solid var(--ink); background: #0f1118; cursor: pointer; }
-.map-hud { display: flex; gap: 16px; align-items: center; font-size: 17px; flex-wrap: wrap; }
-.map-hud b { font-family: var(--f-display); font-size: 14px; }
+/* Manhattan is presented as a folded street map on the dispatch desk. */
+#map-canvas {
+  border: 3px solid var(--ink); outline: 4px solid #d3bd8d; outline-offset: -8px;
+  background: #d9ceb4; cursor: pointer; image-rendering: auto;
+  box-shadow: 0 5px 0 rgba(0,0,0,.35), inset 0 0 22px rgba(67,45,21,.2);
+}
+.map-hud {
+  display: flex; gap: 12px 18px; align-items: center; font-size: 15px; flex-wrap: wrap;
+  padding: 6px 10px; border: 2px solid var(--ink); background: var(--paper-dark);
+}
+.map-hud b { font-family: var(--f-display); font-size: 13px; letter-spacing: .4px; }
 
 /* toast + zoom */
 /* toasts must clear the tutorial veil (z 920) or the ring's dim swallows
@@ -988,7 +1045,6 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 .score-table tr.winner { background: var(--gold); font-weight: bold; }
 .score-table .total { font-family: var(--f-display); font-size: 15px; }
 
-.genre-dot { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--ink); vertical-align: middle; }
 .genre-mark .spr { vertical-align: middle; }
 .spr.round-spr { border-radius: 50%; }
 .ctx-strip {
@@ -1127,7 +1183,7 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
   border: 2px solid #3d2d22; box-shadow: 7px 8px 0 rgba(0,0,0,.42);
   transform: rotate(-.35deg); font-family: SpecialElite, serif;
 }
-#tutor-card h3 { margin: 0 0 7px; font: 11px/1.35 PressStart, monospace; color: #7d2f28; }
+#tutor-card h3 { margin: 0 0 7px; font: 600 15px/1.25 var(--f-display); letter-spacing: 1px; color: #7d2f28; }
 #tutor-card p { margin: 0 0 9px; font-size: 15px; line-height: 1.32; }
 #tutor-card .tutor-skip { font-size: 9px; }
 .tutorial-active .loc.tutor-blocked { opacity: .52; }
@@ -1149,8 +1205,16 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 }
 .sales-workspace .map-hud, .sales-workspace .modal-buttons { grid-column: 1 / -1; }
 .sales-workspace .dispatch-col { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
-.sales-map-pane { display: flex; flex-direction: column; min-width: 0; }
+.sales-map-pane {
+  display: flex; flex-direction: column; min-width: 0; gap: 5px;
+  padding: 7px; border: 2px solid #8f7651; background: #d7c49d;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.25);
+}
 #map-canvas { max-width: 100%; height: auto; }
+.sales-legend {
+  font-family: var(--f-body); font-size: 11px; line-height: 1.25;
+  background: #efe6d0; border: 1px dashed #8f7651; padding: 4px 6px;
+}
 @media (max-width: 1100px) {
   .sales-workspace { grid-template-columns: 1fr; }
 }
@@ -1231,7 +1295,6 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 /* ------------------------------------------------------- reduced motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
-  #ai-status .dots::after { content: "..." !important; }
   .pulse { outline-color: var(--gold); }
   .magnified { transform: none; }
 }
@@ -1269,7 +1332,10 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
   #chart-mini { max-width: 150px; }
   /* the FILM button joined the row: buy its width back */
   #round-tag { display: none; }
-  .cal-tile { width: 28px; height: 28px; font-size: 13px; }
+  .cal-tile { width: 30px; height: 30px; }
+  .cal-round { font-size: 7px; }
+  .cal-round.future-round { font-size: 13px; }
+  .cal-genre { width: 14px; height: 16px; transform: scale(.84); }
   #hud { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   #hud-resources { font-size: 14px; }
   .res-cash { font-size: 15px; }
@@ -1284,25 +1350,6 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
   .loc .slot-pip { width: 21px; }
 }
 
-/* -------------------------------------------- post-action review proof slip
-   a transient slip under the top bar: it names the filed move and offers
-   UNDO, but never blocks — the world keeps rolling */
-#review-bar {
-  position: absolute; top: 46px; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 14px; align-items: center; z-index: 45;
-  border-radius: 8px;
-  background: var(--paper); color: var(--ink); border: 2px solid var(--ink);
-  box-shadow: 0 0 0 2px var(--gold), 0 6px 0 rgba(0,0,0,.45);
-  padding: 7px 16px 6px;
-  animation: proofdrop .18s steps(3) both;
-}
-@keyframes proofdrop { from { transform: translate(-50%, -12px); opacity: 0; } }
-#review-bar::before {
-  /* proof-slip perforation along the top */
-  content: ""; position: absolute; top: 2px; left: 8px; right: 8px; height: 2px;
-  background: repeating-linear-gradient(90deg, var(--paper-dark) 0 6px, transparent 6px 12px);
-}
-#review-bar[hidden] { display: none; }
 #btn-undo[hidden] { display: none; }
 /* the rewind window announces itself */
 #btn-undo.undo-armed { box-shadow: 0 0 0 2px var(--gold); animation: undopulse 1.2s steps(2) infinite; }
@@ -1359,10 +1406,6 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 .resource-counter.miss { color: #a00; border-color: #a00; background: #f6dede; }
 .print-result { min-height: 20px; }
 .projection-note { display: inline-block; margin-left: 6px; padding: 2px 5px; background: #e9ddc4; font-size: 11px; }
-#review-bar .rb-text { font-family: var(--f-display); font-size: 14px; color: #8a2f22; }
-#review-bar .rb-buttons { display: flex; gap: 12px; align-items: center; }
-#review-bar .rb-keys { font-size: 11px; color: #57452c; }
-
 /* ------------------------------------------------- file:// launch guard */
 .file-guard {
   border-radius: 12px;
@@ -1380,7 +1423,7 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
    language of the era's presses. Layered as background-image so the flat
    --paper fills beneath stay authoritative (this block must stay LAST). */
 .modal, .panel, #zoom-root, #wire-panel, .chart-detail, .standings,
-#pub-mark, #review-bar, .setup-panel, .chart-grid, .file-guard {
+#pub-mark, .setup-panel, .chart-grid, .file-guard {
   background-image: radial-gradient(rgba(34, 29, 22, .055) 1px, transparent 1.4px);
   background-size: 6px 6px;
 }
@@ -1464,6 +1507,19 @@ html.film-matinee .fl-vignette {
   padding: 16px 44px; letter-spacing: 3px;
 }
 #big-banner .bb-sub { font-family: var(--f-type); font-size: 19px; }
+/* Turn control remains a hero moment, now printed as a clipped newsroom
+   notice instead of the old pixel-meeple presentation. */
+#big-banner.turn-notice .bb-main {
+  color: #8a2f22; background: var(--paper); text-shadow: none;
+  border: 4px double var(--ink); border-radius: 2px; padding: 12px 50px 10px;
+  box-shadow: 0 0 0 3px var(--gold), 7px 8px 0 rgba(0,0,0,.48);
+  clip-path: polygon(2% 0, 100% 0, 98% 100%, 0 100%);
+}
+#big-banner.turn-notice .bb-sub {
+  display: inline-block; margin-top: 8px; padding: 4px 12px 3px;
+  color: var(--ink); background: var(--paper-dark); border: 2px solid var(--ink);
+  font-family: var(--f-display); font-size: 14px; letter-spacing: 1px; text-shadow: none;
+}
 
 /* -------------------------------------------- TV '52 distortion package
    the artifacts everyone remembers: the vertical-hold roll bar, scanline

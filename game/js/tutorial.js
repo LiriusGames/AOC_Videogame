@@ -23,7 +23,7 @@ const Tutor = (() => {
     wire: ["THE RIVALS MOVE", "Now the other houses take their shifts — the wire up top keeps the gossip. You don't wait politely in this town; you read the ticker."],
     mastery_note: ["MASTERY CLAIMED", "First original in a genre claims its mastery token: +1 fan on every book you print in that genre, and 2 points at the final bell. Another house can steal it by out-printing you."],
     founding: ["YOUR STARTING TEAM", "Your writer and artist specialize in different genres. Each teammate who matches a book adds one launch fan. Choose the highlighted Crime project and two Crime ideas."],
-    proof_confirm: ["THE PROOF STAMP", "Every move files itself — the stamp you just saw is the receipt, no paperwork to sign. Second thoughts? The UNDO button on the desk rail rewinds your latest decision, any turn, all game long."],
+    undo_guide: ["SECOND THOUGHTS?", "Your move is already complete. While the UNDO button is lit, it can rewind your latest decision. You never need to confirm a finished action."],
     ideas: ["FIRST SHIFT — CAFE BIZARRE", "Send your first editor for ideas. Clear the free table coins first — they run out, and seat order decides who eats. Then take two Crime from the counter for your book."],
     print_bonus: ["THE PRINTING BONUS", "Every original pays a perk when it prints — this one pays two idea tokens. Take Crime: ideas in your best genre fuel the NEXT book."],
     print: ["SECOND SHIFT — PRINT FLOOR", "Build the highlighted package: comic, writer, artist, team fee, and two matching ideas. The first press can run two books, but today you own one complete team."],
@@ -60,6 +60,8 @@ const Tutor = (() => {
     if (!saved || saved.scenarioVersion !== SCENARIO.version || saved.skipped) return false;
     active = true;
     state = Object.assign(freshState(), saved, { botSteps: Object.assign({ 1: 0, 2: 0 }, saved.botSteps || {}) });
+    // Edition 3 saves may be parked on the removed proof-slip lesson.
+    if (state.beat === "proof_confirm") state.beat = "undo_guide";
     document.documentElement.classList.add("tutorial-active");
     sync();
     return true;
@@ -91,16 +93,16 @@ const Tutor = (() => {
   }
 
   const NEXT_FLOW = {
-    masthead: "founding", proof_confirm: "tour_rail", tour_rail: "tour_board",
+    masthead: "founding", undo_guide: "tour_rail", tour_rail: "tour_board",
     tour_board: "tour_chart", tour_chart: "ideas", wire: "print", mastery_note: "accounting",
   };
   // BACK re-reads the previous lesson; NEXT (or the beat's own trigger)
   // returns. Only beats whose predecessor is safe to re-enter are listed.
   const PREV_FLOW = {
-    founding: "masthead", tour_rail: "proof_confirm", tour_board: "tour_rail",
+    founding: "masthead", tour_rail: "undo_guide", tour_board: "tour_rail",
     tour_chart: "tour_board", ideas: "tour_chart", print: "wire", accounting: "mastery_note",
   };
-  const INTERSTITIAL = { masthead: 1, proof_confirm: 1, tour_rail: 1, tour_board: 1, tour_chart: 1, wire: 1, mastery_note: 1 };
+  const INTERSTITIAL = { masthead: 1, undo_guide: 1, tour_rail: 1, tour_board: 1, tour_chart: 1, wire: 1, mastery_note: 1 };
   function next() {
     const to = NEXT_FLOW[state.beat];
     if (!to) return;
@@ -134,7 +136,7 @@ const Tutor = (() => {
       return state.foundingStep === "vault" ? '#modal-root [data-tut="vault"]'
         : state.foundingStep === "tokens" ? '#modal-root [data-tut="tokens"]'
         : "#modal-root #sp-ok";
-    if (state.beat === "proof_confirm") return "#btn-undo";
+    if (state.beat === "undo_guide") return "#btn-undo";
     if (state.beat === "ideas") return '#locations [data-action="ideas"]';
     if (state.beat === "print") return '#locations [data-action="print"]';
     if (state.beat === "accounting") return '#locations [data-action="royalties"]';
@@ -340,11 +342,10 @@ const Tutor = (() => {
     const step = !hasComic ? "vault" : nIdeas < 2 ? "tokens" : "confirm";
     if (step !== state.foundingStep) { state.foundingStep = step; sync(); }
   }
-  // actions file themselves now (no confirm step): the stamp notification
-  // is the beat boundary that the review bar used to be
-  function onProofFiled(action) {
+  // Completed transactions advance the lesson without a confirmation layer.
+  function onActionComplete(action) {
     if (!active) return;
-    if (state.beat === "founding") state.beat = "proof_confirm";
+    if (state.beat === "founding") state.beat = "undo_guide";
     else if (state.beat === "ideas" && action === "ideas") state.beat = "wire";
     else if (state.beat === "print" && action === "print") state.beat = "mastery_note";
     else if (state.beat === "accounting" && action === "royalties") state.beat = "sales";
@@ -355,7 +356,7 @@ const Tutor = (() => {
     if (!active) return;
     // undo is voluntary: rewinding steps the lesson back to the decision it
     // erased — the founding reopens the vault, a rewound sales run restarts
-    if (state.beat === "proof_confirm") state.beat = "founding";
+    if (state.beat === "undo_guide") state.beat = "founding";
     else if (state.beat === "wire") state.beat = "ideas";
     else if (state.beat === "mastery_note") state.beat = "print";
     else if (state.beat === "sales") state.salesStep = "start";
@@ -387,7 +388,7 @@ const Tutor = (() => {
     begin, restore, exportState, skip, sync, hide, reanchor, detachFromModal,
     next, back, onHumanTurn, pingFounding,
     allowedAction, allowCommand, afterCommand,
-    onProofFiled, onUndo, takeBotTurn,
+    onActionComplete, onUndo, takeBotTurn,
   };
 })();
 // a top-level const never lands on globalThis: session.js reaches the Tutor

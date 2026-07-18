@@ -111,7 +111,7 @@ function findBrowser() {
         await page.$eval(".chart-detail-close", (button) => button.click());
       }
 
-      // the review proof slip over the dimmed board (real royalties action)
+      // an Undo-ready board after a real royalties action: no proof overlay
       await page.evaluate(() => {
         const e = UI.engine;
         let guard = 0;
@@ -126,8 +126,8 @@ function findBrowser() {
         e.actRoyalties(UI.humanId);
         Main.afterHumanMove();
       });
-      await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
-      await shot("review");
+      await page.waitForFunction(() => !UI.pendingCompletion && !document.getElementById("btn-undo").disabled, { timeout: 10000 });
+      await shot("undo-ready");
       await new Promise((r) => setTimeout(r, 200));
 
       const hasDrawer = await page.evaluate(() =>
