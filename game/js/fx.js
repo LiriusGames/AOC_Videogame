@@ -76,7 +76,7 @@ const FX = (() => {
       wrap.appendChild(row);
       root().appendChild(wrap);
       items.forEach((it, i) => {
-        const card = el("div", "rev-card");
+        const card = el("div", "rev-card" + (it.isComic ? " comic-card" : ""));
         const front = el("div", "rev-front" + (it.front ? " has-back" : ""));
         if (it.front) // what the pick looked like before the flip
           front.appendChild(sprHD(it.front, it.frontScale || 1.2, it.frontRound ? "round-spr" : ""));

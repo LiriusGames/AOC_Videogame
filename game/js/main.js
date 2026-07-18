@@ -374,7 +374,10 @@ const Main = (() => {
           renderTopbar();
           const p = e.player(pid);
           const total = p.editors + (p.extraEditorUsed ? 1 : 0);
+          const pips = Array.from({ length: total }, (_, i) =>
+            `<span class="bb-meeple${i < p.editorsLeft ? "" : " spent"}">${sprHTML(`staff_${p.color}_${i % 4}`, 1.0)}</span>`).join("");
           showBanner("YOUR TURN",
+            `<div class="bb-meeples">${pips}</div>` +
             `ROUND ${["I", "II", "III", "IV", "V"][s.round - 1] || s.round} &middot; ` +
             `<b>${p.editorsLeft}</b> OF ${total} EDITORS READY`, "turn");
           SFX.play("turn");
@@ -461,15 +464,21 @@ const Main = (() => {
   // Rewind to the snapshot taken at the start of your current decision
   // (includes any AI moves shown since — they replay from the same rng).
   function doUndo() {
+    console.log("doUndo called. Snap:", !!UI.undoSnap, "Dirty:", UI.undoDirty, "Autoplay:", UI.autoplay, "reopen:", UI.lastActionScene);
     if (UI.session && UI.session.mode === "remote") return toast("Published room moves cannot be rewound.");
     if (!UI.undoAllowed) return toast("No second thoughts above CUB REPORTER &mdash; the rivals' answers are already on the record.");
-    if (!UI.undoSnap || !UI.undoDirty || UI.autoplay) return;
+    if (!UI.undoSnap || !UI.undoDirty || UI.autoplay) {
+      console.log("doUndo returning early. snap:", !!UI.undoSnap, "dirty:", UI.undoDirty, "autoplay:", UI.autoplay);
+      return;
+    }
     clearTimeout(advanceTimer);
     const label = UI.lastCompletionLabel || completionLabel(); // name what is being taken back, pre-rewind
     UI.pendingCompletion = false;
     UI.handRevealPending = {};
     UI.completionHint = null;
     UI.lastCompletionLabel = null;
+    const reopen = UI.lastActionScene;
+    UI.lastActionScene = null;
     UI.engine.restore(UI.undoSnap);
     UI.undoSnap = null;
     UI.undoDirty = false;
@@ -483,6 +492,11 @@ const Main = (() => {
     toast(`REWOUND &mdash; ${label} TAKEN BACK`);
     announce(label.toLowerCase() + " taken back. Choose again.");
     renderAll();
+    if (reopen) {
+      console.log("doUndo calling Scenes.open for reopen:", reopen);
+      Scenes.open(reopen);
+    }
+    console.log("doUndo finished, calling advance");
     advance();
   }
 
@@ -640,5 +654,5 @@ const Main = (() => {
   }
 
   document.addEventListener("DOMContentLoaded", boot);
-  return { advance, afterHumanMove, queueAdvance, newTutorial, enterRemote, remoteUpdated };
+  return { advance, afterHumanMove, queueAdvance, newTutorial, enterRemote, remoteUpdated, undo: doUndo };
 })();

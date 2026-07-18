@@ -485,6 +485,7 @@ function quip(pid, key, extra = {}) {
 function attachZoom(elem, spriteName, caption) {
   const zr = document.getElementById("zoom-root");
   elem.addEventListener("mouseenter", (ev) => {
+    if (modalIsOpen()) return;
     elem.classList.add("magnified");
     zr.innerHTML = "";
     zr.appendChild(sprHD(spriteName, 3));
@@ -492,7 +493,9 @@ function attachZoom(elem, spriteName, caption) {
     zr.style.display = "block";
     dock(ev);
   });
-  elem.addEventListener("mousemove", dock);
+  elem.addEventListener("mousemove", (ev) => {
+    if (zr.style.display !== "none") dock(ev);
+  });
   elem.addEventListener("mouseleave", () => {
     elem.classList.remove("magnified");
     zr.style.display = "none";
@@ -1210,23 +1213,29 @@ function renderHUD() {
 function comicInfoModal(c) {
   SFX.play("paper");
   openModal((m) => {
-    // panel anatomy like every other pane: cover as the emblem
-    const head = el("div", "panel-head");
-    const em = el("div", "ph-emblem bare");
-    em.appendChild(sprHD(comicSprite(c), 0.85));
-    head.appendChild(em);
-    const t = el("div", "ph-text");
-    t.appendChild(el("h2", "", esc(c.title) +
-      (c.isRipoff ? ' <span style="font-size:12px;color:#8a2f22">(RIP-OFF)</span>' : "")));
-    t.appendChild(el("div", "ph-tag", `${genreMark(c.genre, 0.7)} ${GENRE_INFO[c.genre].name} &middot; on the stands`));
-    head.appendChild(t);
-    m.appendChild(head);
-    const row = panelSection(m, "THE LEDGER");
+    const split = el("div", "modal-split");
+    
+    // Left: big cover showcase
+    const left = el("div", "modal-showcase");
+    const showcaseCard = el("div", "showcase-card comic-style");
+    showcaseCard.appendChild(sprHD(comicSprite(c), 1.7));
+    left.appendChild(showcaseCard);
+    
+    // Right: text & details
+    const right = el("div", "modal-details");
+    const head = el("div", "panel-head-clean");
+    head.appendChild(el("h2", "", esc(c.title) + 
+      (c.isRipoff ? ' <span class="ripoff-tag">(RIP-OFF)</span>' : "")));
+    head.appendChild(el("div", "ph-tag", `${genreMark(c.genre, 0.7)} ${GENRE_INFO[c.genre].name} &middot; on the stands`));
+    right.appendChild(head);
+    
+    const row = panelSection(right, "THE LEDGER");
     row.appendChild(el("div", "modal-sub",
       `BOOK VALUE <b>${c.value}</b> &middot; <b>${c.fans}</b>&#9829; fans` +
       (c.bettercolor ? "<br><b>BETTER COLORS</b> (+2 VP at the end)" : "") +
       `<br><span style="font-size:15px;color:#57452c">delivers ${GENRE_INFO[c.genre].name} orders of minimum value up to ${c.value}</span>`));
-    const team = panelSection(m, "THE TEAM ON THIS BOOK");
+      
+    const team = panelSection(right, "THE TEAM ON THIS BOOK");
     const teamRow = el("div", "card-row");
     for (const kind of ["writer", "artist"]) {
       const cr = c.creatives[kind];
@@ -1240,57 +1249,68 @@ function comicInfoModal(c) {
       teamRow.appendChild(chip);
     }
     team.appendChild(teamRow);
+    
+    split.appendChild(left);
+    split.appendChild(right);
+    m.appendChild(split);
     modalButtons(m, [{ label: "CLOSE", fn: () => closeModal() }]);
-  }, { onDismiss: () => {} });
+  }, { width: "900px", onDismiss: () => {} });
 }
 
 function handCardInfoModal(entry) {
   SFX.play("paper");
   const card = CARD_BY_ID[entry.id];
   openModal((m) => {
+    const split = el("div", "modal-split");
+    
+    // Left: big visual showcase
+    const left = el("div", "modal-showcase");
+    const showcaseCard = el("div", "showcase-card" + (card.kind ? " person-style" : " comic-style"));
     if (card.kind) {
-      // a PERSON sheet, not a card: big face disc + the facts (de-carding
-      // applies here too — the trading card never appears at runtime)
-      const head = el("div", "panel-head");
-      const em = el("div", "ph-emblem bare");
-      em.appendChild(spr(faceBigOf(entry.id), 1.5));
-      head.appendChild(em);
-      const t = el("div", "ph-text");
-      t.appendChild(el("h2", "", esc(card.name)));
-      t.appendChild(el("div", "ph-tag",
+      showcaseCard.appendChild(spr(faceBigOf(entry.id), 1.8));
+    } else {
+      showcaseCard.appendChild(sprHD(coverOf(entry.id), 1.7));
+    }
+    left.appendChild(showcaseCard);
+    
+    // Right: text & details
+    const right = el("div", "modal-details");
+    if (card.kind) {
+      const head = el("div", "panel-head-clean");
+      head.appendChild(el("h2", "", esc(card.name)));
+      head.appendChild(el("div", "ph-tag",
         `${sprHTML("tag_" + card.kind, 0.8)} ${genreMark(card.genre, 0.8)} ` +
         `<b>${GENRE_INFO[card.genre].name}</b> ${card.kind} &middot; ` +
         `<b class="fig-val" style="font-style:normal">${valueMark(card.value)}</b>` +
         (card.value === 1 ? ` &middot; rookie` : "")));
-      head.appendChild(t);
-      m.appendChild(head);
-      const body = panelSection(m, "THE CONTRACT");
+      right.appendChild(head);
+      
+      const body = panelSection(right, "THE CONTRACT");
       body.appendChild(el("div", "modal-sub",
         `Printing a book with them costs their value (<b>$${card.value}</b>) as part of the team fee.<br>` +
         `<span style="font-size:15px;color:#57452c">On a ${GENRE_INFO[card.genre].name} book they are <b>SPECIALIZED</b>: ` +
         `+1 fan at print, and they can train during Creative Development.</span>` +
         (card.value === 1 ? `<br><span style="font-size:15px;color:#33716c"><b>Rookie:</b> signed with a free ${GENRE_INFO[card.genre].name} idea.</span>` : "")));
     } else {
-      // same anatomy as the creative sheet: cover emblem + facts section
-      const head = el("div", "panel-head");
-      const em = el("div", "ph-emblem bare");
-      em.appendChild(sprHD(coverOf(entry.id), 0.85));
-      head.appendChild(em);
-      const t = el("div", "ph-text");
-      t.appendChild(el("h2", "", esc(card.title)));
-      t.appendChild(el("div", "ph-tag",
+      const head = el("div", "panel-head-clean");
+      head.appendChild(el("h2", "", esc(card.title)));
+      head.appendChild(el("div", "ph-tag",
         `${genreMark(card.genre, 0.7)} ${GENRE_INFO[card.genre].name} comic project` +
         (entry.hyped ? ` &middot; <b style="color:#8a2f22">HYPED +${entry.tokens * 2}</b>` : "")));
-      head.appendChild(t);
-      m.appendChild(head);
-      const body = panelSection(m, "COST &amp; RESULT");
+      right.appendChild(head);
+      
+      const body = panelSection(right, "COST &amp; RESULT");
       body.appendChild(el("div", "modal-sub",
         `PRINT BONUS: ${bonusChip(card.bonus)}<br>` +
         `<span style="font-size:15px;color:#57452c">COST TO PRINT: 2 ${GENRE_INFO[card.genre].name} ideas + a writer + an artist</span>` +
         (entry.hyped ? `<br><b style="color:#8a2f22">HYPED: +${entry.tokens * 2} fans when printed</b>` : "")));
     }
+    
+    split.appendChild(left);
+    split.appendChild(right);
+    m.appendChild(split);
     modalButtons(m, [{ label: "CLOSE", fn: () => closeModal() }]);
-  }, { onDismiss: () => {} });
+  }, { width: "880px", onDismiss: () => {} });
 }
 
 // the published catalog can outgrow its column: show the nudge buttons whenever
@@ -1368,6 +1388,7 @@ function animateEvent(ev) {
         FX.reveal([{
           sprite: coverOf(ev.cardId), scale: 1.5,
           front: "back_orig_" + cd.genre,
+          isComic: true,
           title: cd.title.toUpperCase(),
           sub: `${GENRE_INFO[cd.genre].name} original &middot; prints with ${BONUS_CHIP[cd.bonus][0]}`,
           toRef: () => document.querySelector(`#hud-hand [data-card="${ev.cardId}"]`) ||

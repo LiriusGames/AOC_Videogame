@@ -16,7 +16,7 @@ function browserPath() {
   if (!found) throw new Error("no Chrome/Edge found; set CHROME_PATH");
   return found;
 }
-let passed = 0, failed = 0;
+let passed = 0, failed = 0, errors = [];
 function check(value, label) {
   if (value) { passed++; console.log("  ok  " + label); }
   else { failed++; console.error("FAIL  " + label); }
@@ -27,7 +27,9 @@ function check(value, label) {
   const browser = await puppeteer.launch({ executablePath: browserPath(), headless: true, args: ["--no-sandbox", "--disable-gpu"] });
   try {
     const page = await browser.newPage();
-    const errors = [];
+    page.on("console", (msg) => {
+      console.log("PAGE LOG:", msg.text());
+    });
     page.on("pageerror", (error) => errors.push(String(error)));
     await page.goto(URL, { waitUntil: "networkidle0" });
     await page.evaluate(() => localStorage.clear());
@@ -50,25 +52,51 @@ function check(value, label) {
       p.hand = [];
       for (const id of ["orig_1", "orig_2", "orig_3", "orig_4", "orig_8"]) { remove(id); p.hand.push(id); }
       closeModal();
+      UI.undoAllowed = true;
+      UI.undoSnap = e.snapshot();
     });
 
     await page.evaluate(() => Scenes.open("hire"));
     await page.$$eval("#modal-root .balloon-row", (rows) => rows.forEach((row) => row.querySelector(".figure").click()));
-    const beforeHire = await page.evaluate(() => JSON.stringify(UI.engine.state));
+    const beforeState = await page.evaluate(() => JSON.stringify(UI.engine.state));
     await page.$eval("#hire-ok", (button) => button.click());
-    check(await page.$eval("#modal-root", (root) => /GO BACK & REASSESS/.test(root.textContent)),
-      "overflow warning offers reassessment before Hire commits");
-    check(await page.evaluate((before) => JSON.stringify(UI.engine.state) === before, beforeHire),
-      "overflow warning reveals and mutates nothing");
+    
+    // We should be in DESK OVERFLOW modal
+    await page.waitForSelector("#disc-ok");
+    check(await page.$eval("#modal-root", (root) => /DESK OVERFLOW/.test(root.textContent)),
+      "hire triggers desk overflow modal directly");
+    check(await page.evaluate(() => UI.engine.state.pending && UI.engine.state.pending.type === "discard"),
+      "hiring has been committed and triggered pending discard state");
+    
+    // Test Undo/Cancel button in discard modal
     await page.evaluate(() => [...document.querySelectorAll("#modal-root button")]
-      .find((button) => /GO BACK/.test(button.textContent)).click());
-    check(await page.$eval("#hire-ok", (button) => !button.disabled), "returning to Hire preserves both picks");
-    await page.$eval("#hire-ok", (button) => button.click());
-    await page.evaluate(() => [...document.querySelectorAll("#modal-root button")]
-      .find((button) => /CONTINUE/.test(button.textContent)).click());
-    check(await page.evaluate(() => UI.engine.state.pending && UI.engine.state.pending.type === "discard" &&
-      UI.engine.state.pending.data.count === 1), "continuing Hire creates the mandatory discard");
+      .find((button) => /CANCEL & UNDO/.test(button.textContent)).click());
+    
+    // We should be back in Hire scene with state rolled back
+    await page.waitForSelector("#hire-ok");
+    check(await page.evaluate((before) => JSON.stringify(UI.engine.state) === before, beforeState),
+      "cancel & undo rolls back the engine state fully");
+    check(await page.$eval("#modal-root", (root) => /HIRE/.test(root.textContent)),
+      "cancel & undo reopens the hire scene");
 
+    // Commit again and verify we can select a card to discard
+    await page.$$eval("#modal-root .balloon-row", (rows) => rows.forEach((row) => row.querySelector(".figure").click()));
+    await page.$eval("#hire-ok", (button) => button.click());
+    await page.waitForSelector("#disc-ok");
+    check(await page.$eval("#modal-root", (root) => /DESK OVERFLOW/.test(root.textContent)),
+      "hire triggered desk overflow modal again");
+    
+    await page.evaluate(() => {
+      // select one card to discard (hand size is 5, we hired 2 talent -> 7 cards. Hand limit is 6. So 7 - 6 = 1)
+      const item = document.querySelector("#modal-root .discard-chip-row .pickable");
+      item.click();
+    });
+    check(await page.$eval("#disc-ok", (button) => !button.disabled), "discard button enabled after selecting card");
+    await page.$eval("#disc-ok", (button) => button.click());
+    await page.waitForFunction(() => !document.getElementById("disc-ok"));
+    check(await page.evaluate(() => !UI.engine.state.pending), "completing discard resolves pending state");
+
+    // Reconfigure for Develop overflow test
     await page.evaluate(() => {
       const e = UI.engine, s = e.state, pid = UI.humanId, p = e.player(pid);
       s.pending = null; s.pendingQueue = []; s.awaitingSpecial = null; s.phase = "actions";
@@ -76,16 +104,23 @@ function check(value, label) {
       s.actionSpaces.develop = []; p.editorsLeft = 4;
       p.hand = ["orig_1", "orig_2", "orig_3", "orig_4", "orig_8", "orig_9"];
       closeModal(); Scenes.open("develop");
+      UI.undoAllowed = true;
+      UI.undoSnap = e.snapshot();
     });
     await page.$eval("#modal-root .comic-tile", (tile) => tile.click());
-    const beforeDevelop = await page.evaluate(() => JSON.stringify(UI.engine.state));
+    const beforeStateDev = await page.evaluate(() => JSON.stringify(UI.engine.state));
     await page.$eval("#dev-ok", (button) => button.click());
-    check(await page.$eval("#modal-root", (root) => /GO BACK & REASSESS/.test(root.textContent)) &&
-      await page.evaluate((before) => JSON.stringify(UI.engine.state) === before, beforeDevelop),
-      "Develop also offers a mutation-free reassessment before overflow");
+    await page.waitForSelector("#disc-ok");
+    check(await page.$eval("#modal-root", (root) => /DESK OVERFLOW/.test(root.textContent)),
+      "develop triggers desk overflow modal directly");
+    
     await page.evaluate(() => [...document.querySelectorAll("#modal-root button")]
-      .find((button) => /GO BACK/.test(button.textContent)).click());
-    check(await page.$eval("#dev-ok", (button) => !button.disabled), "returning to Develop preserves the pitch");
+      .find((button) => /CANCEL & UNDO/.test(button.textContent)).click());
+    await page.waitForSelector("#dev-ok");
+    check(await page.evaluate((before) => JSON.stringify(UI.engine.state) === before, beforeStateDev),
+      "cancel & undo on develop rolls back state");
+    check(await page.$eval("#modal-root", (root) => /DEVELOP/.test(root.textContent)),
+      "cancel & undo reopens develop scene");
 
     // Reconfigure only the local engine for a focused Print-panel inspection.
     await page.evaluate(() => {
@@ -163,4 +198,8 @@ function check(value, label) {
   }
   console.log(`\n${passed} passed, ${failed} failed`);
   if (failed) process.exit(1);
-})().catch((error) => { console.error(error); process.exit(1); });
+})().catch((error) => {
+  if (errors.length) console.error("PAGE ERRORS ON FAILURE:\n", errors.join("\n"));
+  console.error(error);
+  process.exit(1);
+});

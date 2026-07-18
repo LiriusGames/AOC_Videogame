@@ -1094,6 +1094,7 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 /* the blind-draw reveal: a "?" shutter snaps open on the real face/cover */
 .fx-reveal .rev-row { position: relative; display: flex; gap: 30px; }
 .rev-card { position: relative; min-width: 150px; min-height: 170px; }
+.rev-card.comic-card { min-width: 210px; min-height: 295px; }
 .rev-card .rev-front, .rev-card .rev-back {
   position: absolute; inset: 0; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 7px;
@@ -1520,6 +1521,16 @@ html.film-matinee .fl-vignette {
   color: var(--ink); background: var(--paper-dark); border: 2px solid var(--ink);
   font-family: var(--f-display); font-size: 14px; letter-spacing: 1px; text-shadow: none;
 }
+#big-banner.turn-notice .bb-meeples {
+  display: flex; gap: 10px; justify-content: center; align-items: center;
+  margin-top: 2px; margin-bottom: 8px;
+}
+#big-banner.turn-notice .bb-meeple {
+  display: inline-block; filter: drop-shadow(2px 3px 0 rgba(0,0,0,.5));
+}
+#big-banner.turn-notice .bb-meeple.spent {
+  opacity: .22; filter: grayscale(1) brightness(0.6);
+}
 
 /* -------------------------------------------- TV '52 distortion package
    the artifacts everyone remembers: the vertical-hold roll bar, scanline
@@ -1657,3 +1668,84 @@ html.booting #app { opacity: 0; }
 /* the lesson's physical subjects glow gold */
 .tutor-glow { outline: 3px solid var(--gold) !important; outline-offset: 2px; animation: tutglow 1.1s steps(2) infinite; border-radius: 8px; }
 @keyframes tutglow { 50% { outline-color: rgba(245, 200, 110, .25); } }
+
+/* Inline Showcase Pane and Refactored Modals split layouts */
+.modal-split {
+  display: flex; gap: 24px; align-items: stretch;
+}
+.modal-showcase {
+  flex: none; width: 250px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 14px;
+  background: var(--paper-dark); border: 2px solid var(--ink); border-radius: 6px;
+  padding: 20px; box-shadow: inset 0 0 12px rgba(0,0,0,.15);
+}
+.showcase-card {
+  line-height: 0; filter: drop-shadow(4px 6px 0 rgba(0,0,0,.45));
+}
+.showcase-card.comic-style {
+  transform: rotate(-1.5deg);
+}
+.showcase-card.person-style {
+  border-radius: 50%;
+}
+.modal-details {
+  flex: 1; display: flex; flex-direction: column; gap: 12px; min-width: 0;
+}
+.panel-head-clean {
+  border-bottom: 2px dashed #9e8359; padding-bottom: 8px; margin-bottom: 4px;
+}
+.panel-head-clean h2 {
+  margin: 0; font-size: 22px; color: #8a2f22; font-family: var(--f-display);
+}
+.panel-head-clean .ph-tag {
+  font-size: 14px; margin-top: 3px; color: #57452c;
+}
+.ripoff-tag {
+  font-size: 12px; color: #8a2f22; font-family: var(--f-display); letter-spacing: 0.5px;
+}
+.showcase-info {
+  text-align: center; color: var(--ink); line-height: 1.35; width: 100%;
+}
+.showcase-title {
+  margin: 0 0 4px; font-family: var(--f-display); font-size: 16px; color: #8a2f22;
+}
+.showcase-meta {
+  font-size: 12px; margin-bottom: 8px; color: #57452c;
+}
+.showcase-bonus {
+  margin-bottom: 8px;
+}
+.showcase-desc {
+  font-size: 13px; color: #443c30; text-align: left; background: rgba(255,255,255,.3);
+  border: 1px dashed #bcae90; padding: 8px 10px; border-radius: 4px;
+}
+.showcase-placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 100%; color: #8a765a; font-family: var(--f-display); font-size: 11px; text-align: center; gap: 10px;
+}
+.placeholder-icon {
+  font-size: 32px; opacity: .45;
+}
+.showcase-card.commission-style {
+  background: var(--paper-dark); border: 2px dashed #9e8359; border-radius: 50%;
+  width: 72px; height: 72px; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 6px rgba(0,0,0,.15);
+}
+.showcase-team-preview {
+  width: 100%; border-top: 2px dashed #9e8359; padding-top: 10px; margin-top: 4px;
+}
+.showcase-team-preview h4 {
+  margin: 0 0 6px; font-family: var(--f-display); font-size: 10px; color: #775f3c; letter-spacing: 1px; text-align: center;
+}
+.preview-faces-row {
+  display: flex; gap: 18px; justify-content: center; margin-top: 4px;
+}
+.preview-face-slot {
+  display: flex; flex-direction: column; align-items: center; font-size: 10px; color: var(--ink); line-height: 1.15;
+}
+.face-placeholder-circle {
+  width: 32px; height: 32px; border-radius: 50%; border: 2px dashed #9e8359; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #9e8359; font-size: 14px; background: rgba(0,0,0,.08); margin-bottom: 2px;
+}
+@media (max-width: 900px) {
+  .modal-split { flex-direction: column; gap: 16px; }
+  .modal-showcase { width: auto; height: auto; padding: 12px; }
+}
