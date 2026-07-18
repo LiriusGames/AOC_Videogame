@@ -246,12 +246,12 @@ function mysteryFigure(kind, value, opts = {}) {
   face.appendChild(spr("mysterybig_" + kind, 1)); // 56px native
   face.appendChild(el("b", "", "?"));
   d.appendChild(face);
-  d.appendChild(el("div", "fig-name", opts.name || "Classified ad"));
+  d.appendChild(el("div", "fig-name", opts.name || "Scout the field"));
   const meta = el("div", "fig-meta");
   meta.appendChild(spr("tag_" + kind, 0.7));
   meta.appendChild(el("b", "fig-val", valueMark(value)));
   d.appendChild(meta);
-  d.setAttribute("aria-label", `Classified ad — mystery ${kind} of value ${value}, signed blind from the deck`);
+  d.setAttribute("aria-label", `Scout the field — mystery ${kind} of value ${value}, signed blind from the deck`);
   if (opts.onpick) d.onclick = () => { SFX.play("click"); opts.onpick(d); };
   return d;
 }
@@ -1360,6 +1360,7 @@ function animateEvent(ev) {
           return {
             sprite: faceBigOf(c), scale: 1.15,
             front: "mysterybig_" + cd.kind, frontScale: 1.15,
+            isPerson: true,
             title: cd.name.toUpperCase(),
             sub: `${GENRE_INFO[cd.genre].name} ${cd.kind} &middot; <b>value ${cd.value}</b>` +
               (cd.value === 1 ? " &middot; rookie (+1 idea)" : ""),
@@ -1371,7 +1372,7 @@ function animateEvent(ev) {
             },
           };
         }));
-        return 1500 + (ev.blind.length - 1) * 650 + 350;
+        return 2500 + (ev.blind.length - 1) * 650 + 350;
       }
       return 500;
     }
@@ -1398,7 +1399,7 @@ function animateEvent(ev) {
             renderHUD();
           },
         }]);
-        return 1850;
+        return 2850;
       }
       return 450;
     case "ideas":

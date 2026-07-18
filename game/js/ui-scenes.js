@@ -127,7 +127,7 @@ const Scenes = (() => {
       ]);
       function pickName(id, kind) {
         if (!id) return `<b style="color:#8a2f22">pick a ${kind}</b>`;
-        if (id === "deck") return `the classified-ad ${kind} <i>(blind)</i>`;
+        if (id === "deck") return `the scouted ${kind} <i>(blind)</i>`;
         const c = CARD_BY_ID[id];
         return `<b>${esc(c.name)}</b> (${GENRE_INFO[c.genre].name} &middot; value ${c.value})`;
       }
@@ -1259,7 +1259,7 @@ const Scenes = (() => {
       
       if (UI.undoAllowed) {
         buttons.unshift({
-          label: "CANCEL & UNDO",
+          label: "CANCEL & GO BACK",
           fn: () => {
             closeModal();
             Main.undo();

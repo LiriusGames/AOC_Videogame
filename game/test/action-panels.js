@@ -70,7 +70,7 @@ function check(value, label) {
     
     // Test Undo/Cancel button in discard modal
     await page.evaluate(() => [...document.querySelectorAll("#modal-root button")]
-      .find((button) => /CANCEL & UNDO/.test(button.textContent)).click());
+      .find((button) => /CANCEL & GO BACK/.test(button.textContent)).click());
     
     // We should be back in Hire scene with state rolled back
     await page.waitForSelector("#hire-ok");
@@ -115,7 +115,7 @@ function check(value, label) {
       "develop triggers desk overflow modal directly");
     
     await page.evaluate(() => [...document.querySelectorAll("#modal-root button")]
-      .find((button) => /CANCEL & UNDO/.test(button.textContent)).click());
+      .find((button) => /CANCEL & GO BACK/.test(button.textContent)).click());
     await page.waitForSelector("#dev-ok");
     check(await page.evaluate((before) => JSON.stringify(UI.engine.state) === before, beforeStateDev),
       "cancel & undo on develop rolls back state");

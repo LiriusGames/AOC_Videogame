@@ -67,7 +67,7 @@ const FX = (() => {
       flyToken(it.sprite, null, it.toRef, { scale: it.round ? 0.65 : 0.8, onLand: it.onLand }));
     if (REDUCED_MOTION()) return land();
     if (modalIsOpen()) return land(); // never leave an incoming item withheld
-    const dur = 1500 + (items.length - 1) * 650;
+    const dur = 2500 + (items.length - 1) * 650;
     const show = () => {
       if (modalIsOpen()) return land(); // went stale while queued
       const wrap = el("div", "fx-celebrate fx-reveal");
@@ -76,7 +76,7 @@ const FX = (() => {
       wrap.appendChild(row);
       root().appendChild(wrap);
       items.forEach((it, i) => {
-        const card = el("div", "rev-card" + (it.isComic ? " comic-card" : ""));
+        const card = el("div", "rev-card" + (it.isComic ? " comic-card" : "") + (it.isPerson ? " person-card" : ""));
         const front = el("div", "rev-front" + (it.front ? " has-back" : ""));
         if (it.front) // what the pick looked like before the flip
           front.appendChild(sprHD(it.front, it.frontScale || 1.2, it.frontRound ? "round-spr" : ""));
