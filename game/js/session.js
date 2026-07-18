@@ -30,91 +30,144 @@ class LocalSession {
 }
 
 class RemoteSession extends EventTarget {
-  constructor({ roomId, ticket, humanId, socketUrl }) {
+  // The lockstep room client (handoff/yokai/NOTES.md): every client runs the
+  // identical deterministic Engine; local input NEVER mutates it directly —
+  // a command is validated on a scratch rewind, sent to the relay, and the
+  // mutation happens when the echo returns in global order. Bots live in the
+  // sim: every client advances them locally, so their moves never travel.
+  constructor({ room, name }) {
     super();
     this.mode = "remote";
-    this.roomId = roomId;
-    this.ticket = ticket;
-    this.humanId = humanId;
-    this.socketUrl = socketUrl;
-    this.revision = 0;
-    this.view = null;
+    this.room = room;
+    this.name = name;
+    this.pid = null;
+    this.isHost = false;
+    this.roster = null;
+    this.cfg = null;
+    this.hello = null;
+    this.seats = [];
+    this.pids = [];
+    this.seat = -1;
+    this.humanId = -1;
     this.engine = null;
-    this.events = [];
-    this.socket = null;
-    this.pending = new Map();
-    this.retry = 0;
+    this.seq = 0;
+    this.sent = false;      // one command in flight at a time
+    this.desynced = false;
     this.closed = false;
+    this.retry = 0;
   }
-  isLocalSeat(pid) { return pid === this.humanId; }
-  isBot(pid) { return !!(this.view && this.view.controllers && this.view.controllers[pid] === "bot"); }
+  isLocalSeat(pid) { return !!this.engine && pid === this.seat; }
+  isBot(pid) { return this.seats[pid] === "bot"; }
+  url() {
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    return proto + "//" + location.host + "/api/room/" + this.room + "/ws?name=" +
+      encodeURIComponent(this.name || "Publisher") +
+      (this.pid ? "&pid=" + this.pid : "") + (this.seq ? "&since=" + this.seq : "");
+  }
   connect() {
     this.closed = false;
-    const url = new URL(this.socketUrl, location.href);
-    url.protocol = location.protocol === "https:" ? "wss:" : "ws:";
-    this.socket = new WebSocket(url, ["aoc-v1", `ticket.${this.ticket}`]);
-    this.socket.onopen = () => {
-      this.retry = 0;
-      this.socket.send(JSON.stringify({ type: "resume", v: protocol.COMMAND_VERSION, lastRevision: this.revision }));
-      this.dispatchEvent(new CustomEvent("status", { detail: "connected" }));
-    };
-    this.socket.onmessage = (event) => this.onMessage(event.data);
-    this.socket.onclose = () => {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem("aoc-net") || "null"); } catch (_e) {}
+    if (saved && saved.room === this.room) {
+      this.pid = this.pid || saved.pid;
+      this.name = this.name || saved.name;
+    }
+    const ws = this.socket = new WebSocket(this.url());
+    ws.onopen = () => { this.retry = 0; this.dispatchEvent(new CustomEvent("status", { detail: "connected" })); };
+    ws.onmessage = (ev) => { try { this.onMessage(JSON.parse(ev.data)); } catch (e) { console.error(e); } };
+    ws.onclose = () => {
       this.dispatchEvent(new CustomEvent("status", { detail: "disconnected" }));
-      if (!this.closed) setTimeout(() => this.connect(), Math.min(10000, 500 * (2 ** this.retry++)));
+      if (!this.closed) setTimeout(() => this.connect(), Math.min(10000, 500 * 2 ** this.retry++));
     };
-    this.socket.onerror = () => this.socket && this.socket.close();
+    ws.onerror = () => this.socket && this.socket.close();
   }
   close() { this.closed = true; if (this.socket) this.socket.close(1000, "leaving room"); }
+  sendRaw(obj) { if (this.socket && this.socket.readyState === 1) this.socket.send(JSON.stringify(obj)); }
+  onMessage(m) {
+    if (m.t === "you") {
+      this.pid = m.pid;
+      this.isHost = m.host;
+      try { localStorage.setItem("aoc-net", JSON.stringify({ room: this.room, pid: this.pid, name: this.name })); } catch (_e) {}
+      this.dispatchEvent(new CustomEvent("lobby"));
+    } else if (m.t === "roster") {
+      this.roster = m;
+      this.isHost = m.host === this.pid;
+      this.dispatchEvent(new CustomEvent("lobby"));
+    } else if (m.t === "cfg") {
+      this.cfg = m.cfg;
+      this.dispatchEvent(new CustomEvent("lobby"));
+    } else if (m.t === "hello") {
+      this.buildFromHello(m.hello);
+    } else if (m.t === "m") {
+      if (m.n <= this.seq) return; // duplicate delivery after reconnect
+      this.seq = m.n;
+      this.apply(m.m);
+    }
+  }
+  buildFromHello(hello) {
+    if (this.engine) return; // one game per room
+    this.hello = hello;
+    this.seats = hello.seats.slice();
+    this.pids = (hello.pids || []).slice();
+    this.seat = this.humanId = this.pids.indexOf(this.pid);
+    this.engine = new root.Engine({
+      players: hello.players,
+      useRipoffs: hello.useRipoffs,
+      difficulty: hello.difficulty,
+      seed: hello.seed,
+      fixedTurnOrder: hello.players.map((_, i) => i), // host founds first
+    });
+    this.dispatchEvent(new CustomEvent("start"));
+  }
+  apply(m) {
+    if (this.desynced) return;
+    if (m.k === "cmd") {
+      const g = this.engine;
+      if (!g) return;
+      // desync sentinel: the sender stamped its pre-command state hash
+      if (m.h && m.h !== protocol.stateHash(g.state)) return this.desync();
+      const result = protocol.applyEngineCommand(g, m.seat, m.kind, m.payload);
+      if (m.seat === this.seat) this.sent = false;
+      if (!result.ok) return this.desync(); // the sender validated it: divergence
+      this.dispatchEvent(new CustomEvent("applied", { detail: { seat: m.seat, kind: m.kind } }));
+    } else if (m.k === "seat") { // disconnect fallback: the seat plays on as a bot
+      this.seats[m.seat] = m.ctl;
+      this.dispatchEvent(new CustomEvent("applied", { detail: { seat: m.seat, kind: "seat" } }));
+    } else if (m.k === "claim") { // reclaim after a drop, or a late join
+      if (this.seats[m.seat] !== "bot") return; // not claimable: drop identically everywhere
+      this.seats[m.seat] = "human";
+      this.pids[m.seat] = m.pid || null;
+      if (m.pid === this.pid) this.seat = this.humanId = m.seat;
+      this.dispatchEvent(new CustomEvent("applied", { detail: { seat: m.seat, kind: "claim" } }));
+    }
+  }
+  desync() {
+    this.desynced = true;
+    this.dispatchEvent(new CustomEvent("desync"));
+  }
   dispatch(kind, payload = {}) {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN)
-      return { ok: false, code: "OFFLINE", message: "Not connected to the room" };
-    const commandId = crypto.randomUUID();
-    const expectedRevision = this.revision + this.pending.size;
-    const message = { type: "command", v: protocol.COMMAND_VERSION, commandId, expectedRevision, kind, payload };
-    // Keep synchronous scene code responsive while the room remains the sole
-    // authority. Hidden-deck commands cannot be predicted from a redacted view;
-    // everything else may update the disposable projection until the room's
-    // snapshot replaces it.
-    const hiddenDeckCommand = kind === "starting_picks" ||
-      (kind === "action_hire" && (payload.writer === "deck" || payload.artist === "deck")) ||
-      (kind === "action_develop" && (payload.comic === "deck" || payload.searchGenre));
-    if (!hiddenDeckCommand && this.engine) {
-      const eventCount = this.engine.events.length;
-      const predicted = protocol.applyEngineCommand(this.engine, this.humanId, kind, payload);
-      if (!predicted.ok) return predicted;
-      this.engine.events.length = eventCount;
-    }
-    this.pending.set(commandId, message);
-    this.socket.send(JSON.stringify(message));
-    return { ok: true, commandId };
+    if (this.desynced) return { ok: false, code: "DESYNC", message: "Out of sync with the room — reload the page to rejoin." };
+    if (!this.engine || this.seat < 0) return { ok: false, code: "NO_SEAT", message: "You are watching this table." };
+    if (this.sent) return { ok: false, code: "IN_FLIGHT", message: "Your last move is still being filed." };
+    if (!this.socket || this.socket.readyState !== 1) return { ok: false, code: "OFFLINE", message: "Not connected to the room." };
+    // validate on a scratch rewind: the real mutation happens on the echo
+    const g = this.engine;
+    const h = protocol.stateHash(g.state);
+    const snap = g.snapshot();
+    const evLen = g.events.length;
+    const check = protocol.applyEngineCommand(g, this.seat, kind, payload);
+    g.restore(snap);
+    g.events.length = evLen;
+    if (!check.ok) return check;
+    this.sent = true;
+    this.sendRaw({ t: "m", m: { k: "cmd", seat: this.seat, kind, payload, h } });
+    return { ok: true, queued: true };
   }
-  onMessage(raw) {
-    let msg;
-    try { msg = JSON.parse(raw); } catch (_e) { return; }
-    if (msg.type === "snapshot") {
-      this.revision = msg.revision;
-      this.humanId = msg.seatId;
-      this.view = msg.view;
-      this.events = msg.events || [];
-      if (!this.engine) {
-        this.engine = new root.Engine(msg.config);
-        this.engine.events.length = 0;
-      }
-      this.engine.state = structuredClone(msg.view);
-      this.engine.events.push(...this.events);
-      this.dispatchEvent(new CustomEvent("snapshot", { detail: msg }));
-    } else if (msg.type === "accepted") {
-      this.revision = msg.revision;
-      this.pending.delete(msg.commandId);
-    } else if (msg.type === "rejected") {
-      this.pending.clear();
-      if (root.toast) root.toast(msg.message || "The room rejected that move.");
-      if (msg.snapshot) this.onMessage(JSON.stringify(msg.snapshot));
-    } else if (msg.type === "presence") {
-      this.dispatchEvent(new CustomEvent("presence", { detail: msg }));
-    }
-  }
+  // ---- lobby & seat management (host tools + reclaiming) ----
+  sendCfg(cfg) { this.cfg = cfg; this.sendRaw({ t: "cfg", cfg }); }
+  sendHello(hello) { this.sendRaw({ t: "hello", hello }); }
+  replaceWithBot(seat) { this.sendRaw({ t: "m", m: { k: "seat", seat, ctl: "bot" } }); }
+  claimSeat(seat) { this.sendRaw({ t: "m", m: { k: "claim", seat, pid: this.pid, name: this.name } }); }
 }
 
 return { LocalSession, RemoteSession };

@@ -285,7 +285,7 @@ const Main = (() => {
         if (heroRemaining() > 0) { queueAdvance(heroRemaining() + 80); return; }
         UI.busy = false;
         Scenes.pendingModal();
-      } else if (!remote) { AI.resolveOwnPendings(e, s.pending.playerId); queueAdvance(Math.max(250, delay)); }
+      } else if (!remote || UI.session.isBot(s.pending.playerId)) { AI.resolveOwnPendings(e, s.pending.playerId); queueAdvance(Math.max(250, delay)); }
       return;
     }
     if (s.awaitingSpecial) {
@@ -293,7 +293,7 @@ const Main = (() => {
         if (heroRemaining() > 0) { queueAdvance(heroRemaining() + 80); return; }
         UI.busy = false;
         Scenes.specialModal(s.awaitingSpecial.special);
-      } else if (!remote) { AI.settle(e, s.awaitingSpecial.player); queueAdvance(Math.max(250, delay)); }
+      } else if (!remote || UI.session.isBot(s.awaitingSpecial.player)) { AI.settle(e, s.awaitingSpecial.player); queueAdvance(Math.max(250, delay)); }
       return;
     }
     // resume an open human sales run (e.g. after an order-choice interrupted
@@ -327,7 +327,9 @@ const Main = (() => {
         }
         else { UI.session.dispatch("increase_finish"); queueAdvance(60); }
       } else {
-        if (remote) { UI.busy = false; setAIStatus(null); return; }
+        // lockstep rooms: bots live in the sim — every client advances them
+        // identically; another HUMAN's turn arrives as an echoed command
+        if (remote && !UI.session.isBot(pid)) { UI.busy = false; setAIStatus(null); return; }
         AI.doStartingPicks(e, pid);
         AI.doIncrease(e, pid);
         queueAdvance(Math.max(200, delay));
@@ -366,7 +368,8 @@ const Main = (() => {
         if (Tutor.active) Tutor.onHumanTurn();
         // wait for the player to click a location
       } else {
-        if (remote) {
+        if (remote && !UI.session.isBot(pid)) {
+          // another human's desk: their move arrives as an echoed command
           UI.busy = false;
           document.getElementById("screen-game").classList.remove("your-turn");
           setAIStatus(null);

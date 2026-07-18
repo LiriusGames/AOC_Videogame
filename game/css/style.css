@@ -1521,6 +1521,20 @@ html.booting #app { opacity: 0; }
 .mp-invite { display:grid; grid-template-columns:1fr auto; gap:10px; margin:20px 0; }
 .mp-status { min-height:1.5em; color:#8a2f22; }
 @media (max-width: 620px) { .mp-form { grid-template-columns:1fr; } }
+/* the host-a-table lobby */
+.mp-lobby { display: grid; gap: 10px; }
+.mp-sizes { justify-content: center; }
+.mp-seats { display: grid; gap: 6px; margin: 6px 0; }
+.mp-seat {
+  display: flex; align-items: center; gap: 10px;
+  border: 2px solid var(--ink); border-radius: 8px; padding: 6px 10px; background: var(--paper);
+}
+.mp-seat-name { flex: 1; font-family: var(--f-display); letter-spacing: .5px; }
+.mp-seat-name.on { color: #2c6b2f; }
+.mp-seat-name.off { color: #a00; }
+.mp-seat-name.bot { color: #57452c; }
+.mp-seat-name.open { color: #8a8272; font-style: italic; }
+.mp-foot { display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
 
 /* tutorial memo: a proper CITY DESK note (letterhead, die-cut, next/skip) */
 #tutor-card { border-radius: 10px; }
