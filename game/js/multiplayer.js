@@ -11,8 +11,10 @@ const Multiplayer = (() => {
 
   function roomCode() {
     const A = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    const random = new Uint32Array(8);
+    crypto.getRandomValues(random);
     let s = "";
-    for (let i = 0; i < 5; i++) s += A[(Math.random() * A.length) | 0];
+    for (let i = 0; i < random.length; i++) s += A[random[i] % A.length];
     return s;
   }
   function roomLink(room) { return location.origin + location.pathname + "?room=" + room; }
@@ -90,7 +92,17 @@ const Multiplayer = (() => {
     s.addEventListener("desync", () => {
       toast("&#9888; Out of sync with the table &mdash; reload the page to rejoin this room.");
     });
-    s.addEventListener("roomerror", () => {
+    s.addEventListener("roomerror", (ev) => {
+      const code = ev.detail;
+      if (code === "TABLE_LOCKED") return blockingConnectionModal(
+        "TABLE LOCKED", "This newsroom is no longer accepting new participants.", "BACK TO TITLE", leave);
+      if (code === "ROOM_FULL") return blockingConnectionModal(
+        "NEWSROOM FULL", "This room has reached its participant limit.", "BACK TO TITLE", leave);
+      if (code === "REMOVED") return blockingConnectionModal(
+        "REMOVED FROM TABLE", "The host removed this participant from the newsroom.", "LEAVE TABLE", leave);
+      if (code === "BAD_CREDENTIAL") return blockingConnectionModal(
+        "RESUME PASS EXPIRED", "This browser's private resume pass no longer belongs to this room.",
+        "JOIN AS NEW", () => { try { localStorage.removeItem("aoc-net"); } catch (_e) {} location.reload(); });
       toast("The room rejected that message. Reopen ROOM or reload before trying again.");
       renderRoomStatus(s);
     });
@@ -104,11 +116,11 @@ const Multiplayer = (() => {
     ));
   }
 
-  function blockingConnectionModal(title, message) {
+  function blockingConnectionModal(title, message, label = "RELOAD", fn = () => location.reload()) {
     openModal((m) => {
       m.appendChild(el("h2", "", title));
       m.appendChild(el("div", "modal-sub", message));
-      modalButtons(m, [{ label: "RELOAD", cls: "btn-go", fn: () => location.reload() }]);
+      modalButtons(m, [{ label, cls: "btn-go", fn }]);
     }, { width: "520px", onDismiss: () => {} });
   }
 
@@ -138,6 +150,50 @@ const Multiplayer = (() => {
     body.appendChild(row);
   }
 
+  function appendHostRoomControls(body, s) {
+    if (!s.isHost || !s.roster) return;
+    const row = el("div", "mp-invite");
+    const locked = !!s.roster.locked;
+    row.appendChild(el("div", "modal-sub", locked
+      ? "TABLE LOCKED &mdash; known participants may reconnect; new visitors are refused."
+      : "TABLE OPEN &mdash; anyone with the invitation may enter."));
+    const toggle = el("button", "btn btn-small" + (locked ? " btn-go" : ""), locked ? "UNLOCK TABLE" : "LOCK TABLE");
+    toggle.onclick = () => { toggle.disabled = true; s.setLocked(!locked); };
+    row.appendChild(toggle);
+    body.appendChild(row);
+  }
+
+  function removeButton(s, pid) {
+    const button = el("button", "btn btn-small", "REMOVE");
+    let armed = false;
+    button.onclick = () => {
+      if (!armed) {
+        armed = true;
+        button.textContent = "CONFIRM REMOVE";
+        setTimeout(() => { if (button.isConnected) { armed = false; button.textContent = "REMOVE"; } }, 3000);
+        return;
+      }
+      button.disabled = true;
+      s.removeParticipant(pid);
+    };
+    return button;
+  }
+
+  function appendOtherParticipants(body, s, seatedPids) {
+    const others = ((s.roster && s.roster.players) || []).filter((p) => !seatedPids.has(p.pid));
+    if (!others.length) return;
+    const list = el("div", "mp-seats");
+    list.appendChild(el("div", "modal-sub", "OTHER VISITORS"));
+    for (const visitor of others) {
+      const row = el("div", "mp-seat");
+      row.appendChild(el("span", "mp-seat-name " + (visitor.on ? "on" : "off"),
+        `${esc(visitor.name)} &middot; ${visitor.on ? "watching" : "disconnected"}`));
+      if (s.isHost && visitor.pid !== s.pid) row.appendChild(removeButton(s, visitor.pid));
+      list.appendChild(row);
+    }
+    body.appendChild(list);
+  }
+
   function renderRoomStatus(s) {
     const body = document.querySelector("#modal-root .mp-room-live");
     if (!body || !s.engine) return;
@@ -145,6 +201,7 @@ const Multiplayer = (() => {
     appendInviteRow(body, s);
     body.appendChild(el("div", "mp-trust-note",
       "TRUSTED TABLE &mdash; every player runs the full game locally. Share this link only with people you trust."));
+    appendHostRoomControls(body, s);
 
     const online = {};
     ((s.roster && s.roster.players) || []).forEach((p) => { online[p.pid] = p.on; });
@@ -171,9 +228,11 @@ const Multiplayer = (() => {
         claim.onclick = () => { claim.disabled = true; s.claimSeat(i); };
         row.appendChild(claim);
       }
+      if (s.isHost && pid && pid !== s.pid) row.appendChild(removeButton(s, pid));
       list.appendChild(row);
     });
     body.appendChild(list);
+    appendOtherParticipants(body, s, new Set(s.pids.filter(Boolean)));
     body.appendChild(el("div", "modal-sub", s.isHost
       ? "As host, you can hand a disconnected desk to a bot. The player can reclaim it later from this panel."
       : "Disconnected desks stay reserved until the host hands them to a bot."));
@@ -258,6 +317,7 @@ const Multiplayer = (() => {
     if (!body) return;
     body.innerHTML = "";
     appendInviteRow(body, s);
+    appendHostRoomControls(body, s);
     body.appendChild(el("div", "modal-sub", "Send the link on WhatsApp &mdash; whoever opens it sits down at this table."));
 
     if (s.isHost) {
@@ -291,9 +351,11 @@ const Multiplayer = (() => {
         b.onclick = () => { SFX.play("click"); cycleSeat(s, i); };
         rowEl.appendChild(b);
       }
+      if (s.isHost && seat.kind === "human" && seat.pid !== s.pid) rowEl.appendChild(removeButton(s, seat.pid));
       list.appendChild(rowEl);
     });
     body.appendChild(list);
+    appendOtherParticipants(body, s, new Set(seats.filter((x) => x.kind === "human").map((x) => x.pid)));
 
     const foot = el("div", "mp-foot");
     if (s.isHost) {

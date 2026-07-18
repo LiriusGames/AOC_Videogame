@@ -37,13 +37,21 @@ visual, but they cannot delay or reorder bot state mutations.
 
 ## Reconnect and seat changes
 
-The browser stores `{room,pid,name}` locally. An automatic reconnect supplies
+The browser stores `{room,pid,token,name}` locally. The public `pid` identifies
+a roster entry; the private 128-bit token is the resume credential, travels in
+the WebSocket protocol header rather than its URL, and is stored only as a
+SHA-256 hash by the room. An automatic reconnect supplies
 the last applied sequence and receives only missed entries. The relay finishes
 with an ordered `sync` marker; until it arrives, the browser keeps input locked.
 This resolves the case where a socket dies after send but before its command
 echo. A full reload rebuilds from `hello` and replays the complete append-only
 log. Only the newest socket for a stored player id remains active, so a
 duplicated tab cannot issue concurrent commands for one desk.
+
+The host can lock the table against new identities and remove a participant.
+Known token holders may reconnect to a locked room. A room admits at most 12
+identities/sockets; the account-level Cloudflare rate-limit rule remains an
+operator requirement before public traffic.
 
 The host may order a disconnected human seat to become a bot. A returning or
 late player can claim a bot seat. These messages share the same ordered log as

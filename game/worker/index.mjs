@@ -9,8 +9,12 @@ const BUILD_ID = globalThis.AOC_BUILD_ID;
 const EXPIRE_MS = 24 * 60 * 60 * 1000;
 const MAX_FRAME_CHARS = 16 * 1024;
 const MAX_LOG_ENTRIES = 4000;
-const PID_RE = /^[a-f0-9]{8,16}$/; // accept old 8-char ids; mint 16-char ids
+const MAX_ROOM_IDENTITIES = 12;
+const MAX_ROOM_SOCKETS = 12;
+const PID_RE = /^[a-f0-9]{16}$/;
+const PLAYER_COLORS = new Set(["yellow", "salmon", "teal", "brown"]);
 const ENTRY_PREFIX = "e:";
+const WS_PROTOCOL = "aoc-room-v2";
 
 export default {
   async fetch(req, env) {
@@ -27,6 +31,18 @@ export default {
 function isObject(v) { return !!v && typeof v === "object" && !Array.isArray(v); }
 function isSeat(v, n) { return Number.isSafeInteger(v) && v >= 0 && v < n; }
 function entryKey(n) { return ENTRY_PREFIX + String(n).padStart(8, "0"); }
+function cleanName(v) { return String(v || "Publisher").replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 24) || "Publisher"; }
+function offeredProtocols(req) {
+  return (req.headers.get("Sec-WebSocket-Protocol") || "").split(",").map((x) => x.trim()).filter(Boolean);
+}
+function suppliedToken(protocols) {
+  const value = protocols.find((x) => /^aoc-token-[a-f0-9]{32}$/.test(x));
+  return value ? value.slice("aoc-token-".length) : null;
+}
+function hex(bytes) { return [...new Uint8Array(bytes)].map((x) => x.toString(16).padStart(2, "0")).join(""); }
+async function tokenHash(token) {
+  return hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)));
+}
 function validCfg(cfg) {
   if (!isObject(cfg) || !Number.isSafeInteger(cfg.n) || cfg.n < 2 || cfg.n > 4 ||
       !Array.isArray(cfg.seats) || cfg.seats.length !== cfg.n) return false;
@@ -49,7 +65,7 @@ function validHello(hello) {
   const humans = [];
   for (let i = 0; i < hello.players.length; i++) {
     const player = hello.players[i];
-    if (!isObject(player) || typeof player.color !== "string" || player.color.length > 24 ||
+    if (!isObject(player) || !PLAYER_COLORS.has(player.color) ||
         typeof player.name !== "string" || player.name.length > 48 ||
         !["human", "bot"].includes(hello.seats[i]) || player.human !== (hello.seats[i] === "human")) return false;
     if (hello.seats[i] === "human") {
@@ -66,12 +82,15 @@ export class GameRoom {
   async load() {
     if (this.loaded) return;
     const s = this.ctx.storage;
-    const stored = await s.get(["hello", "cfg", "seq", "log", "order", "names", "seats", "pids"]);
+    const stored = await s.get(["hello", "cfg", "seq", "log", "order", "names", "seats", "pids", "auth", "revoked", "locked"]);
     this.hello = stored.get("hello") || null;
     this.cfg = stored.get("cfg") || null;
     this.seq = stored.get("seq") || 0;
     this.order = stored.get("order") || [];
     this.names = stored.get("names") || {};
+    this.auth = stored.get("auth") || {};       // public pid -> SHA-256(private resume token)
+    this.revoked = stored.get("revoked") || []; // retired token hashes
+    this.locked = stored.get("locked") === true;
     this.seats = stored.get("seats") || (this.hello ? this.hello.seats.slice() : []);
     this.pids = stored.get("pids") || (this.hello ? this.hello.pids.slice() : []);
 
@@ -101,6 +120,7 @@ export class GameRoom {
     await this.ctx.storage.put({
       hello: this.hello, cfg: this.cfg, seq: this.seq,
       order: this.order, names: this.names, seats: this.seats, pids: this.pids,
+      auth: this.auth, revoked: this.revoked, locked: this.locked,
     });
   }
 
@@ -121,12 +141,25 @@ export class GameRoom {
     const on = this.connectedPids(excludeWs);
     return {
       host: this.hostPid(excludeWs),
+      locked: this.locked,
       players: this.order.map((pid) => ({ pid, name: this.names[pid] || "?", on: on.has(pid) })),
     };
   }
   send(ws, obj) { try { ws.send(JSON.stringify(obj)); } catch (_e) {} }
   broadcast(obj) { for (const ws of this.ctx.getWebSockets()) this.send(ws, obj); }
   async bumpAlarm() { await this.ctx.storage.setAlarm(Date.now() + EXPIRE_MS); }
+
+  socketResponse(client) {
+    return new Response(null, { status: 101, webSocket: client, headers: { "Sec-WebSocket-Protocol": WS_PROTOCOL } });
+  }
+  rejectSocket(code, closeCode, reason) {
+    const pair = new WebSocketPair();
+    this.ctx.acceptWebSocket(pair[1]);
+    pair[1].serializeAttachment({ pid: null, rejected: true });
+    this.send(pair[1], { t: "error", code });
+    try { pair[1].close(closeCode, reason); } catch (_e) {}
+    return this.socketResponse(pair[0]);
+  }
 
   async replay(ws, since) {
     let cursor = entryKey(since);
@@ -147,10 +180,26 @@ export class GameRoom {
     if (origin && origin !== url.origin) return new Response("cross-origin websocket denied", { status: 403 });
     if (url.searchParams.get("build") !== BUILD_ID)
       return new Response("client update required", { status: 409 });
+    const protocols = offeredProtocols(req);
+    if (!protocols.includes(WS_PROTOCOL)) return new Response("websocket protocol required", { status: 426 });
 
-    const name = (url.searchParams.get("name") || "Publisher").slice(0, 24);
-    let pid = url.searchParams.get("pid") || "";
-    if (!PID_RE.test(pid)) pid = crypto.randomUUID().replaceAll("-", "").slice(0, 16);
+    const name = cleanName(url.searchParams.get("name"));
+    const resumeToken = suppliedToken(protocols);
+    const resumeHash = resumeToken ? await tokenHash(resumeToken) : null;
+    if (resumeHash && this.revoked.includes(resumeHash)) return this.rejectSocket("REMOVED", 4003, "removed from table");
+    let pid = resumeHash ? Object.keys(this.auth).find((id) => this.auth[id] === resumeHash) : null;
+    if (resumeToken && !pid) return this.rejectSocket("BAD_CREDENTIAL", 4006, "resume credential rejected");
+    const returning = !!pid;
+    if (!returning && this.locked) return this.rejectSocket("TABLE_LOCKED", 4004, "table locked");
+    if (!returning && (this.order.length >= MAX_ROOM_IDENTITIES || this.connectedPids().size >= MAX_ROOM_SOCKETS))
+      return this.rejectSocket("ROOM_FULL", 4005, "room full");
+
+    let issuedToken = null;
+    if (!pid) {
+      pid = crypto.randomUUID().replaceAll("-", "").slice(0, 16);
+      issuedToken = crypto.randomUUID().replaceAll("-", "");
+      this.auth[pid] = await tokenHash(issuedToken);
+    }
     const since = Math.max(0, parseInt(url.searchParams.get("since") || "0", 10) || 0);
 
     // Newest tab wins. This prevents two live sockets from issuing commands as
@@ -170,14 +219,14 @@ export class GameRoom {
     this.names[pid] = name;
     await this.saveLobby();
 
-    this.send(pair[1], { t: "you", pid, host: this.hostPid() === pid });
+    this.send(pair[1], { t: "you", pid, token: issuedToken, host: this.hostPid() === pid });
     if (this.cfg) this.send(pair[1], { t: "cfg", cfg: this.cfg });
     if (this.hello) this.send(pair[1], { t: "hello", hello: this.hello });
     await this.replay(pair[1], since);
     this.send(pair[1], { t: "sync", seq: this.seq });
     this.broadcast({ t: "roster", ...this.roster() });
     await this.bumpAlarm();
-    return new Response(null, { status: 101, webSocket: pair[0] });
+    return this.socketResponse(pair[0]);
   }
 
   applySeatCache(m, seats, pids) {
@@ -212,6 +261,35 @@ export class GameRoom {
       this.cfg = msg.cfg;
       await this.saveLobby();
       this.broadcast({ t: "cfg", cfg: this.cfg });
+    } else if (msg.t === "settings") {
+      if (pid !== this.hostPid() || typeof msg.locked !== "boolean") return;
+      this.locked = msg.locked;
+      await this.ctx.storage.put("locked", this.locked);
+      this.broadcast({ t: "roster", ...this.roster() });
+    } else if (msg.t === "kick") {
+      if (pid !== this.hostPid() || !PID_RE.test(msg.pid || "") || msg.pid === pid || !this.order.includes(msg.pid)) return;
+      const kickedPid = msg.pid;
+      const retiredHash = this.auth[kickedPid];
+      if (retiredHash && !this.revoked.includes(retiredHash)) this.revoked.push(retiredHash);
+      if (this.revoked.length > 32) this.revoked.shift();
+      delete this.auth[kickedPid];
+      delete this.names[kickedPid];
+      this.order = this.order.filter((id) => id !== kickedPid);
+      if (!this.hello && this.cfg) {
+        for (const seat of this.cfg.seats) if (seat.kind === "human" && seat.pid === kickedPid) {
+          seat.kind = "open";
+          delete seat.pid;
+        }
+      }
+      await this.saveLobby();
+      for (const target of this.ctx.getWebSockets()) {
+        const attachment = target.deserializeAttachment();
+        if (attachment && attachment.pid === kickedPid) {
+          this.send(target, { t: "removed" });
+          try { target.close(4003, "removed from table"); } catch (_e) {}
+        }
+      }
+      this.broadcast({ t: "roster", ...this.roster() });
     } else if (msg.t === "m") {
       if (!this.validRoomMessage(msg.m, pid) || this.seq >= MAX_LOG_ENTRIES) {
         this.send(ws, { t: "error", code: "BAD_ROOM_MESSAGE" });
@@ -232,7 +310,7 @@ export class GameRoom {
       this.pids = pids;
       this.broadcast(entry);
     } else if (msg.t === "ping") {
-      this.send(ws, { t: "pong" });
+      this.send(ws, { t: "pong", at: msg.at });
     }
     await this.bumpAlarm();
   }

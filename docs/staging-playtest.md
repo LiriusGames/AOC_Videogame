@@ -1,8 +1,8 @@
 # Invite-only staging playtest gate
 
-Status: **ready to schedule after the staging Worker is deployed**. Human
-sessions cannot be completed inside CI; record dates, commit, Worker version,
-and anonymized results below before promoting multiplayer.
+Status: **staging deployed; human sessions pending**. Human sessions cannot be
+completed inside CI; record dates, commit, Worker version, and anonymized
+results below before promoting multiplayer.
 
 ## Cohort
 
@@ -27,8 +27,13 @@ and anonymized results below before promoting multiplayer.
    match and no desync warning appears.
 7. Duplicate a participating tab. Verify the original tab reports that its
    desk moved elsewhere and only the newer tab can continue.
-8. Complete at least two rounds; one pair completes the full game.
-9. Separately, every novice completes **FIRST DAY ON THE JOB** and answers the
+8. Verify a visible public roster id cannot resume another player's desk. Lock
+   the table, verify a new browser is refused, then confirm a known player can
+   reconnect. Remove that participant and verify the old resume pass is refused.
+9. Leave a move in flight while cutting the browser network; restore it and
+   verify watchdog reconnect/replay settles without a duplicate action.
+10. Complete at least two rounds; one pair completes the full game.
+11. Separately, every novice completes **FIRST DAY ON THE JOB** and answers the
    five comprehension questions in `tutorial-design.md`.
 
 ## Promotion criteria

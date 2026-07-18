@@ -41,6 +41,7 @@ class RemoteSession extends EventTarget {
     this.room = room;
     this.name = name;
     this.pid = null;
+    this.token = null;      // private resume credential; never shown in rosters or URLs
     this.isHost = false;
     this.roster = null;
     this.cfg = null;
@@ -60,6 +61,9 @@ class RemoteSession extends EventTarget {
     this.retry = 0;
     this.connecting = false;
     this.buildTimer = null;
+    this.heartbeatTimer = null;
+    this.awaitingPongAt = 0;
+    this.sentAt = 0;
   }
   isLocalSeat(pid) {
     return !!this.engine && pid === this.seat && this.seats[pid] === "human" && this.pids[pid] === this.pid;
@@ -70,7 +74,12 @@ class RemoteSession extends EventTarget {
     return proto + "//" + location.host + "/api/room/" + this.room + "/ws?name=" +
       encodeURIComponent(this.name || "Publisher") +
       "&build=" + encodeURIComponent(root.AOC_BUILD_ID || "unknown") +
-      (this.pid ? "&pid=" + this.pid : "") + (this.seq ? "&since=" + this.seq : "");
+      (this.seq ? "&since=" + this.seq : "");
+  }
+  protocols() {
+    const out = ["aoc-room-v2"];
+    if (this.token && /^[a-f0-9]{32}$/.test(this.token)) out.push("aoc-token-" + this.token);
+    return out;
   }
   async checkBuild() {
     if (typeof fetch !== "function") return true;
@@ -91,6 +100,7 @@ class RemoteSession extends EventTarget {
     this.closed = true;
     this.connecting = false;
     if (this.buildTimer) clearInterval(this.buildTimer);
+    this.stopHeartbeat();
     if (this.socket) try { this.socket.close(4000, "client update required"); } catch (_e) {}
     this.dispatchEvent(new CustomEvent("versionerror", { detail: {
       local: root.AOC_BUILD_ID || "unknown", remote: remote || "unknown",
@@ -105,25 +115,30 @@ class RemoteSession extends EventTarget {
     try { saved = JSON.parse(localStorage.getItem("aoc-net") || "null"); } catch (_e) {}
     if (saved && saved.room === this.room) {
       this.pid = this.pid || saved.pid;
+      this.token = this.token || saved.token;
       this.name = this.name || saved.name;
     }
     if (!(await this.checkBuild()) || this.closed) { this.connecting = false; return; }
-    const ws = this.socket = new WebSocket(this.url());
+    const ws = this.socket = new WebSocket(this.url(), this.protocols());
     ws.onopen = () => {
       this.connecting = false;
       this.retry = 0;
       if (!this.buildTimer) this.buildTimer = setInterval(() => this.checkBuild(), 10 * 60 * 1000);
+      this.startHeartbeat();
       this.dispatchEvent(new CustomEvent("status", { detail: "connected" }));
     };
     ws.onmessage = (ev) => { try { this.onMessage(JSON.parse(ev.data)); } catch (e) { console.error(e); } };
     ws.onclose = (ev) => {
       this.connecting = false;
+      this.stopHeartbeat();
       if (ev.code === 4001) {
         this.closed = true;
         if (!this.replaced) {
           this.replaced = true;
           this.dispatchEvent(new CustomEvent("replaced"));
         }
+      } else if ([4003, 4004, 4005, 4006].includes(ev.code)) {
+        this.closed = true;
       }
       this.dispatchEvent(new CustomEvent("status", { detail: "disconnected" }));
       if (!this.closed) setTimeout(() => this.connect(), Math.min(10000, 500 * 2 ** this.retry++));
@@ -134,7 +149,27 @@ class RemoteSession extends EventTarget {
     this.closed = true;
     this.connecting = false;
     if (this.buildTimer) { clearInterval(this.buildTimer); this.buildTimer = null; }
+    this.stopHeartbeat();
     if (this.socket) this.socket.close(1000, "leaving room");
+  }
+  startHeartbeat() {
+    this.stopHeartbeat();
+    this.awaitingPongAt = 0;
+    this.heartbeatTimer = setInterval(() => this.heartbeatTick(), 15000);
+  }
+  heartbeatTick(now = Date.now()) {
+    if ((this.awaitingPongAt && now - this.awaitingPongAt > 45000) ||
+        (this.sent && this.sentAt && now - this.sentAt > 15000)) {
+      if (this.socket) try { this.socket.close(4002, "connection watchdog"); } catch (_e) {}
+      return false;
+    }
+    if (this.sendRaw({ t: "ping", at: now }) && !this.awaitingPongAt) this.awaitingPongAt = now;
+    return true;
+  }
+  stopHeartbeat() {
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = null;
+    this.awaitingPongAt = 0;
   }
   sendRaw(obj) {
     if (!this.socket || this.socket.readyState !== 1) return false;
@@ -144,8 +179,9 @@ class RemoteSession extends EventTarget {
   onMessage(m) {
     if (m.t === "you") {
       this.pid = m.pid;
+      if (m.token) this.token = m.token;
       this.isHost = m.host;
-      try { localStorage.setItem("aoc-net", JSON.stringify({ room: this.room, pid: this.pid, name: this.name })); } catch (_e) {}
+      try { localStorage.setItem("aoc-net", JSON.stringify({ room: this.room, pid: this.pid, token: this.token, name: this.name })); } catch (_e) {}
       this.dispatchEvent(new CustomEvent("lobby"));
     } else if (m.t === "roster") {
       this.roster = m;
@@ -164,13 +200,20 @@ class RemoteSession extends EventTarget {
       }
     } else if (m.t === "error") {
       this.sent = false;
+      this.sentAt = 0;
       this.dispatchEvent(new CustomEvent("roomerror", { detail: m.code || "ROOM_ERROR" }));
+    } else if (m.t === "removed") {
+      this.closed = true;
+      this.dispatchEvent(new CustomEvent("roomerror", { detail: "REMOVED" }));
+    } else if (m.t === "pong") {
+      this.awaitingPongAt = 0;
     } else if (m.t === "sync") {
       // WebSocket delivery is ordered: hello + every missed log entry arrive
       // before this marker. If an in-flight command was accepted its echo has
       // now cleared `sent`; if it was lost, it is safe to clear it here.
       if (!Number.isSafeInteger(m.seq) || m.seq !== this.seq) return this.desync();
       this.sent = false;
+      this.sentAt = 0;
       this.syncing = false;
       if (this.engine && !this.started) this.beginGame();
       this.dispatchEvent(new CustomEvent("status", { detail: "synced" }));
@@ -213,6 +256,7 @@ class RemoteSession extends EventTarget {
       if (m.h && m.h !== protocol.engineHash(g)) return this.desync();
       const result = protocol.applyEngineCommand(g, m.seat, m.kind, m.payload);
       if (m.seat === this.seat) this.sent = false;
+      if (m.seat === this.seat) this.sentAt = 0;
       if (!result.ok) return this.desync(); // the sender validated it: divergence
       this.drainBots();
       this.dispatchEvent(new CustomEvent("applied", { detail: { seat: m.seat, kind: m.kind } }));
@@ -225,6 +269,7 @@ class RemoteSession extends EventTarget {
         this.seat = -1;
         this.humanId = m.seat; // keep showing the desk while it is automated
         this.sent = false;
+        this.sentAt = 0;
       }
       this.drainBots();
       this.dispatchEvent(new CustomEvent("applied", { detail: { seat: m.seat, kind: "seat" } }));
@@ -309,8 +354,10 @@ class RemoteSession extends EventTarget {
     g.events.length = evLen;
     if (!check.ok) return check;
     this.sent = true;
+    this.sentAt = Date.now();
     if (!this.sendRaw({ t: "m", m: { k: "cmd", seat: this.seat, kind, payload, h } })) {
       this.sent = false;
+      this.sentAt = 0;
       return { ok: false, code: "OFFLINE", message: "The room connection closed before that move was sent." };
     }
     return { ok: true, queued: true };
@@ -318,6 +365,8 @@ class RemoteSession extends EventTarget {
   // ---- lobby & seat management (host tools + reclaiming) ----
   sendCfg(cfg) { this.cfg = cfg; this.sendRaw({ t: "cfg", cfg }); }
   sendHello(hello) { this.sendRaw({ t: "hello", hello }); }
+  setLocked(locked) { this.sendRaw({ t: "settings", locked: !!locked }); }
+  removeParticipant(pid) { this.sendRaw({ t: "kick", pid }); }
   replaceWithBot(seat) { this.sendRaw({ t: "m", m: { k: "seat", seat, ctl: "bot" } }); }
   claimSeat(seat) { this.sendRaw({ t: "m", m: { k: "claim", seat, pid: this.pid, name: this.name } }); }
 }

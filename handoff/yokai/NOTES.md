@@ -69,6 +69,10 @@ contracts AOC's port must honor.
 - Protocol hashes include rules state and the seeded RNG cursor, so divergence
   is detected before it can alter a later random outcome.
 - The AOC port stores ordered messages under append-only Durable Object keys,
-  refuses mismatched build stamps, and keeps only the newest socket per pid.
+  refuses mismatched build stamps, and keeps only the newest socket per resume token.
+- Public pids are roster labels, not credentials: reconnect uses a private
+  128-bit token supplied as a WebSocket subprotocol and stored only by hash.
+  Hosts can lock/remove, rooms are capped, and a heartbeat/command watchdog
+  forces uncertain half-open moves through reconnect replay.
 - The old authoritative DO (revision control, redaction, hashed tickets) is RETIRED —
   private tables among friends don't need server-side hidden information.

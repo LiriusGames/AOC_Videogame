@@ -38,8 +38,15 @@ their `/api` route does not provide rooms.
 - Rooms expire 24 hours after their most recent activity.
 - Browser and Worker share a build stamp. Stale tabs are refused at connect and
   active rooms check for a deployment change every 10 minutes.
-- Only one socket may control a player id. Opening the same desk in another tab
+- Public roster ids are not credentials. Each browser receives a private
+  128-bit resume token; only its SHA-256 hash is stored, and the raw token rides
+  the WebSocket protocol header rather than the URL.
+- Only one socket may use a resume token. Opening the same desk in another tab
   transfers control to the newer tab and stops the older connection.
+- The host may lock the table against new visitors and remove known
+  participants. Rooms admit at most 12 identities and 12 live sockets.
+- A ping/pong and command watchdog reconnects half-open clients so replay can
+  settle an in-flight move instead of leaving the controls locked forever.
 
 ## Disconnects and desk control
 
@@ -47,6 +54,11 @@ Open **ROOM** during a match to see connection status. A disconnected human
 desk stays reserved. The current host may hand it to a bot; the returning
 player can then use **RESUME MY DESK**. A late joiner may take an automated
 desk. Seat-control messages are globally ordered with game commands.
+
+**LOCK TABLE** refuses new identities while allowing known participants to
+reconnect with their private resume tokens. **REMOVE** revokes that browser's
+token; locking the table as well prevents the same person from immediately
+joining as a new visitor. Removal is not an account-level ban.
 
 ## Trust and privacy boundary
 
@@ -79,5 +91,6 @@ npm run deploy:production
 ```
 
 Before public traffic, add an account-level rate limit for room WebSocket
-upgrades and monitoring for Worker/Durable Object errors. Production remains a
+upgrades (the in-room caps are not a substitute) and monitoring for
+Worker/Durable Object errors. Production remains a
 trusted-friends preview until the authoritative privacy phase is complete.

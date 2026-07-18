@@ -93,7 +93,7 @@ async function roomState(page) {
     await enterName(host, "Ada");
     const room = await host.evaluate(() => Multiplayer.session.room);
     const roomUrl = URL + "?room=" + room;
-    check(/^[A-Z2-9]{5}$/.test(room), "host receives a shareable room code");
+    check(/^[A-Z2-9]{8}$/.test(room), "host receives a high-entropy shareable room code");
 
     guest = await guestContext.newPage(); watch(guest, "guest");
     await guest.goto(roomUrl, { waitUntil: "networkidle0" });
@@ -101,6 +101,19 @@ async function roomState(page) {
     await host.waitForFunction(() => Multiplayer.session.cfg &&
       Multiplayer.session.cfg.seats.filter((s) => s.kind === "human").length === 2);
     check(true, "guest joins and auto-fills the next desk");
+
+    await clickText(host, ".mp-invite button", "LOCK TABLE");
+    await host.waitForFunction(() => Multiplayer.session.roster && Multiplayer.session.roster.locked === true);
+    late = await lateContext.newPage(); watch(late, "locked visitor");
+    await late.goto(roomUrl, { waitUntil: "networkidle0" });
+    await late.waitForSelector("#mp-name", { visible: true });
+    await late.type("#mp-name", "Locked Visitor");
+    await late.$eval("#mp-name-ok", (button) => button.click());
+    await late.waitForFunction(() => document.querySelector("#modal-root h2")?.textContent.includes("TABLE LOCKED"));
+    check(true, "host can lock the table while known participants retain access");
+    await late.close(); late = null;
+    await clickText(host, ".mp-invite button", "UNLOCK TABLE");
+    await host.waitForFunction(() => Multiplayer.session.roster && Multiplayer.session.roster.locked === false);
 
     // Keep the default three seats and explicitly fill the last one with a bot.
     await clickText(host, ".mp-seat button", "+ BOT");
@@ -170,7 +183,7 @@ async function roomState(page) {
     check(ls.hash === hs.hash && !ls.desynced,
       "late joiner can render the game and take an automated desk");
     check(errors.length === 0, "no browser reports an uncaught page error");
-    console.log("\n9 multiplayer browser checks passed");
+    console.log("\n10 multiplayer browser checks passed");
   } finally {
     await Promise.allSettled([hostContext.close(), guestContext.close(), lateContext.close()]);
     await browser.close();

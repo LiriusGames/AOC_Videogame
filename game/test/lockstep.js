@@ -109,9 +109,21 @@ const gap = make("ffffffff");
 gap.onMessage({ t: "m", n: 2, m: { k: "seat", seat: 2, ctl: "bot" } });
 assert.equal(gap.desynced, true);
 
+// A half-open socket cannot leave the UI's one-command interlock stuck
+// forever. The watchdog closes it so reconnect replay decides whether the
+// in-flight command was persisted.
+const watched = make("abababab");
+let watchdogCode = 0;
+watched.socket = { readyState: 1, send() {}, close(code) { watchdogCode = code; } };
+watched.sent = true;
+watched.sentAt = 1000;
+assert.equal(watched.heartbeatTick(17001), false);
+assert.equal(watchdogCode, 4002);
+
 console.log("  ok  ordered human moves synchronously drain deterministic bots");
 console.log("  ok  automated desks drop local control and can be reclaimed");
 console.log("  ok  late joiners receive a valid spectator view");
 console.log("  ok  reconnect replay gates input and safely releases a lost in-flight command");
 console.log("  ok  a sequence gap stops the client before applying later moves");
-console.log("\n5 lockstep tests passed");
+console.log("  ok  command watchdog recovers a half-open in-flight move");
+console.log("\n6 lockstep tests passed");

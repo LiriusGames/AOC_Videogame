@@ -10,7 +10,7 @@ In this digital adaptation, you run a Manhattan publishing house during the Gold
 
 ## Current Project Status: Where We Are At
 
-**Solo play implements the base-game rules (V27). The guided First Day tutorial is a release candidate; 2–4 player trusted rooms are a lockstep preview pending staging.**
+**Solo play implements the base-game rules (V27). The guided First Day tutorial is a release candidate; 2–4 player trusted rooms are deployed to staging for invite-only validation.**
 
 It currently features:
 * **Full Rules Implementation:** Worker placement, hiring, developing, getting ideas, printing originals and rip-offs, royalties, Manhattan sales map, the chart, mastery tokens, all 6 special actions, creative learning/training, and full end-game scoring.
