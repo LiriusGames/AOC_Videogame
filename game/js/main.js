@@ -136,6 +136,9 @@ const Main = (() => {
     UI.humanId = 0;
     UI.session = new LocalSession(UI.engine, UI.humanId);
     UI.mode = "solo";
+    // undo is a learning tool, not a probe: above CUB REPORTER a rewind would
+    // let you replay decisions with the rivals' answers already revealed
+    UI.undoAllowed = setup.difficulty === "easy";
     UI.eventCursor = 0;
     UI.pendingReview = false;
     hideReview();
@@ -191,6 +194,7 @@ const Main = (() => {
     show("screen-game");
     document.getElementById("dialogue").innerHTML = "";
     say(null, "<b>Manhattan, 1938.</b> Your first day at Liberty Ink begins.");
+    UI.undoAllowed = true; // the lesson's sandbox: rivals are scripted anyway
     Tutor.begin();
     flushEvents();
     renderAll();
@@ -233,6 +237,7 @@ const Main = (() => {
         return newTutorial();
       }
     } else Tutor.hide();
+    UI.undoAllowed = Tutor.active || UI.engine.cfg.difficulty === "easy";
     renderAll();
     advance();
   }
@@ -421,8 +426,9 @@ const Main = (() => {
     const label = reviewLabel();
     UI.reviewHint = null;
     bar.querySelector(".rb-text").innerHTML = "&#10004; PROOF &mdash; " + label;
+    bar.querySelector(".rb-keys").hidden = !UI.undoAllowed;
     bar.hidden = false;
-    announce(label.toLowerCase() + " filed. Undo rewinds it until your next move.");
+    announce(label.toLowerCase() + (UI.undoAllowed ? " filed. Undo rewinds it until your next move." : " filed."));
     clearTimeout(proofTimer);
     proofTimer = setTimeout(hideReview, 2600);
     if (Tutor.active) Tutor.onProofFiled(lastHumanAction());
@@ -452,10 +458,11 @@ const Main = (() => {
   // (includes any AI moves shown since — they replay from the same rng).
   function doUndo() {
     if (UI.session && UI.session.mode === "remote") return toast("Published room moves cannot be rewound.");
+    if (!UI.undoAllowed) return toast("No second thoughts above CUB REPORTER &mdash; the rivals' answers are already on the record.");
     if (!UI.undoSnap || !UI.undoDirty || UI.autoplay) return;
     clearTimeout(advanceTimer);
+    const label = reviewLabel(); // name what is being taken back, pre-rewind
     UI.pendingReview = false;
-    hideReview();
     UI.engine.restore(UI.undoSnap);
     UI.undoSnap = null;
     UI.undoDirty = false;
@@ -466,7 +473,14 @@ const Main = (() => {
     closeModal();
     setAIStatus(null);
     SFX.play("paper");
-    toast("&#8630; Rewound to the start of your turn");
+    // the rewind announces itself in the same proof-slip voice as the filing
+    const bar = document.getElementById("review-bar");
+    bar.querySelector(".rb-text").innerHTML = "&#8630; REWOUND &mdash; " + label + " TAKEN BACK";
+    bar.querySelector(".rb-keys").hidden = true;
+    bar.hidden = false;
+    clearTimeout(proofTimer);
+    proofTimer = setTimeout(hideReview, 2200);
+    announce(label.toLowerCase() + " taken back. Choose again.");
     renderAll();
     advance();
   }
@@ -564,7 +578,6 @@ const Main = (() => {
     document.getElementById("mat-next").onclick = () => matScroll(1);
     addEventListener("resize", updateMatNav);
     document.getElementById("btn-undo").onclick = () => { SFX.play("click"); doUndo(); };
-    document.getElementById("btn-review-undo").onclick = () => { SFX.play("click"); doUndo(); };
     // U / Ctrl+Z rewind the latest move whenever an undo point is armed
     document.addEventListener("keydown", (ev) => {
       if (modalIsOpen() || (ev.target && ev.target.closest && ev.target.closest("input, textarea"))) return;
@@ -602,6 +615,7 @@ const Main = (() => {
     UI.session = session;
     UI.humanId = session.humanId;
     UI.mode = "multiplayer";
+    UI.undoAllowed = false; // published moves are already on every screen
     UI.eventCursor = 0;
     UI.pendingReview = false;
     UI.lastTurnKey = null;

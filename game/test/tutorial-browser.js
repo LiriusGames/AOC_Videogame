@@ -123,6 +123,10 @@ function check(value, name) {
       Main.afterHumanMove();
     });
     await page.waitForFunction(() => UI.engine.state.round === 2 && Tutor.state.beat === "free", { timeout: 20000 });
+    // the last memo carries a real ending now
+    await page.$eval("#tutor-card .tutor-next", (btn) => btn.click());
+    check(await page.evaluate(() => !Tutor.active && Tutor.state.finished === true &&
+      document.getElementById("tutor-layer").hidden), "FINISH THE LESSON retires the guide and its overlay");
 
     const completion = await page.evaluate(() => ({
       completed: Tutor.state.completedCore,

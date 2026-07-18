@@ -582,7 +582,12 @@ function renderTopbar() {
     cal.appendChild(tile);
   }
   const undo = document.getElementById("btn-undo");
-  if (undo) undo.disabled = !UI.undoSnap || !UI.undoDirty || UI.autoplay || s.gameOver;
+  if (undo) {
+    undo.hidden = !UI.undoAllowed;
+    undo.disabled = !UI.undoSnap || !UI.undoDirty || UI.autoplay || s.gameOver;
+    // a live rewind window announces itself with a soft pulse
+    undo.classList.toggle("undo-armed", !undo.hidden && !undo.disabled);
+  }
   const to = document.getElementById("turn-order");
   to.innerHTML = "";
   const curr = UI.engine.currentPlayerId();

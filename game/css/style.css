@@ -358,7 +358,13 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 .tutorial-active .your-turn #locations { outline: none; }
 
 /* hover magnify: scale in place + inspector dock on the far side */
-.magnified { transform: scale(1.22); z-index: 8; position: relative; }
+/* hover emphasis: a lift, not an in-place blow-up — a scaled card's contour
+   sliced across its neighbours; the real enlargement lives in #zoom-root */
+.magnified {
+  transform: translateY(-4px); z-index: 8; position: relative;
+  outline: 3px solid var(--gold); outline-offset: 1px;
+  box-shadow: 0 8px 0 rgba(0, 0, 0, .45);
+}
 #zoom-root {
   transition: opacity .08s;
   background: var(--paper); border: 3px solid var(--ink);
@@ -1297,6 +1303,18 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
   background: repeating-linear-gradient(90deg, var(--paper-dark) 0 6px, transparent 6px 12px);
 }
 #review-bar[hidden] { display: none; }
+#btn-undo[hidden] { display: none; }
+/* the rewind window announces itself */
+#btn-undo.undo-armed { box-shadow: 0 0 0 2px var(--gold); animation: undopulse 1.2s steps(2) infinite; }
+@keyframes undopulse { 50% { box-shadow: 0 0 0 2px rgba(245, 200, 110, .25); } }
+/* the print packing slip: requirement chips, gaps in red */
+.req-strip { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
+.req-chip {
+  font-family: var(--f-display); font-size: 11px; letter-spacing: .5px;
+  padding: 2px 8px; border: 2px solid var(--ink); border-radius: 6px; background: var(--paper);
+}
+.req-chip.ok { color: #2c6b2f; }
+.req-chip.miss { color: #a00; border-color: #a00; background: #f6dede; }
 #review-bar .rb-text { font-family: var(--f-display); font-size: 14px; color: #8a2f22; }
 #review-bar .rb-buttons { display: flex; gap: 12px; align-items: center; }
 #review-bar .rb-keys { font-size: 11px; color: #57452c; }

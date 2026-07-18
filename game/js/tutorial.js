@@ -24,7 +24,8 @@ const Tutor = (() => {
     mastery_note: ["MASTERY CLAIMED", "First original in a genre claims its mastery token: +1 fan on every book you print in that genre, and 2 points at the final bell. Another house can steal it by out-printing you."],
     founding: ["YOUR STARTING TEAM", "Your writer and artist specialize in different genres. Each teammate who matches a book adds one launch fan. Choose the highlighted Crime project and two Crime ideas."],
     proof_confirm: ["THE PROOF STAMP", "Every move files itself — the stamp you just saw is the receipt, no paperwork to sign. Second thoughts? The UNDO button on the desk rail rewinds your latest decision, any turn, all game long."],
-    ideas: ["FIRST SHIFT — CAFE BIZARRE", "Send your first editor for ideas. Take the highlighted Crime ideas from the counter; table ideas are a limited bonus."],
+    ideas: ["FIRST SHIFT — CAFE BIZARRE", "Send your first editor for ideas. Clear the free table coins first — they run out, and seat order decides who eats. Then take two Crime from the counter for your book."],
+    print_bonus: ["THE PRINTING BONUS", "Every original pays a perk when it prints — this one pays two idea tokens. Take Crime: ideas in your best genre fuel the NEXT book."],
     print: ["SECOND SHIFT — PRINT FLOOR", "Build the highlighted package: comic, writer, artist, team fee, and two matching ideas. The first press can run two books, but today you own one complete team."],
     accounting: ["THIRD SHIFT — ACCOUNTING", "Printing costs cash. Earlier Accounting desks pay more, so take the highlighted desk now."],
     sales: ["LAST SHIFT — MANHATTAN", "Your last editor works the street itself: walk the corners, flip newsstand orders face-up, collect what your chart can fill. Follow the gold marker on the map."],
@@ -54,6 +55,8 @@ const Tutor = (() => {
     sync();
   }
   function restore(saved) {
+    // a finished lesson resumes as a normal game — the guide stays retired
+    if (saved && saved.finished) return true;
     if (!saved || saved.scenarioVersion !== SCENARIO.version || saved.skipped) return false;
     active = true;
     state = Object.assign(freshState(), saved, { botSteps: Object.assign({ 1: 0, 2: 0 }, saved.botSteps || {}) });
@@ -61,9 +64,20 @@ const Tutor = (() => {
     sync();
     return true;
   }
-  function exportState() { return active || state.skipped ? structuredClone(state) : null; }
+  function exportState() { return active || state.skipped || state.finished ? structuredClone(state) : null; }
   function persistFlag() {
     try { localStorage.setItem("aoc-tutorial-status", state.completedCore ? "complete" : state.skipped ? "skipped" : "started"); } catch (_e) {}
+  }
+  function finish() {
+    state.completedCore = true;
+    state.finished = true;
+    active = false;
+    persistFlag();
+    document.documentElement.classList.remove("tutorial-active");
+    hide();
+    announce("Lesson complete. The newsroom is yours.");
+    if (typeof toast === "function") toast("&#10004; Lesson complete &mdash; the newsroom is yours.");
+    renderAll();
   }
   function skip() {
     if (!confirm("Skip the guided tour and continue this game with normal controls?")) return;
@@ -150,11 +164,18 @@ const Tutor = (() => {
       renderedGate = gateKey;
       if (UI.engine && typeof renderLocations === "function") renderLocations();
     }
-    const memo = MEMOS[state.beat] || MEMOS.free;
+    let memo = MEMOS[state.beat] || MEMOS.free;
+    let target = targetForBeat();
+    // the print bonus dialog interrupts the print lesson with its own choice:
+    // teach it in place instead of leaving a "random popup" unexplained
+    if (state.beat === "print" && bonusPending()) {
+      memo = MEMOS.print_bonus;
+      target = '#modal-root [data-tut="bonus"]';
+    }
     let text = memo[1];
     if (state.beat === "sales" && SALES_STEP_HINTS[state.salesStep])
       text += " NOW: " + SALES_STEP_HINTS[state.salesStep];
-    show(memo[0], text, targetForBeat());
+    show(memo[0], text, target);
     applyGlow();
     syncMapTarget();
   }
@@ -180,19 +201,39 @@ const Tutor = (() => {
     const key = title + "\n" + text;
     if (key !== currentMemo) { currentMemo = key; announce(`${title}. ${text}`); }
     const nextBtn = card.querySelector(".tutor-next");
-    if (nextBtn) { nextBtn.hidden = !NEXT_FLOW[state.beat]; nextBtn.onclick = next; }
+    if (nextBtn) {
+      // the last memo ends the lesson instead of lingering for the whole game
+      if (state.beat === "free") {
+        nextBtn.hidden = false;
+        nextBtn.innerHTML = "FINISH THE LESSON &#10004;";
+        nextBtn.onclick = finish;
+      } else {
+        nextBtn.hidden = !NEXT_FLOW[state.beat];
+        nextBtn.innerHTML = "NEXT &#9654;";
+        nextBtn.onclick = next;
+      }
+    }
     const backBtn = card.querySelector(".tutor-back");
     if (backBtn) { backBtn.hidden = !PREV_FLOW[state.beat]; backBtn.onclick = back; }
     reanchor(selector);
   }
   // the current lesson's physical subjects glow gold (vault card, idea
   // tokens, cafe counter coins) — reapplied whenever the modal rebuilds
+  function bonusPending() {
+    const pd = UI.engine && UI.engine.state.pending;
+    return !!(pd && pd.type === "chooseIdeas" && pd.playerId === UI.humanId);
+  }
   function applyGlow() {
     document.querySelectorAll(".tutor-glow").forEach((n) => n.classList.remove("tutor-glow"));
     if (!active) return;
     const want = [];
     if (state.beat === "founding") want.push('#modal-root [data-tut-genre="' + SCENARIO.genre + '"]');
-    if (state.beat === "ideas") want.push('#modal-root .counter-row [data-tut-genre="' + SCENARIO.genre + '"]');
+    if (state.beat === "ideas") {
+      want.push('#modal-root .counter-row [data-tut-genre="' + SCENARIO.genre + '"]');
+      want.push("#modal-root .cafe-table .table-coin:not(.taken)"); // free value first
+    }
+    if (state.beat === "print" && bonusPending())
+      want.push('#modal-root [data-tut="bonus"] [data-tut-genre="' + SCENARIO.genre + '"]');
     for (const sel of want) document.querySelectorAll(sel).forEach((n) => n.classList.add("tutor-glow"));
   }
   function reanchor(selector = targetForBeat()) {

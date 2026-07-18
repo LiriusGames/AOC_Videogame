@@ -439,6 +439,21 @@ const Scenes = (() => {
         function refresh() {
           const w = sel.writer && CARD_BY_ID[sel.writer], a = sel.artist && CARD_BY_ID[sel.artist];
           const cost = (w ? w.value : 0) + (a ? a.value : 0);
+          // the packing slip: every requirement and its gap, at a glance
+          const chip = (label, good) =>
+            `<span class="req-chip ${good ? "ok" : "miss"}">${good ? "&#10004;" : "&#10008;"} ${label}</span>`;
+          const chips = [];
+          if (sel.type === "original") {
+            const c = sel.comic && CARD_BY_ID[sel.comic];
+            chips.push(chip("COMIC", !!c), chip("WRITER", !!w), chip("ARTIST", !!a));
+            chips.push(c
+              ? chip(`2 ${GENRE_INFO[c.genre].name.toUpperCase()} IDEAS &middot; have ${p.ideas[c.genre]}`, p.ideas[c.genre] >= 2)
+              : chip("2 MATCHING IDEAS", false));
+          } else {
+            chips.push(chip("RIP-OFF TARGET", sel.target !== null), chip("WRITER", !!w), chip("ARTIST", !!a));
+          }
+          chips.push(chip(`$${cost} TEAM FEE &middot; have $${p.money}`, p.money >= cost));
+          const strip = `<div class="req-strip">${chips.join("")}</div>`;
           let txt = `Printing cost: <b>$${cost}</b> (team value)`;
           let ok = false;
           if (sel.type === "original" && sel.comic) {
@@ -461,7 +476,7 @@ const Scenes = (() => {
             }
           }
           if (w && a && cost > p.money) txt += ` — <b style="color:#a00">you only have $${p.money}!</b>`;
-          preview.innerHTML = txt;
+          preview.innerHTML = strip + txt;
           m.querySelector("#print-ok").disabled = !ok;
         }
         sub.innerHTML = sel.type === "original"
@@ -969,9 +984,11 @@ const Scenes = (() => {
         `${CARD_BY_ID[c].name} — ${GENRE_INFO[CARD_BY_ID[c].genre].name} ${CARD_BY_ID[c].kind} v${CARD_BY_ID[c].value}`)));
       m.appendChild(ctx);
       const row = el("div", "card-row");
+      row.dataset.tut = "bonus";
       const counters = {};
       GENRES.forEach((g) => {
         const t = el("div", "token-btn");
+        t.dataset.tutGenre = g;
         t.appendChild(spr("idea_" + g, 0.9));
         const cnt = el("span", "count-badge", "0");
         t.appendChild(cnt);

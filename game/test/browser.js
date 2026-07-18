@@ -161,6 +161,8 @@ function check(cond, name) {
     await page.evaluate(() => localStorage.clear());
     await page.reload({ waitUntil: "networkidle0" });
     await page.$eval("#btn-new-game", (b) => b.click());
+    // undo is CUB REPORTER-only now: play these flows at easy difficulty
+    await page.$eval('#setup-difficulty [data-v="easy"]', (b) => b.click());
     await page.$eval("#btn-start", (b) => b.click());
     await page.waitForFunction(() => typeof UI !== "undefined" && !!UI.engine);
     await page.evaluate(() => {
@@ -270,8 +272,8 @@ function check(cond, name) {
     await page.keyboard.press("u"); // keyboard undo shortcut
     check(await page.evaluate((sj) => JSON.stringify(UI.engine.state) === sj, snapJson),
       "undo restores the exact pre-action state");
-    check(await page.evaluate(() => document.getElementById("review-bar").hidden &&
-      UI.engine.currentPlayerId() === UI.humanId), "undo returns control to the human");
+    check(await page.evaluate(() => /REWOUND/.test(document.querySelector("#review-bar .rb-text").textContent) &&
+      UI.engine.currentPlayerId() === UI.humanId), "undo announces the rewind and returns control to the human");
     // simple action -> files instantly: stamped, autosaved, and the AI
     // proceeds without any confirm click
     await page.evaluate(() => { document.getElementById("review-bar").hidden = true; });
@@ -566,6 +568,8 @@ function check(cond, name) {
     await page.evaluate(() => localStorage.clear());
     await page.reload({ waitUntil: "networkidle0" });
     await page.$eval("#btn-new-game", (b) => b.click());
+    // undo is CUB REPORTER-only now: play these flows at easy difficulty
+    await page.$eval('#setup-difficulty [data-v="easy"]', (b) => b.click());
     await page.$eval("#btn-start", (b) => b.click());
     await page.waitForFunction(() => typeof UI !== "undefined" && !!UI.engine);
     await page.evaluate(() => {
