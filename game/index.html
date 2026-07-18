@@ -48,6 +48,8 @@ if (location.protocol === "file:") {
         <p class="title-sub">A publishing tycoon yarn set in Manhattan, 1938&ndash;1954</p>
         <button id="btn-new-game" class="btn btn-big">START THE PRESSES</button>
         <button id="btn-continue" class="btn btn-big" hidden>CONTINUE</button>
+        <button id="btn-tutorial" class="btn btn-big">FIRST DAY ON THE JOB &mdash; LEARN TO PLAY</button>
+        <button id="btn-private-room" class="btn">PRIVATE TABLE &mdash; 2&ndash;4 PLAYERS</button>
         <button id="btn-how" class="btn">HOW TO PLAY</button>
         <p class="credits">Based on the board game by S&oacute;nia Gon&ccedil;alves &amp; Giacomo Cimini &middot; Artwork by Laura Guglielmo<br>Videogame reinterpretation &middot; The Print Edition, est. 1938</p>
       </div>
@@ -112,6 +114,7 @@ if (location.protocol === "file:") {
       <div id="top-buttons">
         <!-- laptop widths: the chart collapses into this topbar button -->
         <button id="chart-mini" class="btn btn-small" aria-expanded="false" aria-controls="sidebar"></button>
+        <button id="btn-room" class="btn btn-small" title="Room connection and desk controls" hidden>ROOM</button>
         <button id="btn-undo" class="btn btn-small" title="Rewind to the start of your turn">&#8630; UNDO</button>
         <button id="btn-chart" class="btn btn-small" title="View the Manhattan sales map">CITY</button>
         <button id="btn-menu" class="btn btn-small" title="Picture, sound and screen settings">MENU</button>
@@ -159,21 +162,31 @@ if (location.protocol === "file:") {
     </div>
   </section>
 
-  <!-- post-action review: a proof slip stamped over the dimmed board —
-       inspect the result, then undo or continue -->
-  <div id="review-bar" role="group" aria-label="Action complete: review the result" hidden>
+  <!-- the proof stamp: a finished action names itself on a transient slip
+       and the game rolls on; UNDO stays one click away -->
+  <div id="review-bar" role="status" aria-label="Action filed" hidden>
     <span class="rb-text">&#10004; PROOF &mdash; ACTION COMPLETE</span>
-    <div class="rb-buttons">
-      <button id="btn-review-undo" class="btn" title="Rewind to the start of your turn (U or Ctrl+Z)">&#8630; UNDO</button>
-      <button id="btn-review-confirm" class="btn btn-go" title="Lock it in — the rivals move next (Enter)">CONFIRM &amp; CONTINUE &#9654;</button>
-    </div>
-    <span class="rb-keys" aria-hidden="true">&#9166; confirm &nbsp;&middot;&nbsp; U undo</span>
+    <span class="rb-keys" aria-hidden="true">U undo</span>
   </div>
 
   <!-- modals & fx -->
   <div id="modal-root"></div>
   <div id="toast-root"></div>
   <div id="aria-status" class="sr-only" role="status" aria-live="polite"></div>
+
+  <div id="tutor-layer" hidden aria-live="off">
+    <div id="tutor-ring" hidden aria-hidden="true"></div>
+    <section id="tutor-card" role="region" aria-label="Tutorial memo" tabindex="-1">
+      <div class="tutor-mast">&#9733; FROM THE CITY DESK &#9733;</div>
+      <h3></h3>
+      <p></p>
+      <div class="tutor-row">
+        <button class="btn btn-small tutor-back" hidden>&#9664; BACK</button>
+        <button class="btn btn-small tutor-next">NEXT &#9654;</button>
+        <button class="btn btn-small tutor-skip">SKIP THE TOUR</button>
+      </div>
+    </section>
+  </div>
   <div id="zoom-root"></div>
   <div id="big-banner"><div class="bb-main"></div><div class="bb-sub"></div></div>
   <div id="ai-status"></div>
@@ -198,10 +211,14 @@ if (location.protocol === "file:") {
   </div>
 </div>
 
+<script src="js/build.js"></script>
 <script src="assets/atlas.js"></script>
 <script src="js/data.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/ai.js"></script>
+<script src="js/protocol.js"></script>
+<script src="js/session.js"></script>
+<script src="js/tutorial.js"></script>
 <script src="js/sfx.js"></script>
 <script src="js/loc-art.js"></script>
 <script src="js/ui-core.js"></script>
@@ -209,6 +226,7 @@ if (location.protocol === "file:") {
 <script src="js/ui-map.js"></script>
 <script src="js/ui-scenes.js"></script>
 <script src="js/save.js"></script>
+<script src="js/multiplayer.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

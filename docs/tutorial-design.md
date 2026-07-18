@@ -1,7 +1,7 @@
 # The First Day — Tutorial Design
 
-*Age of Comics: The Golden Years, Digital Edition. Design doc v1 — for review
-before implementation. No code herein.*
+*Age of Comics: The Golden Years, Digital Edition. Release specification v2 —
+implemented behind the “FIRST DAY ON THE JOB” title action.*
 
 The tutorial is a **guided first round of a real game** (fixed seed, fully
 reproducible), coached by a veteran city editor via typewriter memos. It rides
@@ -10,8 +10,7 @@ primitives: **SPOTLIGHT** (dim everything but one element + anchored memo card)
 and **GATE** (limit legal click targets for a beat). Target length: 6–9 minutes
 to the end of round 1, then freedom with three contextual hints.
 
-Entry: offered on the title screen the first time ever ("FIRST DAY ON THE JOB —
-take the tour?") and always available from setup as a labeled option. Setup is
+Entry: always available on the title screen as a labeled action. Setup is
 fixed: teal Liberty Ink, 2 rivals, normal, rip-offs on, tutorial seed.
 
 ---
@@ -23,24 +22,30 @@ fixed: teal Liberty Ink, 2 rivals, normal, rip-offs on, tutorial seed.
    in a PROOF slip you can undo before the world moves.
 2. Printing is the engine: comic + writer + artist + their fee + **2 matching
    ideas** → the book hits the chart with fans.
-3. Fans are everything and they leak: rank pays VP, every fan pays $, every book
-   loses 1 fan per round.
+3. Fans are everything and they leak: your best book sets your rank, fan count
+   sets each book's royalty bracket, and charted books cool by 1 fan per round
+   without dropping below 1.
 4. Ideas are fuel, and genre matching matters (team specialization = bonus fans).
 5. The city map exists: orders flip, collect, and **fulfill themselves** when you
    publish the right genre at the right value.
 
-**Deliberately deferred** (one contextual hint each, rounds 2–3, §5): creative
-development (train/learn), specials, mastery. **Taught only by tooltips/existing
+**Deliberately deferred** (one contextual hint each, rounds 2–3, §5): building
+the next production pipeline (Hire + Develop), creative development
+(train/learn), and specials. Mastery is taught on the first print because it is
+awarded immediately. **Taught only by tooltips/existing
 UI:** rip-offs, turn-order reversal, occupancy fees, hand limits, ticket
 teleports, better colors.
 
 ## 2. Beat sheet — the guided first round
 
-Seed requirements (engineering note): the tutorial seed must satisfy — (a) at
-least one vault genre matches BOTH starting creatives; (b) the print floor's ×2
-first slot is free when the player's second placement comes; (c) a sales order
-fulfillable by the founding genre sits within one free move of the start corner.
-Brute-force the seed offline; assert it in a test so balance patches can't
+Scenario requirements (engineering note): the normal rules deliberately deal
+the two starting creatives with different genres. Pin a legal founding genre
+matching ONE creative, a fixed seed, and a legal first-round rival transcript.
+The player starts first with exactly two founding ideas; the Print Floor's ×2
+first slot is free at placement two; Accounting and Sales remain available; and
+a face-down, unoccupied order matching the founding genre (value 4 or less)
+remains within one free move of the start corner through placement four. Assert
+the complete B0–B11 command path in a test so AI or balance patches cannot
 silently break the tour.
 
 Every beat: **trigger → spotlight → memo (final copy) → gate → done-when**.
@@ -55,14 +60,14 @@ Done: dismiss.
 
 **B1 · Founding — the team.** Spotlight: starting team figures in the Founding
 Catalog. No gate.
-> "Your first two hires came with the furniture: a writer and an artist. Note
-> what they're good at — genre is everything in this trade."
+> "Your first two hires came with the furniture: a writer and an artist. They
+> specialize in different genres. Each creative who matches a book adds a fan."
 Done: dismiss.
 
-**B2 · Founding — the genre.** Spotlight: vault card matching the team
-(seed-guaranteed). Soft gate: all genres legal, matching one glows.
-> "Pick your first book's genre. A book whose team matches its genre earns extra
-> fans — and these two both breathe [GENRE]."
+**B2 · Founding — the genre.** Spotlight: the pinned vault card matching one
+starting creative. Hard gate: the tutorial genre is the only selection.
+> "Pick your first book's genre. Each teammate who matches its genre adds a fan
+> at launch — [CREATIVE] already knows [GENRE] inside out."
 Done: genre picked.
 
 **B3 · Founding — ideas.** Spotlight: idea token row. Hard gate: take 2 of the
@@ -79,7 +84,7 @@ chart), no gate, auto-advance on dismiss:
 > pay victory points. That column is why we're all here."
 
 **B5 · The PROOF slip** (rides the founding confirmation). Spotlight: the slip.
-Hard gate: UNDO first, then re-confirm.
+Hard gate: UNDO first, repeat the highlighted founding picks, then re-confirm.
 > "House rule: every action prints a proof before it's final. Hit UNDO — go on,
 > nothing breaks. ... See? Now stamp it for real. The rivals only move after
 > you approve your own work."
@@ -89,7 +94,7 @@ Done: confirmed.
 café is placeable.
 > "First shift: send an editor for ideas. The café's where this business
 > actually gets invented."
-Panel sub-beat — soft gate, matching tokens glow:
+Panel sub-beat — hard gate for the two counter tokens; useful table tokens glow:
 > "Take table and counter tokens — favor [GENRE]; your first book will drink
 > them two at a time."
 Done: BRAINSTORM confirmed via PROOF.
@@ -106,16 +111,23 @@ creatives pre-glowing, COST & RESULT spotlighted before confirm:
 > two matching ideas. And here's a trade secret — the FIRST press of the round
 > runs a double shift."
 On the celebration/chart flight:
-> "There it is — your first book on the chart, fans and all. Every fan pays a
-> dollar at close, and the top ranks pay victory points."
+> "There it is — your first book on the chart, fans and all. More fans mean a
+> better royalty bracket at close, and the top ranks pay victory
+> points."
 Done: print confirmed (second book of the ×2 optional — soft-nudged skip:
-"Save the second run for a book with a team behind it.").
+"The first press can run two complete books. Today you only have one complete
+team, so one strong debut is the right call.").
 
-**B9 · Placement 3 — Accounting.** Soft gate: royalties glows, all legal.
+On the mastery award:
+> "First original in a genre claims mastery: +1 fan on every book you print in
+> that genre, and 2 points at the final bell. Another house can take it by
+> out-printing you."
+
+**B9 · Placement 3 — Accounting.** Hard gate: Accounting only, preserving the
+scripted Sales lesson.
 > "Presses cost money. Accounting pays better the earlier you clock in — grab a
 > desk while the good ones last."
-Done: any confirmed action (if the player goes elsewhere, the memo tips its hat:
-"Your call, boss — just keep an eye on the till.").
+Done: Accounting confirmed.
 
 **B10 · Placement 4 — the Manhattan Map.** Hard gate: sales only. In the run
 modal, guided mini-run: move once (free) to the seeded corner → flip → collect
@@ -129,18 +141,18 @@ Done: END SALES RUN.
 **B11 · Round close.** The round-end events play with three timed memos over
 them (no gate): chart ranks paying VP → every comic earning by fans → the decay:
 > "Cycle's done. Ranks pay: [live numbers]."
-> "Every fan buys a copy — that's your royalty check."
-> "And then yesterday's news: every book cools by one fan. Fresh ink or fade
-> away, boss — that's the whole racket."
+> "Each book's fan count sets its royalty bracket — that's your check."
+> "And then yesterday's news: every charted book cools by one fan, but never
+> below one. Fresh ink or fade away, boss — that's the whole racket."
 Final memo, releasing control:
 > "You know the floor now. Four shifts a cycle, four cycles left. Make them
 > count — I'll holler if something new comes up."
 
 ## 3. Gating philosophy
 
-Hard gates: B3, B5, B6, B8, B10 — the load-bearing lessons; a lost novice can't
+Hard gates: B2, B3, B5, B6, B8, B9, B10 — the load-bearing lessons; a lost novice can't
 learn from a misclick, and veterans get through in seconds anyway.
-Soft gates: B2, B9 and all within-panel picks — where any legal choice still
+Soft gates: non-critical within-panel picks — where any legal choice still
 teaches the lesson. A soft-gated off-script action is ACCEPTED with a graceful
 one-line memo, never blocked. Blocked targets under a hard gate keep the house
 a11y rule: reachable, aria-disabled, with the reason ("follow the tour — or skip
@@ -157,16 +169,15 @@ it"), plus a memo-card shake on attempt.
 
 ## 5. Rounds 2–5 — the three hints (max one on screen, each once)
 
-1. **Creative development** (round 2 starts): "New cycle, new contracts —
+1. **Build the next issue** (round 2, first action): "Your first team stays on
+   its printed book. Hire another writer and artist, then Develop a project so
+   the presses have a new complete package."
+2. **Creative development** (round 2 starts, only if a legal upgrade exists): "New cycle, new contracts —
    specialists on printed books can study up. LEARN from a better teammate for
    a dollar, or TRAIN at full price. Sharper teams, pricier books."
-2. **Specials** (player's 2nd book prints): "Two books in print buys you a
-   favor — pick a special power. One use, your timing. Spend it like a
-   headline."
-3. **Mastery** (first token claimed by anyone): "[House] just claimed [GENRE]
-   mastery — a standing +1 fan on every book of the genre they print, and two
-   points at the bell. First to press owns the genre... until someone out-prints
-   them."
+3. **Specials** (player's 2nd book prints): "Two books in print earns a special
+   cube. Put it on a power; from now on it triggers whenever you take that
+   power's linked action. You can move a cube after your fifth print."
 
 ## 6. Edge cases
 
@@ -186,24 +197,26 @@ skip stub in the tab order. Reduced motion: no dim-pulse, instant spotlight.
 
 ## 8. Comprehension checks (for the playtest survey)
 
-1. What three things does printing an original cost? (team fee $, writer+artist,
-   2 matching ideas)
-2. What happens to every published book at the end of a round? (earns $ per fan,
-   then loses 1 fan)
+1. What does printing an original require? (a project, writer + artist, their
+   team fee in dollars, and 2 matching ideas)
+2. What happens to a charted book at the end of a round? (its fan bracket pays
+   royalties, then it loses 1 fan without falling below 1)
 3. Why print the right genre for your team? (specialists add fans / originals
    score by matches)
 4. What happens to a collected order you never fulfill? (costs VP at game end)
 5. How many editors do you place per round? (four)
 
-## 9. Implementation notes (for the engineer — me)
+## 9. Implementation record
 
-- New primitives: `Tutor.spotlight(el, memo, opts)` + `Tutor.gate(allowedFn)`;
-  beat table drives both; state = `{beat}` in the save blob.
-- Seed search: script over `node` iterating seeds against §2's three conditions;
-  pin as `TUTORIAL_SEED` with a rules-test asserting the conditions.
+- `game/js/tutorial.js` owns the beat state, spotlight, command gates, scripted
+  rival transcript, skip behavior, narration, and tutorial-only save payload.
+- `game/tools/find_tutorial_seed.js` found and verifies seed 5. The pinned path
+  is Crime / `orig_38` / order 17 at node 10; `game/test/tutorial.js` fails if
+  the Ideas → Print → Accounting → Sales route stops being legal.
 - Memo card: paper scrap + typewriter face, anchored like `attachZoom`'s dock
   (zoom-aware!); shake = existing error-toast pattern.
 - Copy length budget: memos as written fit ~52ch × 3 lines at 15px Special
   Elite in a 320px card — verified against the longest (B8).
-- Suites: a11y checks gate reasons + narration; browser test drives the full
-  scripted round on the pinned seed (it doubles as the seed regression test).
+- Release gate: rules/protocol/scenario tests plus browser and accessibility
+  suites must pass; the staging script in `docs/staging-playtest.md` supplies
+  the novice comprehension and completion checks automation cannot provide.

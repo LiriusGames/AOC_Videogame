@@ -187,13 +187,13 @@ async function axeScan(page, label) {
     await page.waitForFunction((m0) => UI.engine.player(UI.humanId).money > m0, { timeout: 10000 }, money0);
     check(true, "keyboard: Enter on the Accounting location collects royalties");
 
-    // post-action review: focus lands on CONFIRM, Enter locks the action in
+    // instant filing: the proof stamp announces itself and play continues
+    // without any confirm step
     await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
-    check(await page.evaluate(() => document.activeElement.id === "btn-review-confirm"),
-      "review bar appears with focus on CONFIRM");
-    await page.keyboard.press("Enter");
-    check(await page.evaluate(() => document.getElementById("review-bar").hidden),
-      "Enter confirms and play continues");
+    check(await page.evaluate(() => document.getElementById("review-bar").getAttribute("role") === "status"),
+      "proof stamp is a live status region, not a blocking dialog");
+    await page.waitForFunction(() => document.getElementById("review-bar").hidden, { timeout: 10000 });
+    check(true, "the stamp dismisses itself and play continues");
 
     check(await page.evaluate(() => {
       const r = document.getElementById("aria-status");

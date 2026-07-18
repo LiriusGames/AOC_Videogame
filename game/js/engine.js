@@ -3,7 +3,21 @@
 // Implements the full base game V27: worker placement, printing, chart,
 // mastery, sales map, special actions, scoring.
 // ============================================================================
+(function initEngineModule(root, factory) {
+  const data = root.AOC_DATA || (typeof require !== "undefined" ? require("./data.js") : null);
+  if (!data) throw new Error("Age of Comics data module must load before the engine");
+  const api = factory(data);
+  root.AOC_ENGINE = api;
+  Object.assign(root, api);
+  if (typeof module !== "undefined") module.exports = api;
+})(globalThis, function buildEngineModule(data) {
 "use strict";
+
+const {
+  GENRES, PUBLISHERS, PLAYER_COLORS, COMICS, CREATIVES, CARD_BY_ID,
+  RIPOFF_TITLES, ORDER_SPECS, ACTIONS, IDEAS_SLOTS, ROYALTIES_SLOTS,
+  SALES_SLOTS, RANK_VP, FAN_MONEY, HAND_LIMIT, MARKETING, SPECIALS, MAP,
+} = data;
 
 // ------------------------------------------------------------------ RNG
 function mulberry32(seed) {
@@ -57,7 +71,12 @@ class Engine {
       round: 1,
       phase: "increase", // increase -> actions -> (gameover)
       pending: null,     // {playerId, type, data} decision to resolve
-      turnOrder: this.shuffle(this.cfg.players.map((_, i) => i)),
+      // fixedTurnOrder (opt-in, used by invite rooms): a pinned round-1
+      // order so setup's position compensation (+1 idea / +$1) follows the
+      // seats it belongs to. Absent = the usual seeded shuffle.
+      turnOrder: this.cfg.fixedTurnOrder
+        ? this.cfg.fixedTurnOrder.slice()
+        : this.shuffle(this.cfg.players.map((_, i) => i)),
       turnIdx: 0,
       players: [],
       decks: { writers: [], artists: [], comics: [], ripoffs: [] },
@@ -392,9 +411,29 @@ class Engine {
 
   // ---------------------------------------------------------------- actions
   // HIRE: picks = {writer: cardId|"deck", artist: cardId|"deck"}
+  canHirePair(picks) {
+    if (!picks || typeof picks !== "object") return false;
+    const s = this.state;
+    return ["writer", "artist"].every((kind) => {
+      const key = kind + "s";
+      const choice = picks[kind];
+      if (choice === "deck") return s.decks[key].length + s.discards[key].length > 0;
+      const chosen = typeof choice === "string" ? this.card(choice) : null;
+      return !!chosen && s.display[key].includes(choice) && chosen.kind === kind;
+    });
+  }
+
+  canHireAnyPair() {
+    const s = this.state;
+    return ["writers", "artists"].every((key) =>
+      s.display[key].length + s.decks[key].length + s.discards[key].length > 0);
+  }
+
   actHire(pid, picks) {
     const s = this.state, p = this.player(pid);
-    if (!this.canAct(pid, "hire")) return false;
+    // Resolve both sources before spending the editor. A Hire is atomic: it
+    // either signs exactly one writer and one artist, or changes no state.
+    if (!this.canAct(pid, "hire") || !this.canHirePair(picks)) return false;
     this.placeEditor(pid, "hire");
     const got = [], blind = []; // blind = drawn unseen (the UI reveals those)
     for (const kind of ["writer", "artist"]) {
@@ -404,17 +443,14 @@ class Engine {
       if (cardId === "deck") { cardId = this.drawCard(key); wasBlind = true; }
       else {
         const di = s.display[key].indexOf(cardId);
-        if (di >= 0) s.display[key].splice(di, 1);
-        else { cardId = this.drawCard(key); wasBlind = true; } // safety
+        s.display[key].splice(di, 1);
       }
-      if (cardId) {
-        p.hand.push(cardId);
-        got.push(cardId);
-        if (wasBlind) blind.push(cardId);
-        if (this.card(cardId).value === 1) {
-          p.ideas[this.card(cardId).genre]++;
-          this.emit("gainIdea", { player: pid, genre: this.card(cardId).genre, from: "rookie" });
-        }
+      p.hand.push(cardId);
+      got.push(cardId);
+      if (wasBlind) blind.push(cardId);
+      if (this.card(cardId).value === 1) {
+        p.ideas[this.card(cardId).genre]++;
+        this.emit("gainIdea", { player: pid, genre: this.card(cardId).genre, from: "rookie" });
       }
     }
     this.emit("hire", { player: pid, cards: got, blind });
@@ -1130,4 +1166,5 @@ class Engine {
   }
 }
 
-if (typeof module !== "undefined") module.exports = { Engine, mulberry32 };
+return { Engine, mulberry32 };
+});

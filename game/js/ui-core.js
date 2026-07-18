@@ -9,6 +9,8 @@ const SHEETS = Object.fromEntries(
 
 const UI = {
   engine: null,
+  session: null,
+  mode: "solo",
   humanId: 0,
   eventCursor: 0,
   busy: false,
@@ -117,7 +119,7 @@ function genreMark(g, scale = 0.6) {
 }
 function fmtGenre(g) { return `${genreDot(g)} ${GENRE_INFO[g].name}`; }
 function P(pid) { return UI.engine.player(pid); }
-function isHuman(pid) { return P(pid).human; }
+function isHuman(pid) { return UI.session ? UI.session.isLocalSeat(pid) : P(pid).human; }
 function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
 function pick(arr, rng) { return arr[((rng || Math.random)() * arr.length) | 0]; }
 
@@ -330,6 +332,7 @@ function openModal(build, opts = {}) {
   if (opts.width) m.style.width = opts.width;
   build(m);
   root.appendChild(m);
+  if (typeof Tutor !== "undefined" && Tutor.active) queueMicrotask(() => Tutor.sync());
   // dialog semantics + labelled by its heading
   m.setAttribute("role", "dialog");
   m.setAttribute("aria-modal", "true");
@@ -365,6 +368,7 @@ function openModal(build, opts = {}) {
 }
 function closeModal() {
   const root = document.getElementById("modal-root");
+  if (typeof Tutor !== "undefined") Tutor.detachFromModal();
   root.classList.remove("active");
   root.onclick = null;
   root.onkeydown = null;
@@ -381,6 +385,7 @@ function closeModal() {
     }
   }
   modalOpener = null;
+  if (typeof Tutor !== "undefined" && Tutor.active) queueMicrotask(() => Tutor.sync());
 }
 function modalButtons(m, buttons) {
   const bar = el("div", "modal-buttons");
@@ -557,6 +562,7 @@ function renderAll() {
   renderLocations();
   renderChart();
   renderHUD();
+  if (typeof Tutor !== "undefined" && Tutor.active) queueMicrotask(() => Tutor.sync());
 }
 
 function renderTopbar() {
@@ -576,7 +582,12 @@ function renderTopbar() {
     cal.appendChild(tile);
   }
   const undo = document.getElementById("btn-undo");
-  if (undo) undo.disabled = !UI.undoSnap || UI.autoplay || s.gameOver;
+  if (undo) {
+    undo.hidden = !UI.undoAllowed;
+    undo.disabled = !UI.undoSnap || !UI.undoDirty || UI.autoplay || s.gameOver;
+    // a live rewind window announces itself with a soft pulse
+    undo.classList.toggle("undo-armed", !undo.hidden && !undo.disabled);
+  }
   const to = document.getElementById("turn-order");
   to.innerHTML = "";
   const curr = UI.engine.currentPlayerId();
@@ -738,13 +749,14 @@ function renderLocations() {
   wrap.innerHTML = "";
   // a minimized sales run freezes the board: everything stays inspectable,
   // but the only legal move is returning to Manhattan
-  const runParked = !!(s.salesSession && P(s.salesSession.player).human);
+  const runParked = !!(s.salesSession && isHuman(s.salesSession.player));
   const myTurn = s.phase === "actions" && e.currentPlayerId() === UI.humanId && !UI.busy &&
     !s.pending && !s.awaitingSpecial && !runParked;
   for (const action of ACTIONS) {
     const info = ACTION_INFO[action];
-    const canGo = myTurn && e.canAct(UI.humanId, action);
-    const loc = el("div", "loc" + (canGo ? "" : " disabled"));
+    const tutorialAllowed = typeof Tutor === "undefined" || !Tutor.active || Tutor.allowedAction(action);
+    const canGo = myTurn && e.canAct(UI.humanId, action) && tutorialAllowed;
+    const loc = el("div", "loc" + (canGo ? "" : " disabled") + (!tutorialAllowed ? " tutor-blocked" : ""));
     loc.style.setProperty("--ac", ACTION_HUE[action]);
     // action spaces: placed staffers on house-color plinths, open spots as
     // chalked markers carrying the spot's payout; the next free spot pulses
@@ -796,7 +808,8 @@ function renderLocations() {
     loc.appendChild(stage);
     // keyboard/screen-reader semantics, with the reason when unavailable
     let reason = "";
-    if (!myTurn) reason = runParked ? "finish your sales run first" : "waiting for your turn";
+    if (!tutorialAllowed) reason = "follow the highlighted tutorial step — or skip the tour";
+    else if (!myTurn) reason = runParked ? "finish your sales run first" : "waiting for your turn";
     else if (P(UI.humanId).editorsLeft <= 0) reason = "no editors left";
     else if (e.nextSlot(action) < 0) reason = "all spaces taken";
     loc.title = info.desc + (reason ? `\nUnavailable: ${reason}.` : "");

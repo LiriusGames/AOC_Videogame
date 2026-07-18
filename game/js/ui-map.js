@@ -26,6 +26,7 @@ const MapView = (() => {
   let baseTilt = null;        // the same city, scanline-projected + sky baked
   let raf = 0, hover = null, mouse = null;
   let kbFocus = null;         // keyboard highlight: {node} or {slotId}
+  let tutorTarget = null;     // tutorial spotlight: {node} or {slotId}, gold
   const TILT_Q = 0.38, TILT_S0 = 0.8, TILT_S1 = 1.04;
   const tiltScale = (t) => TILT_S0 + (TILT_S1 - TILT_S0) * t;
   const tiltY = (t) => HORIZON + (CH - HORIZON) * ((1 - TILT_Q) * t + TILT_Q * t * t);
@@ -158,7 +159,7 @@ const MapView = (() => {
 
   // ------------------------------------------------------------- sprites
   function loadImages(cb) {
-    const names = ["tokens", "cards", "staff"];
+    const names = ["tokens", "tokenshd", "cards", "staff"];
     let left = names.length;
     for (const n of names) {
       if (images[n] && images[n].complete) { if (--left === 0) cb(); continue; }
@@ -169,11 +170,19 @@ const MapView = (() => {
     }
   }
   function drawSprite(name, dx, dy, scale = 1) {
-    const a = ATLAS[name];
+    // like spr(): an hd_ twin serves at the pixel sprite's footprint, smoothed
+    let a = ATLAS[name];
+    const hd = ATLAS["hd_" + name] && images[ATLAS["hd_" + name].sheet];
+    if (hd) {
+      scale = scale * (a.w / ATLAS["hd_" + name].w);
+      a = ATLAS["hd_" + name];
+    }
     const img = images[a.sheet];
     if (!img || !img.complete) return;
+    if (hd) ctx.imageSmoothingEnabled = true;
     ctx.drawImage(img, a.x, a.y, a.w, a.h,
       Math.round(dx - a.w * scale / 2), Math.round(dy - a.h * scale / 2), a.w * scale, a.h * scale);
+    if (hd) ctx.imageSmoothingEnabled = false;
   }
 
   // -------------------------------------------------------- static city
@@ -844,7 +853,7 @@ const MapView = (() => {
       let mw, mh; // marker box, for the highlight rings
       if (!t.faceUp) {
         bundle(pos.x, y, gi);
-        mw = 30; mh = 24;
+        mw = 32; mh = 36;
       } else if (near || hovered) {
         orderPlate(pos.x, y, t);
         mw = 68; mh = 38;
@@ -868,6 +877,16 @@ const MapView = (() => {
         ctx.setLineDash([5, 4]);
         ctx.lineDashOffset = -(now / 60) % 9;
         ctx.strokeRect(pos.x - mw / 2 - 5, y - mh / 2 - 5, mw + 10, mh + 10);
+        ctx.setLineDash([]);
+      }
+      if (tutorTarget && tutorTarget.slotId === t.id) {
+        // tutorial spotlight: a gold marching ring that breathes
+        const g = 5 + Math.sin(now / 220) * 2;
+        ctx.strokeStyle = "#f5c86e";
+        ctx.lineWidth = 3;
+        ctx.setLineDash([6, 5]);
+        ctx.lineDashOffset = -(now / 50) % 11;
+        ctx.strokeRect(pos.x - mw / 2 - g, y - mh / 2 - g, mw + 2 * g, mh + 2 * g);
         ctx.setLineDash([]);
       }
     }
@@ -904,6 +923,16 @@ const MapView = (() => {
       ctx.setLineDash([6, 5]);
       ctx.lineDashOffset = -(now / 60) % 11;
       ctx.beginPath(); ctx.arc(p.x, p.y + 2, 19, 0, 7); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // tutorial spotlight on a corner (gold, breathing)
+    if (tutorTarget && tutorTarget.node !== undefined) {
+      const p = vp(nodePos(tutorTarget.node));
+      ctx.strokeStyle = "#f5c86e";
+      ctx.lineWidth = 3.5;
+      ctx.setLineDash([7, 5]);
+      ctx.lineDashOffset = -(now / 50) % 12;
+      ctx.beginPath(); ctx.arc(p.x, p.y + 2, 22 + Math.sin(now / 220) * 3, 0, 7); ctx.stroke();
       ctx.setLineDash([]);
     }
 
@@ -1031,12 +1060,13 @@ const MapView = (() => {
   }
   // ------- order markers: three visual weights, by how much they matter now
   function bundle(x, y, gi) {
-    ctx.fillStyle = "#221d16"; ctx.fillRect(x - 13, y - 10, 26, 20);
-    ctx.fillStyle = "#c9b083"; ctx.fillRect(x - 11, y - 8, 22, 16);
-    ctx.fillStyle = "#a68e63"; ctx.fillRect(x - 11, y - 1, 22, 2);
-    ctx.fillStyle = "#a68e63"; ctx.fillRect(x - 1, y - 8, 2, 16);
-    ctx.fillStyle = gi.color; ctx.fillRect(x + 3, y - 7, 7, 7);
-    ctx.strokeStyle = "#221d16"; ctx.lineWidth = 1; ctx.strokeRect(x + 3.5, y - 6.5, 6, 6);
+    // face-down reads like the open plate's genre panel — the symbol at full
+    // plate size, terms hidden — with a kraft wrap band as the "unflipped" cue
+    ctx.fillStyle = "#221d16"; ctx.fillRect(x - 14, y - 16, 28, 32);
+    ctx.fillStyle = gi.color; ctx.fillRect(x - 12, y - 14, 24, 28);
+    drawSprite(gi.icon, x, y - 3, 0.7);
+    ctx.fillStyle = "#c9b083"; ctx.fillRect(x - 12, y + 8, 24, 6);
+    ctx.fillStyle = "#a68e63"; ctx.fillRect(x - 12, y + 10, 24, 2);
   }
   function medallion(x, y, t, gi) {
     ctx.fillStyle = "#221d16";
@@ -1174,6 +1204,7 @@ const MapView = (() => {
   }
 
   function setKbFocus(f) { kbFocus = f; }
+  function setTutorTarget(t) { tutorTarget = t; }
 
-  return { attach, nodePos: viewPos, slotPos, pathTo, queueMove, CW, CH, setKbFocus };
+  return { attach, nodePos: viewPos, slotPos, pathTo, queueMove, CW, CH, setKbFocus, setTutorTarget };
 })();

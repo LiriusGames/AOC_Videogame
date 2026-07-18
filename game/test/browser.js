@@ -161,6 +161,8 @@ function check(cond, name) {
     await page.evaluate(() => localStorage.clear());
     await page.reload({ waitUntil: "networkidle0" });
     await page.$eval("#btn-new-game", (b) => b.click());
+    // undo is CUB REPORTER-only now: play these flows at easy difficulty
+    await page.$eval('#setup-difficulty [data-v="easy"]', (b) => b.click());
     await page.$eval("#btn-start", (b) => b.click());
     await page.waitForFunction(() => typeof UI !== "undefined" && !!UI.engine);
     await page.evaluate(() => {
@@ -246,10 +248,10 @@ function check(cond, name) {
     check(await page.evaluate(() => document.getElementById("wire-latest").textContent.trim().length > 0),
       "the press wire strip carries the latest dispatch");
 
-    // -------------------------------- 9. post-action confirm/undo review
-    // (continues from 8: the cube decision dialog is open, review pending)
+    // ------------------------- 9. instant filing + always-armed undo
+    // (continues from 8: the cube decision dialog is open, stamp owed)
     check(await page.evaluate(() => document.getElementById("review-bar").hidden),
-      "review bar stays hidden while a chained decision is open");
+      "proof stamp stays hidden while a chained decision is open");
     await page.evaluate(() => {
       const e = UI.engine;
       e.resolvePending(UI.humanId, { special: e.state.pending.data.options[0] });
@@ -257,12 +259,9 @@ function check(cond, name) {
       Main.advance();
     });
     await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
-    check(true, "review bar appears once the chained decision resolves");
+    check(true, "proof stamp appears once the chained decision resolves");
     const rivalsHash = () => page.evaluate(() =>
       JSON.stringify(UI.engine.state.players.filter((p) => !p.human).map((p) => [p.editorsLeft, p.money, p.hand.length])));
-    const beforeAI = await rivalsHash();
-    await new Promise((r) => setTimeout(r, 1300));
-    check((await rivalsHash()) === beforeAI, "no AI action before confirmation");
     // documented save semantics: mid-transaction checkpoints (a pending
     // decision existed) ARE saved — revealed information must not be
     // undoable via reload. The pure review window is tested below.
@@ -273,36 +272,36 @@ function check(cond, name) {
     await page.keyboard.press("u"); // keyboard undo shortcut
     check(await page.evaluate((sj) => JSON.stringify(UI.engine.state) === sj, snapJson),
       "undo restores the exact pre-action state");
-    check(await page.evaluate(() => document.getElementById("review-bar").hidden &&
-      UI.engine.currentPlayerId() === UI.humanId), "undo returns control to the human");
-    // simple action -> review -> confirm lets the AI proceed
+    check(await page.evaluate(() => /REWOUND/.test(document.querySelector("#review-bar .rb-text").textContent) &&
+      UI.engine.currentPlayerId() === UI.humanId), "undo announces the rewind and returns control to the human");
+    // simple action -> files instantly: stamped, autosaved, and the AI
+    // proceeds without any confirm click
+    await page.evaluate(() => { document.getElementById("review-bar").hidden = true; });
     const mBefore = await page.evaluate(() => UI.engine.player(UI.humanId).money);
     await page.evaluate(() => { UI.engine.actRoyalties(UI.humanId); Main.afterHumanMove(); });
     await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
-    check(true, "simple action (royalties) reaches review");
+    check(true, "simple action (royalties) files a proof stamp");
     check(await page.evaluate((m0) =>
-      JSON.parse(localStorage.getItem("aoc_save")).state.players[UI.humanId].money === m0 &&
+      JSON.parse(localStorage.getItem("aoc_save")).state.players[UI.humanId].money > m0 &&
       UI.engine.player(UI.humanId).money > m0, mBefore),
-      "unconfirmed simple action is not autosaved (reload would undo it)");
+      "filed action autosaves immediately (reload resumes it)");
     const beforeConfirm = await rivalsHash();
-    await page.$eval("#btn-review-confirm", (b) => b.click());
     await page.waitForFunction((h) =>
       JSON.stringify(UI.engine.state.players.filter((p) => !p.human).map((p) => [p.editorsLeft, p.money, p.hand.length])) !== h,
       { timeout: 15000 }, beforeConfirm);
-    check(true, "confirm lets the AI proceed");
-    // completed sales run reaches review too (wait for the UI to arm the
-    // undo snapshot — engine-driven actions before that skip review, as
-    // there would be nothing to undo to)
+    check(true, "the rivals proceed on their own — no confirm step");
+    // a completed sales run stamps too (wait for the UI to arm the
+    // undo snapshot — engine-driven actions before that skip the stamp)
     await page.waitForFunction(() => UI.engine.currentPlayerId() === UI.humanId && !UI.busy &&
       !!UI.undoSnap && !UI.engine.state.pending && !UI.engine.state.awaitingSpecial, { timeout: 30000 });
     await page.evaluate(() => {
+      document.getElementById("review-bar").hidden = true;
       UI.engine.actSalesStart(UI.humanId);
       UI.engine.salesEnd(UI.humanId);
       Main.afterHumanMove();
     });
     await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
-    check(true, "completed sales run reaches review");
-    await page.$eval("#btn-review-confirm", (b) => b.click());
+    check(true, "completed sales run files its stamp");
 
     // ------------- 10. real sales interactions (canvas + DOM panel), file://
     // regression: every canvas/panel sales action once called the
@@ -453,8 +452,7 @@ function check(cond, name) {
     });
     await page.waitForFunction(() => !document.querySelector("#modal-root .modal"), { timeout: 10000 });
     await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 10000 });
-    await page.$eval("#btn-review-confirm", (b) => b.click());
-    check(true, "UI-driven sales run completes through review");
+    check(true, "UI-driven sales run completes and files its stamp");
 
     // -------- 10b. placement flight: the staffer travels to the white square
     await page.waitForFunction(() => UI.engine.currentPlayerId() === UI.humanId && !UI.busy &&
@@ -486,8 +484,7 @@ function check(cond, name) {
       return pip && !!pip.querySelector(".spr") && !(UI.placeFlight && Object.keys(UI.placeFlight).length);
     }, { timeout: 10000 }, flight.slot);
     check(true, "the staffer lands: pip filled, flight flag cleared");
-    await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 15000 });
-    await page.$eval("#btn-review-confirm", (b) => b.click());
+    await page.waitForFunction(() => !UI.pendingReview, { timeout: 15000 });
 
     // --------------- 11. publisher rail unification + published-catalog overflow
     check(await page.evaluate(() => !document.querySelector("#topbar #hud-resources") &&
@@ -571,6 +568,8 @@ function check(cond, name) {
     await page.evaluate(() => localStorage.clear());
     await page.reload({ waitUntil: "networkidle0" });
     await page.$eval("#btn-new-game", (b) => b.click());
+    // undo is CUB REPORTER-only now: play these flows at easy difficulty
+    await page.$eval('#setup-difficulty [data-v="easy"]', (b) => b.click());
     await page.$eval("#btn-start", (b) => b.click());
     await page.waitForFunction(() => typeof UI !== "undefined" && !!UI.engine);
     await page.evaluate(() => {
@@ -637,8 +636,8 @@ function check(cond, name) {
       !!document.querySelector(`#desk-awards .award-socket[data-genre="${g}"].won .spr`),
       { timeout: 20000 }, g);
     const confirmIfShown = async () => {
-      await page.waitForFunction(() => !document.getElementById("review-bar").hidden, { timeout: 15000 });
-      await page.$eval("#btn-review-confirm", (b) => b.click());
+      // filing is automatic now: just wait for the transaction to stamp
+      await page.waitForFunction(() => !UI.pendingReview, { timeout: 15000 });
     };
 
     await quiesce();

@@ -4,15 +4,11 @@
 // Run: node game/test/rules.js
 // ============================================================================
 "use strict";
-const fs = require("fs");
 const path = require("path");
-
-const code = ["data.js", "engine.js", "ai.js"]
-  .map((f) => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8"))
-  .join("\n") +
-  "\n;global.__G={Engine,AI,GENRES,PLAYER_COLORS,CARD_BY_ID,COMICS,MAP,ROYALTIES_SLOTS,RANK_VP,HAND_LIMIT};";
-eval(code);
-const { Engine, AI, GENRES, PLAYER_COLORS, CARD_BY_ID, COMICS, MAP, ROYALTIES_SLOTS, RANK_VP, HAND_LIMIT } = global.__G;
+const data = require(path.join(__dirname, "..", "js", "data.js"));
+const { Engine } = require(path.join(__dirname, "..", "js", "engine.js"));
+const { AI } = require(path.join(__dirname, "..", "js", "ai.js"));
+const { GENRES, PLAYER_COLORS, CARD_BY_ID, COMICS, MAP, ROYALTIES_SLOTS, RANK_VP, HAND_LIMIT } = data;
 
 // ------------------------------------------------------------------ harness
 let passed = 0, failed = 0;
@@ -91,6 +87,47 @@ test("royalties: slot payouts and editor spend", () => {
   ok(p2 !== p1, "turn passed");
   ok(e.actRoyalties(p2));
   eq(e.player(p2).money, m2 + ROYALTIES_SLOTS[1], "second slot pays " + ROYALTIES_SLOTS[1]);
+});
+
+test("hire is atomic and always signs one writer plus one artist", () => {
+  const e = freshGame(22);
+  const pid = e.currentPlayerId(), p = e.player(pid);
+  const writer = e.state.display.writers[0], artist = e.state.display.artists[0];
+  const before = p.hand.length;
+  ok(e.actHire(pid, { writer, artist }), "complete pair accepted");
+  const hired = e.events.filter((ev) => ev.type === "hire").at(-1);
+  eq(hired.cards.length, 2, "exactly two cards hired");
+  eq(hired.cards.filter((id) => CARD_BY_ID[id].kind === "writer").length, 1, "one writer");
+  eq(hired.cards.filter((id) => CARD_BY_ID[id].kind === "artist").length, 1, "one artist");
+  eq(p.hand.length, before + 2, "both cards reach the hand");
+});
+
+test("invalid or exhausted hire pair spends nothing", () => {
+  const e = freshGame(23);
+  const pid = e.currentPlayerId();
+  const writer = e.state.display.writers[0];
+  e.state.display.artists = [];
+  e.state.decks.artists = [];
+  e.state.discards.artists = [];
+  const stateBefore = JSON.stringify(e.state);
+  const rngBefore = e.rng.a, eventsBefore = e.events.length;
+  ok(!e.actHire(pid, { writer, artist: "deck" }), "incomplete source rejected");
+  eq(JSON.stringify(e.state), stateBefore, "state unchanged");
+  eq(e.rng.a, rngBefore, "RNG unchanged");
+  eq(e.events.length, eventsBefore, "no events emitted");
+});
+
+test("AI passes instead of attempting an incomplete Hire", () => {
+  const e = freshGame(24);
+  const pid = e.currentPlayerId();
+  for (const action of data.ACTIONS) e.state.actionSpaces[action] =
+    action === "hire" ? [] : Array(e.slotsAvailable(action)).fill(1);
+  e.state.display.artists = [];
+  e.state.decks.artists = [];
+  e.state.discards.artists = [];
+  AI.takeTurn(e, pid);
+  ok(e.events.some((ev) => ev.type === "pass" && ev.player === pid), "AI safely passes");
+  ok(!e.events.some((ev) => ev.type === "hire" && ev.player === pid), "no partial Hire event");
 });
 
 test("ideas: board allowance by slot + 2 from supply", () => {

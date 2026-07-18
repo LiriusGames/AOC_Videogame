@@ -9,7 +9,7 @@ const ROOT = path.dirname(__dirname);
 const PORT = Number(process.argv[2]) || 8477;
 const MIME = {
   ".html": "text/html", ".js": "text/javascript", ".css": "text/css",
-  ".png": "image/png", ".jpg": "image/jpeg", ".gif": "image/gif",
+  ".png": "image/png", ".jpg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp",
   ".svg": "image/svg+xml", ".json": "application/json",
   ".ttf": "font/ttf", ".woff": "font/woff", ".woff2": "font/woff2",
   ".wav": "audio/wav", ".mp3": "audio/mpeg", ".ogg": "audio/ogg",

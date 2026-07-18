@@ -25,6 +25,9 @@ node_modules/
 dist/
 build/
 .npm/
+.wrangler/
+.dev.vars*
+!.dev.vars.example
 
 # Python
 __pycache__/

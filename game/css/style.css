@@ -353,9 +353,18 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 #ai-status .dots::after { content: ""; animation: think 1.2s steps(4) infinite; }
 @keyframes think { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
 .your-turn #locations { outline: 4px solid var(--gold); outline-offset: -4px; }
+/* during the tutorial the memo's gold ring is the ONLY highlight — the
+   your-turn frame reads as a second, competing ring */
+.tutorial-active .your-turn #locations { outline: none; }
 
 /* hover magnify: scale in place + inspector dock on the far side */
-.magnified { transform: scale(1.22); z-index: 8; position: relative; }
+/* hover emphasis: a lift, not an in-place blow-up — a scaled card's contour
+   sliced across its neighbours; the real enlargement lives in #zoom-root */
+.magnified {
+  transform: translateY(-4px); z-index: 8; position: relative;
+  outline: 3px solid var(--gold); outline-offset: 1px;
+  box-shadow: 0 8px 0 rgba(0, 0, 0, .45);
+}
 #zoom-root {
   transition: opacity .08s;
   background: var(--paper); border: 3px solid var(--ink);
@@ -954,9 +963,12 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 .map-hud b { font-family: var(--f-display); font-size: 14px; }
 
 /* toast + zoom */
-#toast-root { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); z-index: 80; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
+/* toasts must clear the tutorial veil (z 920) or the ring's dim swallows
+   them mid-message */
+#toast-root { position: absolute; top: 64px; left: 50%; transform: translateX(-50%); z-index: 930; display: flex; flex-direction: column; gap: 6px; align-items: center; pointer-events: none; }
 .toast {
   background: var(--ink); color: var(--paper); border: 2px solid var(--gold); border-radius: 8px; padding: 6px 14px; font-size: 17px;
+  max-width: 680px; text-align: center;
   animation: toast-in 2.6s forwards;
 }
 .toast.big { font-family: var(--f-display); font-size: 18px; padding: 12px 20px; background: var(--red); color: #fff; }
@@ -1100,6 +1112,28 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 .sr-only {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
   overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* -------------------------------------------------------------- tutorial */
+#tutor-layer { position: fixed; inset: 0; z-index: 920; pointer-events: none; }
+#tutor-ring {
+  position: fixed; border: 3px solid #f5c86e; border-radius: 8px;
+  box-shadow: 0 0 0 9999px rgba(18, 14, 12, .67), 0 0 18px #f5c86e;
+  transition: left .16s ease, top .16s ease, width .16s ease, height .16s ease;
+}
+#tutor-card {
+  position: fixed; box-sizing: border-box; pointer-events: auto; z-index: 922;
+  padding: 13px 15px 11px; color: #241b16; background: #f2e5c8;
+  border: 2px solid #3d2d22; box-shadow: 7px 8px 0 rgba(0,0,0,.42);
+  transform: rotate(-.35deg); font-family: SpecialElite, serif;
+}
+#tutor-card h3 { margin: 0 0 7px; font: 11px/1.35 PressStart, monospace; color: #7d2f28; }
+#tutor-card p { margin: 0 0 9px; font-size: 15px; line-height: 1.32; }
+#tutor-card .tutor-skip { font-size: 9px; }
+.tutorial-active .loc.tutor-blocked { opacity: .52; }
+@media (prefers-reduced-motion: reduce) {
+  #tutor-ring { transition: none; box-shadow: 0 0 0 9999px rgba(18,14,12,.67); }
+  #tutor-card { transform: none; }
 }
 /* keyboard focus: same gold treatment the mouse hover states use */
 :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; z-index: 6; }
@@ -1251,31 +1285,83 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 }
 
 /* -------------------------------------------- post-action review proof slip
-   center stage over the board, which dims behind it: the world is holding
-   for your say-so, so covering the rooms costs nothing */
+   a transient slip under the top bar: it names the filed move and offers
+   UNDO, but never blocks — the world keeps rolling */
 #review-bar {
-  position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%);
-  display: flex; flex-direction: column; gap: 10px; align-items: center; z-index: 45;
-  border-radius: 10px;
-  background: var(--paper); color: var(--ink); border: 3px solid var(--ink);
-  box-shadow: 0 0 0 3px var(--gold), 0 12px 0 rgba(0,0,0,.55);
-  padding: 12px 22px 8px;
+  position: absolute; top: 46px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 14px; align-items: center; z-index: 45;
+  border-radius: 8px;
+  background: var(--paper); color: var(--ink); border: 2px solid var(--ink);
+  box-shadow: 0 0 0 2px var(--gold), 0 6px 0 rgba(0,0,0,.45);
+  padding: 7px 16px 6px;
+  animation: proofdrop .18s steps(3) both;
 }
+@keyframes proofdrop { from { transform: translate(-50%, -12px); opacity: 0; } }
 #review-bar::before {
   /* proof-slip perforation along the top */
-  content: ""; position: absolute; top: 3px; left: 8px; right: 8px; height: 3px;
+  content: ""; position: absolute; top: 2px; left: 8px; right: 8px; height: 2px;
   background: repeating-linear-gradient(90deg, var(--paper-dark) 0 6px, transparent 6px 12px);
 }
 #review-bar[hidden] { display: none; }
-#review-bar .rb-text { font-family: var(--f-display); font-size: 15px; color: #8a2f22; }
-#review-bar .rb-buttons { display: flex; gap: 12px; align-items: center; }
-#review-bar .rb-keys { font-size: 12px; color: #57452c; }
-/* the six rooms hold their breath behind the slip */
-#screen-game.reviewing #locations { position: relative; }
-#screen-game.reviewing #locations::after {
-  content: ""; position: absolute; inset: 0; z-index: 5;
-  background: rgba(10, 10, 18, .58);
+#btn-undo[hidden] { display: none; }
+/* the rewind window announces itself */
+#btn-undo.undo-armed { box-shadow: 0 0 0 2px var(--gold); animation: undopulse 1.2s steps(2) infinite; }
+@keyframes undopulse { 50% { box-shadow: 0 0 0 2px rgba(245, 200, 110, .25); } }
+/* the print packing slip: requirement chips, gaps in red */
+.req-strip { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
+.req-chip {
+  font-family: var(--f-display); font-size: 11px; letter-spacing: .5px;
+  padding: 2px 8px; border: 2px solid var(--ink); border-radius: 6px; background: var(--paper);
 }
+.req-chip.ok { color: #2c6b2f; }
+.req-chip.miss { color: #a00; border-color: #a00; background: #f6dede; }
+.team-recommendation {
+  margin-bottom: 7px; padding: 6px 9px; border-left: 4px solid var(--gold);
+  background: rgba(245, 200, 110, .18); font-size: 13px;
+}
+.print-team-grid {
+  display: flex; gap: 8px; overflow-x: auto; padding: 3px 2px 8px;
+  scrollbar-width: thin;
+}
+.print-genre-lane {
+  flex: 0 0 155px; border: 2px solid var(--paper-dark); border-radius: 7px;
+  background: rgba(255,255,255,.2); overflow: hidden;
+}
+.print-genre-lane.target-genre { border-color: var(--gold); box-shadow: inset 0 0 0 2px rgba(245,200,110,.25); }
+.print-genre-head {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  min-height: 31px; padding: 3px; background: var(--paper-dark); font-size: 12px;
+}
+.print-genre-head span:last-child { font-family: var(--f-display); font-size: 8px; color: #8a2f22; }
+.print-role-row { min-height: 94px; padding: 3px; border-top: 1px dashed #8d7759; text-align: center; }
+.print-role-label {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  height: 20px; font-family: var(--f-display); font-size: 8px; color: #57452c;
+}
+.print-role-empty { display: block; padding: 25px 0; color: #8d7759; }
+.figure.compact { display: inline-flex; width: 68px; padding: 3px 2px; vertical-align: top; }
+.figure.compact .fig-face { height: 45px; transform: scale(.78); transform-origin: bottom center; margin: -4px 0; }
+.figure.compact .fig-name { max-width: 66px; font-size: 11px; }
+.figure.compact .fig-meta { transform: scale(.8); margin: -2px -8px; }
+.figure.team-best::after {
+  content: "BEST"; position: absolute; top: 1px; right: 1px; padding: 1px 3px;
+  border-radius: 3px; background: var(--gold); color: var(--ink);
+  font-family: var(--f-display); font-size: 7px;
+}
+.print-ledger { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 7px; }
+.resource-counter {
+  display: inline-flex; align-items: center; gap: 7px; min-width: 155px;
+  padding: 4px 8px; border: 2px solid #2c6b2f; border-radius: 7px; background: rgba(255,255,255,.3);
+  font-family: var(--f-display); font-size: 10px; line-height: 1.25;
+}
+.resource-counter .spr { flex: 0 0 auto; }
+.resource-counter small { font-family: var(--f-body); font-size: 11px; }
+.resource-counter.miss { color: #a00; border-color: #a00; background: #f6dede; }
+.print-result { min-height: 20px; }
+.projection-note { display: inline-block; margin-left: 6px; padding: 2px 5px; background: #e9ddc4; font-size: 11px; }
+#review-bar .rb-text { font-family: var(--f-display); font-size: 14px; color: #8a2f22; }
+#review-bar .rb-buttons { display: flex; gap: 12px; align-items: center; }
+#review-bar .rb-keys { font-size: 11px; color: #57452c; }
 
 /* ------------------------------------------------- file:// launch guard */
 .file-guard {
@@ -1470,3 +1556,48 @@ html.booting #app { opacity: 0; }
 .ctx-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .ctx-row > b { font-family: var(--f-display); font-size: 11px; letter-spacing: 1px; width: 118px; flex: none; }
 .ctx-item { display: inline-flex; align-items: center; gap: 3px; }
+.mp-form { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:20px 0; }
+.mp-field { display:grid; gap:6px; color:var(--ink, #241b15); font-weight:700; letter-spacing:.04em; }
+.mp-field input, .mp-invite input {
+  min-width:0; border:2px solid #38291f; background:#f6ebca; color:#241b15;
+  padding:10px 12px; font:inherit;
+}
+.mp-invite { display:grid; grid-template-columns:1fr auto; gap:10px; margin:20px 0; }
+.mp-status { min-height:1.5em; color:#8a2f22; }
+@media (max-width: 620px) { .mp-form { grid-template-columns:1fr; } }
+/* the host-a-table lobby */
+.mp-lobby { display: grid; gap: 10px; }
+.mp-sizes { justify-content: center; }
+.mp-seats { display: grid; gap: 6px; margin: 6px 0; }
+.mp-seat {
+  display: flex; align-items: center; gap: 10px;
+  border: 2px solid var(--ink); border-radius: 8px; padding: 6px 10px; background: var(--paper);
+}
+.mp-seat-name { flex: 1; font-family: var(--f-display); letter-spacing: .5px; }
+.mp-seat-name.on { color: #2c6b2f; }
+.mp-seat-name.off { color: #a00; }
+.mp-seat-name.bot { color: #57452c; }
+.mp-seat-name.open { color: #8a8272; font-style: italic; }
+.mp-foot { display: flex; gap: 10px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.mp-room-live { display: grid; gap: 10px; }
+.mp-trust-note {
+  border: 2px solid #8a2f22; border-radius: 6px; padding: 8px 10px;
+  background: #f2d7b4; color: #6f241c; font-family: var(--f-display);
+  font-size: 10px; line-height: 1.5; letter-spacing: .5px;
+}
+#btn-room.mp-alert { background: #8a2f22; color: #fff; }
+
+/* tutorial memo: a proper CITY DESK note (letterhead, die-cut, next/skip) */
+#tutor-card { border-radius: 10px; }
+#tutor-card .tutor-mast {
+  font-family: var(--f-display); font-size: 10px; letter-spacing: 2px;
+  color: #7d2f28; border-bottom: 2px solid #3d2d22; padding-bottom: 5px; margin-bottom: 8px;
+}
+#tutor-card h3 { margin: 0 0 7px; font-family: var(--f-display); font-size: 15px; letter-spacing: 1px; color: #7d2f28; }
+#tutor-card .tutor-row { display: flex; gap: 8px; }
+#tutor-card .tutor-next { font-size: 12px; background: var(--accent); }
+#tutor-card .tutor-back { font-size: 10px; opacity: .85; }
+#tutor-card .tutor-skip { margin-left: auto; }
+/* the lesson's physical subjects glow gold */
+.tutor-glow { outline: 3px solid var(--gold) !important; outline-offset: 2px; animation: tutglow 1.1s steps(2) infinite; border-radius: 8px; }
+@keyframes tutglow { 50% { outline-color: rgba(245, 200, 110, .25); } }

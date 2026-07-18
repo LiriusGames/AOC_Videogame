@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "age-of-comics",
+  "main": "./game/worker/index.mjs",
+  "compatibility_date": "2026-07-17",
+  "durable_objects": {
+    "bindings": [
+      { "name": "GAME_ROOMS", "class_name": "GameRoom" }
+    ]
+  },
+  "exports": {
+    "GameRoom": { "type": "durable-object", "storage": "sqlite" }
+  },
+  "assets": {
+    "directory": "./game",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"],
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  },
+  "observability": { "enabled": true }
+}

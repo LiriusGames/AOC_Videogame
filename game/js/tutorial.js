@@ -1,0 +1,395 @@
+// ============================================================================
+// THE FIRST DAY — deterministic solo tutorial controller
+// ============================================================================
+"use strict";
+
+const Tutor = (() => {
+  const SCENARIO = Object.freeze({
+    version: 3,
+    seed: 5,
+    color: "teal",
+    genre: "crime",
+    comic: "orig_38",
+    writer: "writer_crime_2B",
+    artist: "artist_romance_2",
+    orderId: 17,
+    salesNode: 10,
+  });
+  const MEMOS = {
+    masthead: ["WELCOME TO LIBERTY INK", "Morning, boss. Word is you bought this outfit — desks, presses, debts and all. I'm your city editor. Stick with me for one day and you'll run this place like you were born in the ink."],
+    tour_rail: ["YOUR OFFICE", "The left wall is YOURS: staff, cash, idea tokens, trophies. When this wall fills up, you're winning."],
+    tour_board: ["THE CITY", "The middle is Manhattan — six places your editors can work a shift. Four editors, one shift each, every round."],
+    tour_chart: ["THE MARKET", "The right is the comic-book chart. Fans decide the ranks, ranks pay victory points. That column is why we're all here."],
+    wire: ["THE RIVALS MOVE", "Now the other houses take their shifts — the wire up top keeps the gossip. You don't wait politely in this town; you read the ticker."],
+    mastery_note: ["MASTERY CLAIMED", "First original in a genre claims its mastery token: +1 fan on every book you print in that genre, and 2 points at the final bell. Another house can steal it by out-printing you."],
+    founding: ["YOUR STARTING TEAM", "Your writer and artist specialize in different genres. Each teammate who matches a book adds one launch fan. Choose the highlighted Crime project and two Crime ideas."],
+    proof_confirm: ["THE PROOF STAMP", "Every move files itself — the stamp you just saw is the receipt, no paperwork to sign. Second thoughts? The UNDO button on the desk rail rewinds your latest decision, any turn, all game long."],
+    ideas: ["FIRST SHIFT — CAFE BIZARRE", "Send your first editor for ideas. Clear the free table coins first — they run out, and seat order decides who eats. Then take two Crime from the counter for your book."],
+    print_bonus: ["THE PRINTING BONUS", "Every original pays a perk when it prints — this one pays two idea tokens. Take Crime: ideas in your best genre fuel the NEXT book."],
+    print: ["SECOND SHIFT — PRINT FLOOR", "Build the highlighted package: comic, writer, artist, team fee, and two matching ideas. The first press can run two books, but today you own one complete team."],
+    accounting: ["THIRD SHIFT — ACCOUNTING", "Printing costs cash. Earlier Accounting desks pay more, so take the highlighted desk now."],
+    sales: ["LAST SHIFT — MANHATTAN", "Your last editor works the street itself: walk the corners, flip newsstand orders face-up, collect what your chart can fill. Follow the gold marker on the map."],
+    round_close: ["CLOSE OF BUSINESS", "Your best book sets the round rank. Each book's fan count sets its royalty bracket, then charted books cool by one fan without dropping below one."],
+    free: ["THE FLOOR IS YOURS", "Your printed team stays on its book. Hire another writer and artist, then Develop a new project to build the next complete print package."],
+  };
+  let active = false;
+  let state = freshState();
+  let currentMemo = "";
+  let renderedGate = ""; // last beat|salesStep the board was rendered under
+
+  function freshState() {
+    return {
+      scenarioVersion: SCENARIO.version,
+      beat: "masthead",
+      foundingStep: "vault",
+      salesStep: "start",
+      botSteps: { 1: 0, 2: 0 },
+      completedCore: false,
+      skipped: false,
+    };
+  }
+  function begin() {
+    active = true;
+    state = freshState();
+    document.documentElement.classList.add("tutorial-active");
+    sync();
+  }
+  function restore(saved) {
+    // a finished lesson resumes as a normal game — the guide stays retired
+    if (saved && saved.finished) return true;
+    if (!saved || saved.scenarioVersion !== SCENARIO.version || saved.skipped) return false;
+    active = true;
+    state = Object.assign(freshState(), saved, { botSteps: Object.assign({ 1: 0, 2: 0 }, saved.botSteps || {}) });
+    document.documentElement.classList.add("tutorial-active");
+    sync();
+    return true;
+  }
+  function exportState() { return active || state.skipped || state.finished ? structuredClone(state) : null; }
+  function persistFlag() {
+    try { localStorage.setItem("aoc-tutorial-status", state.completedCore ? "complete" : state.skipped ? "skipped" : "started"); } catch (_e) {}
+  }
+  function finish() {
+    state.completedCore = true;
+    state.finished = true;
+    active = false;
+    persistFlag();
+    document.documentElement.classList.remove("tutorial-active");
+    hide();
+    announce("Lesson complete. The newsroom is yours.");
+    if (typeof toast === "function") toast("&#10004; Lesson complete &mdash; the newsroom is yours.");
+    renderAll();
+  }
+  function skip() {
+    if (!confirm("Skip the guided tour and continue this game with normal controls?")) return;
+    state.skipped = true;
+    active = false;
+    persistFlag();
+    document.documentElement.classList.remove("tutorial-active");
+    hide();
+    announce("Tutorial skipped. Normal play continues.");
+    renderAll();
+  }
+
+  const NEXT_FLOW = {
+    masthead: "founding", proof_confirm: "tour_rail", tour_rail: "tour_board",
+    tour_board: "tour_chart", tour_chart: "ideas", wire: "print", mastery_note: "accounting",
+  };
+  // BACK re-reads the previous lesson; NEXT (or the beat's own trigger)
+  // returns. Only beats whose predecessor is safe to re-enter are listed.
+  const PREV_FLOW = {
+    founding: "masthead", tour_rail: "proof_confirm", tour_board: "tour_rail",
+    tour_chart: "tour_board", ideas: "tour_chart", print: "wire", accounting: "mastery_note",
+  };
+  const INTERSTITIAL = { masthead: 1, proof_confirm: 1, tour_rail: 1, tour_board: 1, tour_chart: 1, wire: 1, mastery_note: 1 };
+  function next() {
+    const to = NEXT_FLOW[state.beat];
+    if (!to) return;
+    state.beat = to;
+    sync();
+  }
+  function back() {
+    const to = PREV_FLOW[state.beat];
+    if (!to) return;
+    state.beat = to;
+    sync();
+  }
+  function onHumanTurn() {
+    if (active && state.beat === "wire") next();
+  }
+  const SALES_STEP_HINTS = {
+    start: "Place the editor on the Sales stand.",
+    move: "Take your free step to the corner circled in gold.",
+    flip: "Click the newsstand circled in gold to flip its order face-up.",
+    collect: "Click it again to collect — it fills straight from your chart.",
+    end: "Press END SALES RUN to file the day.",
+  };
+  function targetForBeat() {
+    if (state.beat === "masthead") return null;
+    if (state.beat === "tour_rail") return "#desk-status";
+    if (state.beat === "tour_board") return "#locations";
+    if (state.beat === "tour_chart") return "#sidebar";
+    if (state.beat === "wire") return "#wire-strip";
+    if (state.beat === "mastery_note") return "#desk-awards";
+    if (state.beat === "founding")
+      return state.foundingStep === "vault" ? '#modal-root [data-tut="vault"]'
+        : state.foundingStep === "tokens" ? '#modal-root [data-tut="tokens"]'
+        : "#modal-root #sp-ok";
+    if (state.beat === "proof_confirm") return "#btn-undo";
+    if (state.beat === "ideas") return '#locations [data-action="ideas"]';
+    if (state.beat === "print") return '#locations [data-action="print"]';
+    if (state.beat === "accounting") return '#locations [data-action="royalties"]';
+    if (state.beat === "sales") {
+      // on the street the gold canvas marker does the pointing; the DOM ring
+      // only frames the decisions that live outside the map
+      if (state.salesStep === "start")
+        return document.querySelector("#modal-root.active .btn-go") ? "#modal-root.active .btn-go" : '#locations [data-action="sales"]';
+      if (state.salesStep === "end") return "#btn-end-run";
+      return null;
+    }
+    if (state.beat === "round_close") return "#sidebar";
+    return "#locations";
+  }
+  function sync() {
+    if (!active) return hide();
+    if (UI.engine && state.beat === "round_close" && UI.engine.state.round >= 2) {
+      state.beat = "free";
+      state.completedCore = true;
+      persistFlag();
+    }
+    // the tiles bake Tutor.allowedAction into their render: a beat change
+    // MUST re-render the board or tiles rendered during an interstitial
+    // stay blocked forever (the "cannot progress at ideas" stall)
+    const gateKey = state.beat + "|" + state.salesStep;
+    if (gateKey !== renderedGate) {
+      renderedGate = gateKey;
+      if (UI.engine && typeof renderLocations === "function") renderLocations();
+    }
+    let memo = MEMOS[state.beat] || MEMOS.free;
+    let target = targetForBeat();
+    // the print bonus dialog interrupts the print lesson with its own choice:
+    // teach it in place instead of leaving a "random popup" unexplained
+    if (state.beat === "print" && bonusPending()) {
+      memo = MEMOS.print_bonus;
+      target = '#modal-root [data-tut="bonus"]';
+    }
+    let text = memo[1];
+    if (state.beat === "sales" && SALES_STEP_HINTS[state.salesStep])
+      text += " NOW: " + SALES_STEP_HINTS[state.salesStep];
+    show(memo[0], text, target);
+    applyGlow();
+    syncMapTarget();
+  }
+  // the sales lesson points at real street furniture: a gold marching ring
+  // drawn by the map itself on the corner to walk to / the stand to work
+  function syncMapTarget() {
+    if (typeof MapView === "undefined" || !MapView.setTutorTarget) return;
+    let t = null;
+    if (active && state.beat === "sales") {
+      if (state.salesStep === "move") t = { node: SCENARIO.salesNode };
+      else if (state.salesStep === "flip" || state.salesStep === "collect") t = { slotId: SCENARIO.orderId };
+    }
+    MapView.setTutorTarget(t);
+  }
+  function show(title, text, selector) {
+    const layer = document.getElementById("tutor-layer");
+    const card = document.getElementById("tutor-card");
+    if (!layer || !card) return;
+    layer.hidden = false;
+    card.querySelector("h3").textContent = title;
+    card.querySelector("p").textContent = text;
+    card.querySelector(".tutor-skip").onclick = skip;
+    const key = title + "\n" + text;
+    if (key !== currentMemo) { currentMemo = key; announce(`${title}. ${text}`); }
+    const nextBtn = card.querySelector(".tutor-next");
+    if (nextBtn) {
+      // the last memo ends the lesson instead of lingering for the whole game
+      if (state.beat === "free") {
+        nextBtn.hidden = false;
+        nextBtn.innerHTML = "FINISH THE LESSON &#10004;";
+        nextBtn.onclick = finish;
+      } else {
+        nextBtn.hidden = !NEXT_FLOW[state.beat];
+        nextBtn.innerHTML = "NEXT &#9654;";
+        nextBtn.onclick = next;
+      }
+    }
+    const backBtn = card.querySelector(".tutor-back");
+    if (backBtn) { backBtn.hidden = !PREV_FLOW[state.beat]; backBtn.onclick = back; }
+    reanchor(selector);
+  }
+  // the current lesson's physical subjects glow gold (vault card, idea
+  // tokens, cafe counter coins) — reapplied whenever the modal rebuilds
+  function bonusPending() {
+    const pd = UI.engine && UI.engine.state.pending;
+    return !!(pd && pd.type === "chooseIdeas" && pd.playerId === UI.humanId);
+  }
+  function applyGlow() {
+    document.querySelectorAll(".tutor-glow").forEach((n) => n.classList.remove("tutor-glow"));
+    if (!active) return;
+    const want = [];
+    if (state.beat === "founding") want.push('#modal-root [data-tut-genre="' + SCENARIO.genre + '"]');
+    if (state.beat === "ideas") {
+      want.push('#modal-root .counter-row [data-tut-genre="' + SCENARIO.genre + '"]');
+      want.push("#modal-root .cafe-table .table-coin:not(.taken)"); // free value first
+    }
+    if (state.beat === "print" && bonusPending())
+      want.push('#modal-root [data-tut="bonus"] [data-tut-genre="' + SCENARIO.genre + '"]');
+    for (const sel of want) document.querySelectorAll(sel).forEach((n) => n.classList.add("tutor-glow"));
+  }
+  function reanchor(selector = targetForBeat()) {
+    if (!active) return;
+    const ring = document.getElementById("tutor-ring"), card = document.getElementById("tutor-card");
+    if (!ring || !card) return;
+    // #tutor-layer lives inside the zoomed #app: every real-pixel rect must
+    // be divided by the fitUI zoom or highlights scatter on laptop widths
+    // (the documented clientX/zoom trap).
+    const z = parseFloat(document.getElementById("app")?.style.zoom) || 1;
+    const vw = innerWidth / z, vh = innerHeight / z;
+    const width = Math.min(360, vw - 24);
+    card.style.width = width + "px";
+    const target = selector ? document.querySelector(selector) : null;
+    const modal = document.querySelector("#modal-root.active .modal");
+    const ch = card.offsetHeight || 210; // real height — a guess overlaps buttons
+    if (!target || (modal && !modal.contains(target) && !target.contains(modal))) {
+      // no subject, or the subject is buried behind an open dialog: no ring —
+      // dock the memo (centered for the masthead, lower-left otherwise)
+      ring.hidden = true;
+      if (state.beat === "masthead") {
+        card.style.left = Math.max(12, vw / 2 - width / 2) + "px";
+        card.style.top = Math.round(vh * 0.3) + "px";
+      } else {
+        card.style.left = "16px";
+        card.style.top = Math.max(12, vh - ch - 20) + "px";
+      }
+      return;
+    }
+    ring.hidden = false;
+    const b = target.getBoundingClientRect(), pad = 7;
+    const r = { left: b.left / z, top: b.top / z, width: b.width / z, height: b.height / z, bottom: b.bottom / z, right: b.right / z };
+    ring.style.left = Math.max(4, r.left - pad) + "px";
+    ring.style.top = Math.max(4, r.top - pad) + "px";
+    ring.style.width = Math.max(24, r.width + pad * 2) + "px";
+    ring.style.height = Math.max(24, r.height + pad * 2) + "px";
+    // the memo must never sit on the control it points at: below, above,
+    // beside, and only then a corner dock away from the target
+    let left = Math.max(12, Math.min(vw - width - 12, r.left + r.width / 2 - width / 2));
+    let top;
+    if (r.bottom + 14 + ch <= vh - 12) top = r.bottom + 14;
+    else if (r.top - ch - 14 >= 12) top = r.top - ch - 14;
+    else {
+      top = Math.max(12, Math.min(vh - ch - 12, r.top + r.height / 2 - ch / 2));
+      if (r.right + 14 + width <= vw - 12) left = r.right + 14;
+      else if (r.left - width - 14 >= 12) left = r.left - width - 14;
+      else { left = 16; top = r.top > vh / 2 ? 12 : Math.max(12, vh - ch - 20); }
+    }
+    card.style.left = left + "px";
+    card.style.top = top + "px";
+  }
+  function hide() {
+    const layer = document.getElementById("tutor-layer"), ring = document.getElementById("tutor-ring");
+    const card = document.getElementById("tutor-card");
+    if (card && layer && card.parentElement !== layer) layer.appendChild(card);
+    if (layer) layer.hidden = true;
+    if (ring) ring.hidden = true;
+    if (typeof MapView !== "undefined" && MapView.setTutorTarget) MapView.setTutorTarget(null);
+  }
+  function detachFromModal() {
+    const layer = document.getElementById("tutor-layer"), card = document.getElementById("tutor-card");
+    if (layer && card && card.parentElement !== layer) layer.appendChild(card);
+  }
+
+  function allowedAction(action) {
+    if (!active || state.beat === "free" || state.beat === "round_close") return true;
+    if (INTERSTITIAL[state.beat]) return false;
+    return (state.beat === "ideas" && action === "ideas") ||
+      (state.beat === "print" && action === "print") ||
+      (state.beat === "accounting" && action === "royalties") ||
+      (state.beat === "sales" && action === "sales");
+  }
+  function allowCommand(kind, payload) {
+    if (!active || state.beat === "free" || state.beat === "round_close") return true;
+    if (INTERSTITIAL[state.beat]) return false;
+    if (kind === "starting_picks") return state.beat === "founding" && payload.comic === SCENARIO.comic &&
+      Array.isArray(payload.ideas) && payload.ideas.length === 2 && payload.ideas.every((g) => g === SCENARIO.genre);
+    if (state.beat === "ideas") return kind === "action_ideas" && payload.supply && payload.supply.length === 2 && payload.supply.every((g) => g === SCENARIO.genre);
+    if (state.beat === "print") {
+      if (kind === "pending_resolve") return UI.engine.state.pending && UI.engine.state.pending.playerId === UI.humanId;
+      return kind === "action_print" && payload.books && payload.books.length === 1 && payload.books[0].comic === SCENARIO.comic;
+    }
+    if (state.beat === "accounting") return kind === "action_royalties";
+    if (state.beat === "sales") {
+      if (state.salesStep === "start") return kind === "sales_start";
+      if (state.salesStep === "move") return kind === "sales_move" && payload.node === SCENARIO.salesNode && !payload.ticket;
+      if (state.salesStep === "flip") return kind === "sales_flip" && payload.slotId === SCENARIO.orderId;
+      if (state.salesStep === "collect") return kind === "sales_collect" && payload.slotId === SCENARIO.orderId;
+      if (state.salesStep === "end") return kind === "sales_end";
+    }
+    return false;
+  }
+  function afterCommand(kind) {
+    if (state.beat === "sales") {
+      if (kind === "sales_start") state.salesStep = "move";
+      else if (kind === "sales_move") state.salesStep = "flip";
+      else if (kind === "sales_flip") state.salesStep = "collect";
+      else if (kind === "sales_collect") state.salesStep = "end";
+    }
+    queueMicrotask(sync);
+  }
+  function pingFounding(hasComic, nIdeas) {
+    if (!active || state.beat !== "founding") return;
+    const step = !hasComic ? "vault" : nIdeas < 2 ? "tokens" : "confirm";
+    if (step !== state.foundingStep) { state.foundingStep = step; sync(); }
+  }
+  // actions file themselves now (no confirm step): the stamp notification
+  // is the beat boundary that the review bar used to be
+  function onProofFiled(action) {
+    if (!active) return;
+    if (state.beat === "founding") state.beat = "proof_confirm";
+    else if (state.beat === "ideas" && action === "ideas") state.beat = "wire";
+    else if (state.beat === "print" && action === "print") state.beat = "mastery_note";
+    else if (state.beat === "accounting" && action === "royalties") state.beat = "sales";
+    else if (state.beat === "sales" && action === "sales") state.beat = "round_close";
+    sync();
+  }
+  function onUndo() {
+    if (!active) return;
+    // undo is voluntary: rewinding steps the lesson back to the decision it
+    // erased — the founding reopens the vault, a rewound sales run restarts
+    if (state.beat === "proof_confirm") state.beat = "founding";
+    else if (state.beat === "wire") state.beat = "ideas";
+    else if (state.beat === "mastery_note") state.beat = "print";
+    else if (state.beat === "sales") state.salesStep = "start";
+    sync();
+  }
+
+  function takeBotTurn(engine, pid) {
+    if (!active || engine.state.round !== 1 || engine.state.phase !== "actions") return AI.takeTurn(engine, pid);
+    const scripts = { 1: ["hire", "develop", "royalties"], 2: ["develop", "hire", "royalties"] };
+    const step = state.botSteps[pid] || 0, action = scripts[pid] && scripts[pid][step];
+    state.botSteps[pid] = step + 1;
+    if (action === "hire") engine.actHire(pid, { writer: "deck", artist: "deck" });
+    else if (action === "develop") engine.actDevelop(pid, { comic: "deck" });
+    else if (action === "royalties") engine.actRoyalties(pid);
+    else AI.takeTurn(engine, pid);
+  }
+
+  addEventListener("resize", () => reanchor());
+  addEventListener("scroll", () => { if (active) reanchor(); }, true);
+  new MutationObserver(() => {
+    if (!active) return;
+    applyGlow();
+    reanchor();
+  }).observe(document.getElementById("modal-root") || document.body, { childList: true, subtree: true });
+  return {
+    SCENARIO,
+    get active() { return active; },
+    get state() { return state; },
+    begin, restore, exportState, skip, sync, hide, reanchor, detachFromModal,
+    next, back, onHumanTurn, pingFounding,
+    allowedAction, allowCommand, afterCommand,
+    onProofFiled, onUndo, takeBotTurn,
+  };
+})();
+// a top-level const never lands on globalThis: session.js reaches the Tutor
+// through root.Tutor, so the gate/afterCommand hooks need this explicitly
+globalThis.Tutor = Tutor;
