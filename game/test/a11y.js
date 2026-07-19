@@ -105,7 +105,12 @@ async function axeScan(page, label) {
     check(await tabUntil(() => document.activeElement.id === "btn-start"),
       "keyboard: tab reaches OPEN FOR BUSINESS");
     await page.keyboard.press("Enter");
-    await page.waitForFunction(() => document.querySelector("#modal-root .modal"), { timeout: 15000 });
+    // a fresh game opens with the opening-day turn-order briefing; dismiss it to
+    // reach the founding modal
+    await page.waitForFunction(() => /OPENING DAY/.test(document.querySelector("#modal-root .modal")?.textContent || ""), { timeout: 15000 });
+    check(true, "opening-day interstitial opens");
+    await page.evaluate(() => { const b = document.querySelector(".modal-buttons .primary"); if (b) b.click(); });
+    await page.waitForFunction(() => /FOUNDING CATALOG/.test(document.querySelector("#modal-root .modal")?.textContent || ""), { timeout: 15000 });
     check(true, "founding modal opens");
 
     // ------------------------------------------------- modal focus rules

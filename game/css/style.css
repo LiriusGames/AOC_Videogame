@@ -440,7 +440,9 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
 .press-item .fans-badge {
   position: absolute; bottom: -6px; right: -7px; background: var(--red); color: #fff;
   border: 2px solid var(--ink); font-family: var(--f-display); font-size: 11px; padding: 2px 3px; z-index: 2;
+  display: flex; align-items: baseline; gap: 2px; white-space: nowrap;
 }
+.press-item .fans-badge small { font-size: 8px; opacity: .85; }
 .press-item .val-badge {
   position: absolute; top: -6px; left: -7px; background: var(--gold); color: var(--ink);
   border: 2px solid var(--ink); font-size: 13px; font-weight: bold; padding: 0 3px; z-index: 2;
@@ -497,7 +499,13 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
   color: var(--ink); background: var(--paper-dark);
   border-bottom: 1px solid #0002; min-height: 25px;
 }
-.chart-corner { border-bottom: 3px solid var(--ink); font-size: 13px; }
+/* column legend: fan icon + FANS label on top, royalty $ below — mirrors the
+   two-line "10 / $6" row labels underneath it so the whole label column reads
+   as "fan rank → what it pays" */
+.chart-corner { border-bottom: 3px solid var(--ink); flex-direction: column; line-height: 1; gap: 1px; padding: 2px 2px; }
+.chart-corner-fan { height: 14px; width: auto; display: block; }
+.chart-corner .cc-fans { font: 700 8px/1 var(--f-display); letter-spacing: .5px; color: var(--ink); }
+.chart-corner .cc-pay { font: 700 11px/1 var(--f-display); color: #57452c; }
 .chart-fan { flex-direction: column; gap: 0; line-height: 1.1; }
 .chart-fan b { font-family: var(--f-display); font-size: 11px; }
 .chart-fan span { font-size: 9px; color: #57452c; }
@@ -930,9 +938,146 @@ h1, h2, h3, .btn, #top-logo { font-family: var(--f-display); }
   text-shadow: none !important;
 }
 .value-mark > span { font-size: 7px; opacity: .75; }
+/* fan count badge: retro inline pill, like value-mark but warm red-on-cream */
+.fan-tag {
+  display: inline-flex; align-items: baseline; gap: 2px;
+  padding: 1px 5px 1px 4px; border: 1px solid #7c3535;
+  border-radius: 2px; background: rgba(200,100,80,.14);
+  color: #6a2a2a; font: 700 11px/1 var(--f-display);
+  text-shadow: none !important; white-space: nowrap; vertical-align: middle;
+}
+.fan-tag small { font-size: 8px; font-weight: 600; opacity: .8; }
+/* ── End-of-round Wrapup modal ─────────────────────────────────────── */
+.wrapup-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; padding-bottom: 10px; border-bottom: 2px solid var(--ink);
+}
+.wrapup-title { font: 900 18px/1.2 var(--f-display); letter-spacing: 1px; }
+.wrapup-round { font: 600 11px/1 var(--f-display); letter-spacing: 2px; color: #888; margin-bottom: 4px; }
+.wrapup-fan-art { height: 130px; width: auto; flex-shrink: 0; opacity: .92; }
+.wrapup-section { margin-top: 12px; }
+.wrapup-section-title {
+  font: 700 9px/1 var(--f-display); letter-spacing: 2px; color: #888;
+  text-transform: uppercase; margin-bottom: 6px; border-bottom: 1px solid rgba(0,0,0,.12);
+  padding-bottom: 3px;
+}
+/* one plain-language line under a section heading: teaches the rule the numbers
+   above it are demonstrating (why fans matter, how royalties are paid, decay) */
+.wrapup-section-sub { font-size: 11px; font-style: italic; color: #8a7a5c; margin: -2px 0 7px; line-height: 1.3; }
+.wrapup-rankings { display: flex; flex-direction: column; gap: 5px; }
+.wrapup-rank-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 8px; border-radius: 3px;
+  background: rgba(255,255,255,.35); border: 1px solid rgba(0,0,0,.08);
+}
+.wrapup-rank-row.is-you { background: rgba(245,200,110,.22); border-color: var(--gold); }
+.wrapup-medal { font-size: 18px; line-height: 1; width: 22px; text-align: center; flex-shrink: 0; }
+.wrapup-pub-name { flex: 1; font: 600 13px/1 var(--f-display); }
+.wrapup-you-tag { font-size: 10px; color: #888; font-weight: 400; }
+.wrapup-rank-fans { min-width: 74px; text-align: right; }
+/* the standings badges carry the cycle's result — size them up so the fan
+   count reads as clearly as the VP beside it (the inline pill is tiny by default) */
+.wrapup-rank-fans .fan-tag { font-size: 14px; padding: 2px 7px; gap: 3px; }
+.wrapup-rank-fans .fan-tag small { font-size: 10px; }
+.wrapup-rank-vp { min-width: 52px; text-align: right; font: 700 14px/1 var(--f-display); color: #3a7a3a; }
+.wrapup-rank-vp.no-vp { color: #aaa; }
+/* opening-day seat perk (+1 idea / +$1) — the head start later seats are paid */
+.wrapup-seat-perk { min-width: 96px; text-align: right; font: 700 12px/1 var(--f-display); color: #7a3a00; }
+.wrapup-seat-perk.no-perk { color: #aaa; font-weight: 400; font-style: italic; }
+/* ── the chart-cools cooldown beat ─────────────────────────────────── */
+.wrapup-decay { display: flex; flex-wrap: wrap; gap: 8px; }
+.wrapup-decay-chip {
+  display: flex; align-items: center; gap: 6px; padding: 4px 8px 4px 5px;
+  border: 1px solid rgba(0,0,0,.12); border-radius: 4px; background: rgba(255,255,255,.4);
+  opacity: 0; transform: translateY(-6px);
+  animation: wrapup-decay-in .32s ease-out forwards;
+}
+.wrapup-decay-chip.is-you { background: rgba(245,200,110,.24); border-color: var(--gold); }
+.wrapup-decay-chip .spr { filter: drop-shadow(0 1px 0 rgba(0,0,0,.25)); }
+.wd-nums { display: inline-flex; align-items: center; gap: 3px; font: 700 14px/1 var(--f-display); }
+.wd-from { color: #999; text-decoration: line-through; }
+.wd-arrow { color: #b23b2e; font-size: 10px; }
+.wd-to { color: #8a2f22; font-size: 16px; }
+@keyframes wrapup-decay-in {
+  0%   { opacity: 0; transform: translateY(-6px); }
+  60%  { opacity: 1; transform: translateY(2px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.wrapup-royalties {
+  display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px;
+}
+.wrapup-royalty-item { display: flex; align-items: center; gap: 4px; }
+.wrapup-royalty-name { color: #666; font-size: 11px; }
+.wrapup-royalty-amt { font: 700 13px/1 var(--f-display); color: #2a6a2a; }
+.wrapup-turn-order {
+  display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; font-size: 12px;
+}
+.wrapup-turn-item { display: flex; align-items: center; gap: 5px; }
+.wrapup-turn-num { font: 700 10px/1 var(--f-display); color: #888; width: 18px; }
+.wrapup-turn-name { font: 600 12px/1 var(--f-display); }
+.wrapup-turn-name.is-you { color: #7a3a00; }
+.wrapup-note { font-size: 11px; color: #888; font-style: italic; margin-top: 4px; }
+.wrapup-progress {
+  height: 3px; background: var(--gold); width: 100%;
+  animation: wrapup-shrink 10s linear forwards;
+  transform-origin: left; border-radius: 2px; margin-top: 10px;
+}
+@keyframes wrapup-shrink { to { transform: scaleX(0); } }
 .help-actions { margin: 7px 0 10px 20px; display: grid; gap: 5px; }
 .help-actions li { padding-left: 3px; }
+/* scoring reference: a two-column definition list, category | how it scores */
+.help-score-title {
+  font: 700 14px/1.2 var(--f-display); letter-spacing: 1px; color: #8a2f22;
+  text-align: center; margin: 16px 0 2px; padding-top: 12px; border-top: 2px dashed #9e8359;
+}
+.help-scoring {
+  display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px;
+  margin: 8px 4px 2px; align-items: baseline;
+}
+.help-scoring dt {
+  font: 700 13px/1.3 var(--f-display); color: #57452c; white-space: nowrap;
+}
+.help-scoring dt.bad { color: #8a2f22; }
+.help-scoring dd { margin: 0; font-size: 13px; color: #443c30; line-height: 1.35; }
+
+/* ── Creative Development (train/learn) candidates ─────────────────────
+   Grouped by book so it's unambiguous which printed comic (and genre) each
+   creative's step belongs to — a cover + genre icon replaces a plain-text
+   comic title buried mid-sentence. */
+.inc-group {
+  border: 2px solid var(--ink); border-radius: 6px; background: var(--paper);
+  margin-bottom: 10px; overflow: hidden;
+  border-left: 7px solid color-mix(in srgb, var(--gc, #8a8a8a) 60%, #221d16);
+}
+.inc-comic-head {
+  display: flex; align-items: center; gap: 9px; padding: 7px 10px;
+  background: color-mix(in srgb, var(--gc, #8a8a8a) 16%, var(--paper-dark));
+  border-bottom: 1px solid rgba(0,0,0,.15);
+}
+.inc-comic-title { line-height: 1.3; }
+.inc-comic-title b { font: 700 14px/1.2 var(--f-display); }
+.inc-comic-title span { display: block; font-size: 12px; color: #57452c; margin-top: 1px; }
+.inc-row {
+  display: flex; align-items: center; gap: 10px; padding: 7px 10px;
+  border-top: 1px dashed rgba(0,0,0,.12);
+}
+.inc-comic-head + .inc-row { border-top: none; }
+.inc-row-info { flex: 1; line-height: 1.3; font-size: 13px; }
+.inc-row-head { display: flex; align-items: center; gap: 5px; }
+.inc-row-head b { font-family: var(--f-display); }
+.inc-jump { display: block; margin-top: 2px; font: 700 13px/1 var(--f-display); color: #57452c; }
+.inc-jump .inc-arrow { color: #8a2f22; padding: 0 1px; }
 .special-pick .special-name { font: 600 12px/1.25 var(--f-display); letter-spacing: .5px; }
+/* the "fires after your X action" line on a special card — reads as a rule, not
+   flavour, so it sits in the ink color with the action name bolded */
+.special-pick .sp-trigger { font-size: 11px; color: #67563d; }
+.special-pick .sp-trigger b { color: #8a2f22; }
+/* milestone reward banner (5th-book panel): the permanent +VP, given top billing */
+.reward-banner {
+  margin: 2px 0 10px; padding: 9px 14px; border-radius: 4px;
+  background: rgba(245,200,110,.22); border: 2px solid var(--gold);
+  font: 600 14px/1.35 var(--f-display); color: #7a3a00; text-align: center;
+}
 .overflow-ledger {
   display: grid; grid-template-columns: 1fr auto 1fr auto 1fr 1fr;
   gap: 8px; align-items: stretch;
@@ -1707,6 +1852,12 @@ html.booting #app { opacity: 0; }
   background: var(--paper-dark); border: 2px solid var(--ink); border-radius: 6px;
   padding: 20px; box-shadow: inset 0 0 12px rgba(0,0,0,.15);
 }
+/* the develop showcase swaps between a tall comic cover and a small commission
+   icon on hover; a fixed height keeps the pane (and the whole modal) from
+   resizing under the cursor — content taller than this scrolls inside it */
+.develop-showcase {
+  height: 470px; overflow-y: auto; justify-content: flex-start;
+}
 .showcase-card {
   line-height: 0; filter: drop-shadow(4px 6px 0 rgba(0,0,0,.45));
 }
@@ -1777,4 +1928,5 @@ html.booting #app { opacity: 0; }
 @media (max-width: 900px) {
   .modal-split { flex-direction: column; gap: 16px; }
   .modal-showcase { width: auto; height: auto; padding: 12px; }
+  .develop-showcase { height: auto; overflow: visible; }
 }

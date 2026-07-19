@@ -138,10 +138,15 @@ class Engine {
       p.hand.push(w, a);
     });
     // in turn order: 1 comic of choice (AI/auto: random top), ideas, compensation
-    s.turnOrder.forEach((pid, idx) => {
+    // for going later. The per-seat bonuses are captured so the UI can present
+    // the opening turn order and explain the trade-off (single source of truth).
+    const seating = s.turnOrder.map((pid, idx) => {
       const p = this.player(pid);
-      p.startingPicks = { comic: true, ideas: 2 + (idx === 1 || idx === 3 ? 1 : 0) };
-      if (idx === 2 || idx === 3) p.money += 1;
+      const bonusIdea = (idx === 1 || idx === 3) ? 1 : 0;
+      const bonusMoney = (idx === 2 || idx === 3) ? 1 : 0;
+      p.startingPicks = { comic: true, ideas: 2 + bonusIdea };
+      p.money += bonusMoney;
+      return { player: pid, seat: idx + 1, bonusIdea, bonusMoney };
     });
 
     // map order tiles
@@ -150,7 +155,7 @@ class Engine {
     // card display
     this.refillDisplay();
 
-    this.emit("setup");
+    this.emit("setup", { seating });
     this.startRound();
   }
 
@@ -1096,7 +1101,13 @@ class Engine {
       p.money += sum;
       return { player: p.id, amount: sum };
     });
-    this.emit("roundEnd", { round: s.round, rankInfo, pay });
+    // the end-of-cycle cooldown: every book on the chart sheds a fan (originals
+    // never fall below 1, so a book already at 1 holds). Capture it BEFORE
+    // applying so the wrapup can dramatize the drop.
+    const decay = s.chart
+      .filter((c) => c.fans >= 2)
+      .map((c) => ({ chartIdx: c.idx, owner: c.owner, title: c.title, genre: c.genre, from: c.fans, to: c.fans - 1 }));
+    this.emit("roundEnd", { round: s.round, rankInfo, pay, decay });
 
     if (s.round === 5) return this.finishGame();
 

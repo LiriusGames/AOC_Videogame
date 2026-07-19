@@ -284,6 +284,12 @@ const Main = (() => {
       return;
     }
 
+    // Blocking interstitials (opening-day briefing, end-of-cycle wrapup) gate
+    // the turn loop: hold until the player dismisses them — the dismiss resumes
+    // advance(). Without this, the founding / increase UI opens UNDER the
+    // interstitial and strands the turn ("waiting for your turn" forever).
+    if (UI.introOpen || UI.roundWrapupOpen) { UI.busy = true; return; }
+
     // decisions first — but a human decision dialog never opens over a
     // playing hero presentation (print/mastery/round banners finish first)
     if (s.pending) {
@@ -332,13 +338,24 @@ const Main = (() => {
         const p = e.player(pid);
         const key = `inc-${s.round}-${pid}`;
         if (UI.lastTurnKey !== key) { UI.lastTurnKey = key; UI.undoSnap = e.snapshot(); UI.undoDirty = false; }
-        if (p.startingPicks) Scenes.startingPicksModal();
-        else if (e.increaseOptions(pid).length) {
+        // Round-start round-robin: found the house (starting picks) or train the
+        // team (increase), whichever this seat owes. If a dialog the PLAYER
+        // opened (Menu, Help) is up, don't clobber it or silently drop the
+        // handoff — reopen the panel the moment they close it.
+        const openPanel = () => {
+          if (p.startingPicks) Scenes.startingPicksModal();
+          else if (e.increaseOptions(pid).length) Scenes.increaseModal();
+          else { UI.session.dispatch("increase_finish"); queueAdvance(60); }
+        };
+        if (p.startingPicks || e.increaseOptions(pid).length) {
           const wait = (typeof heroRemaining === "function" ? heroRemaining() : 0) + 650;
           UI.busy = true;
-          setTimeout(() => { UI.busy = false; if (!modalIsOpen()) Scenes.increaseModal(); }, wait);
-        }
-        else { UI.session.dispatch("increase_finish"); queueAdvance(60); }
+          setTimeout(() => {
+            UI.busy = false;
+            if (modalIsOpen()) runAfterModalClose(() => queueAdvance(0));
+            else openPanel();
+          }, wait);
+        } else openPanel();
       } else {
         // Lockstep room bots were already drained by RemoteSession while the
         // ordered message was being applied. This branch only animates local

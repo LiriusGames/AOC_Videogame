@@ -698,7 +698,7 @@ function check(cond, name) {
       const complete = (row) => [...row.querySelectorAll(".special-pick")].every((c) =>
         c.querySelector("canvas.special-art") && /after /.test(c.textContent) &&
         (c.getAttribute("aria-label") || "").includes("triggers after"));
-      const fromRow = grp("Move which cube"), toRow = grp("To which special");
+      const fromRow = grp("Your special actions"), toRow = grp("Trade for");
       return {
         fromN: fromRow ? fromRow.querySelectorAll(".special-pick").length : 0,
         toN: toRow ? toRow.querySelectorAll(".special-pick").length : 0,
@@ -706,21 +706,21 @@ function check(cond, name) {
         notes: fromRow ? fromRow.querySelectorAll(".sp-note").length : 0,
       };
     });
-    check(rel.fromN === 2 && rel.toN === 4, "relocation offers both cubes and all four other specials");
+    check(rel.fromN === 2 && rel.toN === 4, "relocation offers both current specials and all four alternatives");
     check(rel.fromOk && rel.toOk, "every choice shows artwork, trigger action, and effect description");
-    check(rel.notes === 2, "current cubes are marked as YOUR CUBE HERE");
+    check(rel.notes === 2, "current specials are marked ACTIVE NOW");
     await page.evaluate(() => {
       [...document.querySelectorAll('#modal-root [role="group"]')]
-        .find((g) => g.getAttribute("aria-label") === "Move which cube")
+        .find((g) => g.getAttribute("aria-label") === "Your special actions")
         .querySelector('.special-pick[data-sp="hype"]').click();
     });
     check(await page.evaluate(() => {
       const c = document.querySelector('#modal-root .special-pick[data-sp="hype"]');
       return c.classList.contains("selected") && c.getAttribute("aria-pressed") === "true";
-    }), "selecting a cube marks it visibly and via aria-pressed");
+    }), "selecting a special marks it visibly and via aria-pressed");
     const dest = await page.evaluate(() => {
       const row = [...document.querySelectorAll('#modal-root [role="group"]')]
-        .find((g) => g.getAttribute("aria-label") === "To which special");
+        .find((g) => g.getAttribute("aria-label") === "Trade for");
       const c = row.querySelector(".special-pick");
       c.click();
       return c.dataset.sp;

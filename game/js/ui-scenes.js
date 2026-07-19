@@ -49,7 +49,7 @@ const Scenes = (() => {
   }
 
 
-  // animated pictogram explaining a cube special (drawn in loc-art.js)
+  // animated pictogram explaining a special action (drawn in loc-art.js)
   function specialArt(key, wpx = 168) {
     const cv = document.createElement("canvas");
     cv.className = "special-art";
@@ -58,7 +58,7 @@ const Scenes = (() => {
     return cv;
   }
   // one shared card for choosing a special action — used by BOTH the initial
-  // cube placement and the 5th-book relocation, so the two can never drift
+  // unlock and the 5th-book swap, so the two can never drift
   function specialCard(sp, opts = {}) {
     const info = SPECIALS[sp];
     const d = el("div", "pick-card special-pick");
@@ -67,10 +67,10 @@ const Scenes = (() => {
     d.appendChild(specialArt(sp, opts.art || 200));
     d.appendChild(el("div", "pc-label",
       `<b class="special-name">${info.name}</b><br>` +
-      `<i>after ${ACTION_INFO[info.after].verb}</i><br>${info.desc}` +
-      (opts.note ? `<br><b class="sp-note">NOTE &mdash; ${opts.note}</b>` : "")));
+      `<span class="sp-trigger">fires right after your <b>${info.after.toUpperCase()}</b> action</span><br>${info.desc}` +
+      (opts.note ? `<br><b class="sp-note">${opts.note}</b>` : "")));
     d.setAttribute("aria-label",
-      `${info.name}: triggers after ${ACTION_INFO[info.after].verb}. ${String(info.desc).replace(/<[^>]*>/g, "")}` +
+      `${info.name}: triggers after your ${info.after} action. ${String(info.desc).replace(/<[^>]*>/g, "")}` +
       (opts.note ? ` (${opts.note})` : ""));
     d.setAttribute("aria-pressed", "false");
     return d;
@@ -1167,7 +1167,7 @@ const Scenes = (() => {
       row.appendChild(sprHD(comicSprite(c), 0.32));
       row.appendChild(el("span", "rr-bk-info",
         `<b>${esc(c.title)}</b><small>${genreMark(c.genre, 0.4)} v${c.value}${c.isRipoff ? " &middot; rip-off" : ""}</small>`));
-      row.appendChild(el("b", "rr-fans", `${c.fans}&#9829;`));
+      row.appendChild(el("b", "rr-fans", fanTag(c.fans)));
       row.title = `${c.title} — value ${c.value}, ${c.fans} fans. ` +
         `Delivers ${GENRE_INFO[c.genre].name} orders needing ${c.value} or less; ` +
         `fans you collect could push it up the chart.`;
@@ -1182,7 +1182,7 @@ const Scenes = (() => {
         const myBest = Math.max(0, e.bestComicFans(me()));
         pane.appendChild(el("span", "rr-lead", myBest > top.f
           ? `YOU LEAD at ${myBest} fans &middot; next: ${esc(top.pl.pubName)} ${top.f} fans`
-          : `Chart leader: <b>${esc(top.pl.pubName)} ${top.f}&#9829;</b> &middot; your best ${myBest}&#9829;`));
+          : `Chart leader: <b>${esc(top.pl.pubName)}</b> ${fanTag(top.f)} &middot; your best ${fanTag(myBest)}`));
       }
     }
     const open = p.orders.map((oid) => s.mapSlots[oid]).filter((o) => !o.fulfilled);
@@ -1191,7 +1191,7 @@ const Scenes = (() => {
       const row = el("span", "rr-row rr-orders");
       for (const o of open) {
         const chip = el("span", "rr-chip");
-        chip.innerHTML = `${genreMark(o.genre, 0.4)} ${o.minVal}+&rarr;${o.fans}&#9829;`;
+        chip.innerHTML = `${genreMark(o.genre, 0.4)} ${o.minVal}+&rarr;${fanTag(o.fans)}`;
         chip.title = `Undelivered ${GENRE_INFO[o.genre].name} order: you still need a ` +
           `${GENRE_INFO[o.genre].name} book of value ${o.minVal}+ (worth ${o.fans} fans, or -${o.fans} VP unfilled).`;
         row.appendChild(chip);
@@ -1381,7 +1381,7 @@ const Scenes = (() => {
     openModal((m) => {
       m.appendChild(el("h2", "", "SPECIAL ACTION UNLOCKED!"));
       m.appendChild(el("div", "modal-sub",
-        `Your <b>${["", "", "2nd", "3rd", "4th"][P(me()).printedCount]}</b> book is out! Place a cube on a special action. From now on it triggers every time you take the matching main action.`));
+        `Your <b>${["", "", "2nd", "3rd", "4th"][P(me()).printedCount]}</b> book is out! Choose a <b>special action</b> to unlock &mdash; from now on it fires automatically every time you take its main action.`));
       const row = el("div", "card-row");
       row.setAttribute("role", "group");
       row.setAttribute("aria-label", "Choose a special action");
@@ -1400,26 +1400,32 @@ const Scenes = (() => {
     }, { width: "820px" });
   }
 
-  function relocateCubeModal(pd) {
+  function relocateCubeModal() {
     const p = P(me());
     let from = null, to = null;
     openModal((m) => {
-      m.appendChild(el("h2", "", "5TH BOOK! REORGANIZE?"));
-      m.appendChild(el("div", "modal-sub", "You may move one special-action cube to a different special. (Also: every original now scores +1 VP at the end.)"));
-      m.appendChild(el("h3", "", "MOVE WHICH CUBE"));
+      // Lead with the permanent reward — it's the unambiguous good news and it
+      // happens whether or not the player touches the optional swap below.
+      m.appendChild(el("h2", "", "5TH BOOK &mdash; A NEW MILESTONE"));
+      m.appendChild(el("div", "reward-banner",
+        "&#9733; From now on, <b>every original book you own scores +1 VP</b> at the final bell."));
+      const held = p.cubeSpecials.map((sp) => `<b>${SPECIALS[sp].name}</b>`).join(" and ");
+      m.appendChild(el("div", "modal-sub",
+        `<b>Optional:</b> you've unlocked ${held}. You may trade one for a different special action &mdash; or keep them as they are.`));
+      m.appendChild(el("h3", "", "YOUR SPECIALS &mdash; TRADE ONE"));
       const fr = el("div", "card-row");
       fr.setAttribute("role", "group");
-      fr.setAttribute("aria-label", "Move which cube");
+      fr.setAttribute("aria-label", "Your special actions");
       for (const sp of p.cubeSpecials) {
-        const d = specialCard(sp, { w: 176, art: 132, note: "YOUR CUBE HERE" });
+        const d = specialCard(sp, { w: 176, art: 132, note: "ACTIVE NOW" });
         d.onclick = () => { SFX.play("click"); from = sp; selectOne(fr, d); refresh(); };
         fr.appendChild(d);
       }
       m.appendChild(fr);
-      m.appendChild(el("h3", "", "TO WHICH SPECIAL"));
+      m.appendChild(el("h3", "", "TRADE FOR"));
       const toRow = el("div", "card-row");
       toRow.setAttribute("role", "group");
-      toRow.setAttribute("aria-label", "To which special");
+      toRow.setAttribute("aria-label", "Trade for");
       for (const sp of Object.keys(SPECIALS)) {
         if (p.cubeSpecials.includes(sp)) continue;
         const d = specialCard(sp, { w: 176, art: 132 });
@@ -1429,7 +1435,7 @@ const Scenes = (() => {
       m.appendChild(toRow);
       modalButtons(m, [
         { label: "KEEP AS IS", fn: () => { const r = command("pending_resolve", { choice: {} }); if (r.ok) { closeModal(); Main.afterHumanMove(); } } },
-        { label: "MOVE IT", cls: "btn-go", id: "rc-ok", disabled: true, fn: () => {
+        { label: "SWAP IT", cls: "btn-go", id: "rc-ok", disabled: true, fn: () => {
             const result = command("pending_resolve", { choice: { from, to } });
             if (!result.ok) return;
             closeModal(); Main.afterHumanMove();
@@ -1804,24 +1810,46 @@ const Scenes = (() => {
       function render() {
         list.innerHTML = "";
         const opts = e.increaseOptions(me());
-        if (!opts.length) list.appendChild(el("div", "modal-sub", "No more upgrades available this round."));
+        if (!opts.length) { list.appendChild(el("div", "modal-sub", "No more upgrades available this round.")); return; }
+        // Group by book: a flat text line left it unclear WHICH printed comic
+        // (and genre) a creative's step belonged to. The cover + genre icon
+        // under one heading makes that unambiguous at a glance.
+        const byComic = new Map();
         for (const o of opts) {
-          const c = e.state.chart[o.chartIdx];
-          const cr = c.creatives[o.kind];
-          const line = el("div", "card-row");
-          line.appendChild(el("span", "modal-sub",
-            `${sprHTML(faceBigOf(cr.id), 0.5)} <b>${esc(cr.name)}</b> (${o.kind} on <b>${esc(c.title)}</b>) $${cr.curValue} &rarr; $${o.newValue} &middot; ${o.mode} for <b>$${o.cost}</b>`));
-          const b = el("button", "btn btn-small", o.mode.toUpperCase() + " $" + o.cost);
-          b.onclick = () => {
-            SFX.play("cash");
-            const result = command("increase_apply", { chartIdx: o.chartIdx, kind: o.kind });
-            if (!result.ok) return;
-            flushEvents();
-            renderAll();
-            render();
-          };
-          line.appendChild(b);
-          list.appendChild(line);
+          if (!byComic.has(o.chartIdx)) byComic.set(o.chartIdx, []);
+          byComic.get(o.chartIdx).push(o);
+        }
+        for (const [chartIdx, rows] of byComic) {
+          const c = e.state.chart[chartIdx];
+          const group = el("div", "inc-group");
+          group.style.setProperty("--gc", GENRE_INFO[c.genre].color);
+          const head = el("div", "inc-comic-head");
+          head.appendChild(sprHD(comicSprite(c), 0.42));
+          head.appendChild(el("div", "inc-comic-title",
+            `<b>${esc(c.title)}</b><span>${genreMark(c.genre, 0.5)} ${GENRE_INFO[c.genre].name}</span>`));
+          group.appendChild(head);
+          for (const o of rows) {
+            const cr = c.creatives[o.kind];
+            const row = el("div", "inc-row");
+            row.appendChild(spr(faceBigOf(cr.id), 0.45));
+            row.appendChild(el("div", "inc-row-info",
+              `<span class="inc-row-head">${sprHTML("tag_" + o.kind, 0.6)}${genreMark(cr.genre, 0.5)}<b>${esc(cr.name)}</b></span>` +
+              `<span class="inc-jump">$${cr.curValue} <span class="inc-arrow">&rarr;</span> $${o.newValue}</span>`));
+            const b = el("button", "btn btn-small", `${o.mode.toUpperCase()} $${o.cost}`);
+            b.setAttribute("aria-label",
+              `${o.mode === "learn" ? "Mentor" : "Train"} ${cr.name}, the ${o.kind} on ${c.title}: value ${cr.curValue} to ${o.newValue}, for $${o.cost}`);
+            b.onclick = () => {
+              SFX.play("cash");
+              const result = command("increase_apply", { chartIdx: o.chartIdx, kind: o.kind });
+              if (!result.ok) return;
+              flushEvents();
+              renderAll();
+              render();
+            };
+            row.appendChild(b);
+            group.appendChild(row);
+          }
+          list.appendChild(group);
         }
       }
     }, { width: "780px" });
@@ -1986,8 +2014,31 @@ const Scenes = (() => {
 </ul>
 <p><b>Specialized creatives</b> (matching the comic's genre) add +1 fan each at print and can grow in value at the beginning of each publishing cycle.</p>
 <p><b>Mastery</b>: first to print a genre (or overtake majority with at least one original) gets +1 fan on every book of that genre and 2 VP.</p>
-<p><b>Specials</b>: printing your 2nd/3rd/4th book unlocks cube specials that ride on main actions. 5th book: +1 VP per original. 6th+: +2 VP each.</p>
+<p><b>Specials</b>: printing your 2nd/3rd/4th book unlocks a special action that fires automatically after one of your main actions. 5th book: +1 VP per original. 6th+: +2 VP each.</p>
 <p><b>End of round</b>: chart rank pays VP (3/2/1), every comic earns $ by its fans, then every comic loses 1 fan. Turn order reverses rank.</p>`));
+
+      // a scannable scoring reference — the same categories the final tally uses,
+      // so a first-time player can see how VP is actually earned before the
+      // endgame screen reveals it
+      m.appendChild(el("div", "help-score-title", "&#9733; HOW VICTORY POINTS ARE COUNTED &#9733;"));
+      m.appendChild(el("div", "modal-sub", "<span style='font-size:13px;color:#8a7a5c'>Tallied at the final bell after round 5:</span>"));
+      const SCORING = [
+        ["Fans on the stands", "1 VP for every fan on every book you own &mdash; your biggest lever"],
+        ["Original books", "2 VP each &middot; 4 if one creator matches its genre &middot; 6 if both do"],
+        ["Chart-rank prizes", "3 / 2 / 1 VP to the leading houses &mdash; awarded every one of the 5 rounds"],
+        ["Genre mastery", "2 VP for each mastery token you still hold"],
+        ["Better colors", "2 VP for each book you gave the deluxe four-color treatment"],
+        ["Cold cash", "1 VP per $4 left in the bank"],
+        ["Spare ideas", "1 VP per 4 unused idea tokens"],
+        ["Prolific printing", "your 5th book scores +1 VP, every book past it +2 VP"],
+        ["Undelivered orders", "<b style='color:#8a2f22'>subtract</b> the fan value of every order you left unfilled", true],
+      ];
+      const sl = el("dl", "help-scoring");
+      for (const [name, desc, bad] of SCORING) {
+        sl.appendChild(el("dt", "help-score-name" + (bad ? " bad" : ""), name));
+        sl.appendChild(el("dd", "help-score-desc", desc));
+      }
+      m.appendChild(sl);
       modalButtons(m, [{ label: "GOT IT", fn: () => closeModal() }]);
     }, { width: "800px" });
   }

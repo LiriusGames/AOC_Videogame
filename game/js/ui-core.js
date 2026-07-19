@@ -126,6 +126,10 @@ function valueTierName(val) {
   if (val === 3) return "Superstar ($3)";
   return `$${val}`;
 }
+// fan count badge — a warm inline pill that reads "14 fans" at a glance
+function fanTag(n) {
+  return `<span class="fan-tag">${n}<small>\u00a0fans</small></span>`;
+}
 function P(pid) { return UI.engine.player(pid); }
 function isHuman(pid) { return UI.session ? UI.session.isLocalSeat(pid) : P(pid).human; }
 function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
@@ -322,6 +326,12 @@ function announce(msg) {
 
 // ------------------------------------------------------------------- modals
 let modalOpener = null;
+// a one-shot callback fired the next time a modal is dismissed — lets the turn
+// loop defer opening its own dialog (e.g. the round-start increase panel) until
+// a dialog the player opened themselves (Menu, Help) is out of the way, instead
+// of silently skipping and stranding the turn
+let afterModalClose = null;
+function runAfterModalClose(fn) { afterModalClose = fn; }
 function openModal(build, opts = {}) {
   const root = document.getElementById("modal-root");
   modalOpener = document.activeElement;
@@ -376,6 +386,10 @@ function openModal(build, opts = {}) {
 function closeModal() {
   const root = document.getElementById("modal-root");
   if (typeof Tutor !== "undefined") Tutor.detachFromModal();
+  // no modal on screen ⟹ no blocking-interstitial gate held (guards against a
+  // stray/programmatic close leaving the turn loop wedged behind a flag)
+  UI.introOpen = false;
+  UI.roundWrapupOpen = false;
   root.classList.remove("active");
   root.onclick = null;
   root.onkeydown = null;
@@ -393,6 +407,10 @@ function closeModal() {
   }
   modalOpener = null;
   if (typeof Tutor !== "undefined" && Tutor.active) queueMicrotask(() => Tutor.sync());
+  // a turn-loop dialog that was waiting for this one to clear can now open
+  const waiting = afterModalClose;
+  afterModalClose = null;
+  if (waiting) setTimeout(waiting, 0);
 }
 function modalButtons(m, buttons) {
   const bar = el("div", "modal-buttons");
@@ -884,7 +902,11 @@ function renderChart() {
   // one full-height colored lane per house; the head opens its dossier
   const grid = el("div", "chart-grid");
   grid.style.setProperty("--lanes", order.length);
-  grid.appendChild(el("div", "chart-corner", "$"));
+  const corner = el("div", "chart-corner",
+    `<img class="chart-corner-fan" src="assets/custom/fan_icon.webp" alt="">` +
+    `<b class="cc-fans">FANS</b><span class="cc-pay">$</span>`);
+  corner.title = "Each row is a fan count; the $ beneath it is the royalty that rank pays every cycle.";
+  grid.appendChild(corner);
   for (const pid of order) {
     const p = P(pid), pub = PUBLISHERS[p.color];
     const head = el("button", "lane-head");
@@ -922,7 +944,7 @@ function renderChart() {
         cc.title = `${c.title}${c.isRipoff ? " (RIP-OFF)" : ""} — ${c.fans} fans, value ${c.value}` +
           (c.fans === best ? " — chart leader for this house" : "");
         attachZoom(cc, comicSprite(c),
-          `<b>${esc(c.title)}</b><br>${genreMark(c.genre, 0.45)} v${c.value} &middot; ${c.fans}&#9829; &middot; ${esc(P(c.owner).pubName)}`);
+          `<b>${esc(c.title)}</b><br>${genreMark(c.genre, 0.45)} v${c.value} &middot; ${fanTag(c.fans)} &middot; ${esc(P(c.owner).pubName)}`);
         cell.appendChild(cc);
       }
       grid.appendChild(cell);
@@ -957,7 +979,7 @@ function renderChart() {
     const bestFans = Math.max(0, e.bestComicFans(sc.player));
     row.appendChild(el("span", "st-name",
       `<b>${esc(p.pubName)}${p.human ? " (YOU)" : ""}</b>` +
-      `<small>${sc.total} VP &middot; ${bestFans}&#9829; best &middot; ${p.printedCount} book${p.printedCount === 1 ? "" : "s"}` +
+      `<small>${sc.total} VP &middot; ${fanTag(bestFans)} best &middot; ${p.printedCount} book${p.printedCount === 1 ? "" : "s"}` +
       (held.length ? ` &middot; ${held.map((g) => sprHTML("mastery_" + g, 0.3)).join("")}` : "") +
       `</small>`));
     row.onclick = () => {
@@ -997,7 +1019,7 @@ function renderChartDetail(pid) {
   const stats = el("div", "chart-stats");
   const stat = (label, value) => stats.appendChild(el("div", "chart-stat", `<b>${label}</b>${value}`));
   stat("PROJECTED VP", score.total);
-  stat("BEST COMIC", `${Math.max(0, e.bestComicFans(pid))}&#9829;`);
+  stat("BEST COMIC", fanTag(Math.max(0, e.bestComicFans(pid))));
   stat("CASH / TICKETS", `$${p.money} / ${p.tickets}`);
   stat("EDITORS LEFT", `${p.editorsLeft}`);
   stat("PUBLISHED", p.printedCount);
@@ -1010,7 +1032,7 @@ function renderChartDetail(pid) {
   for (const c of s.chart.filter((item) => item.owner === pid)) {
     const cover = sprHD(comicSprite(c), 0.45);
     cover.title = `${c.title}: value ${c.value}, ${c.fans} fans`;
-    attachZoom(cover, comicSprite(c), `<b>${esc(c.title)}</b><br>v${c.value} &middot; ${c.fans}&#9829;`);
+    attachZoom(cover, comicSprite(c), `<b>${esc(c.title)}</b><br>v${c.value} &middot; ${fanTag(c.fans)}`);
     books.appendChild(cover);
   }
   if (!books.children.length) books.appendChild(el("i", "", "No comics published yet"));
@@ -1092,7 +1114,7 @@ function renderHUD() {
     r.appendChild(spr("gicon_" + o.genre, 0.6));
     r.innerHTML += o.fulfilled
       ? ` <b style="color:#7ab648">&#10004;+${o.fans}</b>`
-      : ` <b>${o.minVal}+&rarr;${o.fans}&#9829;</b>`;
+      : ` <b>${o.minVal}+&rarr;</b>${fanTag(o.fans)}`;
     r.title = o.fulfilled
       ? `${GENRE_INFO[o.genre].name} order delivered (+${o.fans} fans)`
       : `${GENRE_INFO[o.genre].name} order: delivers by itself once you own a ${GENRE_INFO[o.genre].name} book of value ${o.minVal}+ (then +${o.fans} fans). Undelivered = -${o.fans} VP at the end!`;
@@ -1141,7 +1163,7 @@ function renderHUD() {
     if (c.idx === UI.lastPrintIdx) d.appendChild(el("div", "new-tag", "NEW!"));
     const cover = el("div", "pi-cover");
     cover.appendChild(spr(comicSprite(c), 0.6));
-    cover.appendChild(el("div", "fans-badge", `${c.fans}&#9829;`));
+    cover.appendChild(el("div", "fans-badge", `${c.fans}<small>fans</small>`));
     cover.appendChild(el("div", "pi-genre", genreMark(c.genre, 0.42)));
     d.appendChild(cover);
     // the current total value, unmistakable and always up to date
@@ -1152,7 +1174,7 @@ function renderHUD() {
     mat.appendChild(d);
   });
   const nP = p.printedCount;
-  const nxt = nP < 1 ? "" : nP >= 6 ? "" : ["", "2nd unlocks specials", "3rd: Better Colors", "4th: Marketing/Editor", "5th: move a cube +VP", "6th+: +2 VP each"][nP] || "";
+  const nxt = nP < 1 ? "" : nP >= 6 ? "" : ["", "2nd unlocks specials", "3rd: Better Colors", "4th: Marketing/Editor", "5th: swap a special +VP", "6th+: +2 VP each"][nP] || "";
   if (nxt) mat.appendChild(el("span", "", `<i style="font-size:14px;color:#9aa;flex-shrink:0">&larr; ${nxt}</i>`));
   updateMatNav();
 
@@ -1236,7 +1258,7 @@ function comicInfoModal(c) {
     
     const row = panelSection(right, "THE LEDGER");
     row.appendChild(el("div", "modal-sub",
-      `BOOK VALUE <b>${c.value}</b> &middot; <b>${c.fans}</b>&#9829; fans` +
+      `BOOK VALUE <b>${c.value}</b> &middot; ${fanTag(c.fans)}` +
       (c.bettercolor ? "<br><b>BETTER COLORS</b> (+2 VP at the end)" : "") +
       `<br><span style="font-size:15px;color:#57452c">delivers ${GENRE_INFO[c.genre].name} orders of minimum value up to ${c.value}</span>`));
       
@@ -1325,6 +1347,191 @@ function updateMatNav() {
   requestAnimationFrame(() => { nav.hidden = mat.scrollWidth <= mat.clientWidth + 4; });
 }
 
+// ========================================================= OPENING DAY
+// A one-time interstitial at game start: it names the round-1 turn order and
+// explains why later seats got an idea / a dollar, BEFORE the founding modal
+// asks the player to pick — otherwise a newcomer can't tell why a rival started
+// with more. Gates the turn loop (see Main.advance) like the wrapup does.
+function showOpeningDay(ev) {
+  const seating = ev.seating || [];
+  UI.introOpen = true;
+  const dismiss = () => {
+    UI.introOpen = false;
+    closeModal();
+    if (typeof Main !== "undefined") Main.advance();
+  };
+  openModal((box) => {
+    const head = el("div", "wrapup-header");
+    const titleWrap = el("div", "");
+    titleWrap.appendChild(el("div", "wrapup-round", "MANHATTAN, 1938"));
+    titleWrap.appendChild(el("h2", "wrapup-title", "&#9733; OPENING DAY &#9733;"));
+    head.appendChild(titleWrap);
+    const art = el("img", "wrapup-fan-art");
+    art.src = "assets/custom/fan_icon.webp";
+    art.alt = "";
+    head.appendChild(art);
+    box.appendChild(head);
+
+    const sec = el("div", "wrapup-section");
+    sec.appendChild(el("div", "wrapup-section-title", "TURN ORDER &middot; ROUND I"));
+    sec.appendChild(el("div", "wrapup-section-sub",
+      "Seat order is drawn at random. Earlier seats pick first; later seats are paid back with a head start."));
+    const list = el("div", "wrapup-rankings");
+    for (const st of seating) {
+      const p = P(st.player), you = isHuman(st.player);
+      const row = el("div", "wrapup-rank-row" + (you ? " is-you" : ""));
+      row.style.setProperty("--lane", PUBLISHERS[p.color].color);
+      row.appendChild(el("span", "wrapup-medal", `${st.seat}${["st", "nd", "rd", "th"][Math.min(st.seat - 1, 3)]}`));
+      row.appendChild(sprHD(PUBLISHERS[p.color].logo, 0.38));
+      row.appendChild(el("span", "wrapup-pub-name",
+        `${esc(p.pubName)}${you ? ` <span class="wrapup-you-tag">(YOU)</span>` : ""}`));
+      const perks = [];
+      if (st.bonusIdea) perks.push(`+${st.bonusIdea} idea`);
+      if (st.bonusMoney) perks.push(`+$${st.bonusMoney}`);
+      row.appendChild(el("span", "wrapup-seat-perk" + (perks.length ? "" : " no-perk"),
+        perks.length ? perks.join(" &middot; ") : "first pick"));
+      list.appendChild(row);
+    }
+    sec.appendChild(list);
+    box.appendChild(sec);
+
+    box.appendChild(el("div", "wrapup-note",
+      "Next: found your house &mdash; choose your first comic project and your starting ideas."));
+    modalButtons(box, [{ label: "FOUND MY HOUSE &rarr;", cls: "primary", fn: () => dismiss() }]);
+  }, { width: "520px" }); // no onDismiss: the button is the only way out
+}
+
+// ===================================================== END-OF-ROUND WRAPUP
+// One modal to close the publishing cycle: standings + VP, royalties, and the
+// next cycle's turn order. Auto-dismisses after 10s so AI-only rounds flow on.
+function showRoundWrapup(ev) {
+  const e = UI.engine, s = e.state;
+  const roman = ["I", "II", "III", "IV", "V"][ev.round - 1] || ev.round;
+  const isFinal = ev.round === 5;
+  let autoClose = null;
+  // gate the turn loop while this is up (see Main.advance); dismissing it
+  // resumes the loop so the next round's increase UI can open
+  UI.roundWrapupOpen = true;
+  const dismiss = () => {
+    if (autoClose) { clearTimeout(autoClose); autoClose = null; }
+    UI.roundWrapupOpen = false;
+    closeModal();
+    if (typeof Main !== "undefined") Main.advance();
+  };
+  const m = openModal((box) => {
+    const head = el("div", "wrapup-header");
+    const titleWrap = el("div", "");
+    titleWrap.appendChild(el("div", "wrapup-round", "THE PRESSES STOP"));
+    titleWrap.appendChild(el("h2", "wrapup-title", `&#9733; PUBLISHING CYCLE ${roman} CLOSES &#9733;`));
+    head.appendChild(titleWrap);
+    const art = el("img", "wrapup-fan-art");
+    art.src = "assets/custom/fan_icon.webp";
+    art.alt = "";
+    head.appendChild(art);
+    box.appendChild(head);
+
+    // chart standings: medal, house logo, best comic's fans, cycle VP
+    const standings = el("div", "wrapup-section");
+    standings.appendChild(el("div", "wrapup-section-title", "CHART STANDINGS"));
+    standings.appendChild(el("div", "wrapup-section-sub", "Your best-selling book sets your rank &middot; higher rank pays more victory points"));
+    const list = el("div", "wrapup-rankings");
+    const MEDALS = ["\u{1F947}", "\u{1F948}", "\u{1F949}"];
+    for (const r of ev.rankInfo) {
+      const p = P(r.player), you = isHuman(r.player);
+      const row = el("div", "wrapup-rank-row" + (you ? " is-you" : ""));
+      row.style.setProperty("--lane", PUBLISHERS[p.color].color);
+      row.appendChild(el("span", "wrapup-medal",
+        r.vp && MEDALS[r.place - 1] ? MEDALS[r.place - 1] : `${r.place}${["st", "nd", "rd", "th"][Math.min(r.place - 1, 3)]}`));
+      row.appendChild(sprHD(PUBLISHERS[p.color].logo, 0.38));
+      row.appendChild(el("span", "wrapup-pub-name",
+        `${esc(p.pubName)}${you ? ` <span class="wrapup-you-tag">(YOU)</span>` : ""}`));
+      row.appendChild(el("span", "wrapup-rank-fans",
+        r.best >= 0 ? fanTag(r.best) : `<small style="color:#999">no comics</small>`));
+      row.appendChild(el("span", "wrapup-rank-vp" + (r.vp ? "" : " no-vp"),
+        r.vp ? `+${r.vp} VP` : "&mdash;"));
+      list.appendChild(row);
+    }
+    standings.appendChild(list);
+    box.appendChild(standings);
+
+    // royalties: what the chart paid each house this cycle
+    const pay = ev.pay.filter((pp) => pp.amount > 0);
+    if (pay.length) {
+      const roy = el("div", "wrapup-section");
+      roy.appendChild(el("div", "wrapup-section-title", "ROYALTIES"));
+      roy.appendChild(el("div", "wrapup-section-sub", "Every charted book pays cash by its fan count &mdash; the $ on its chart row"));
+      const rowr = el("div", "wrapup-royalties");
+      for (const pp of pay) {
+        rowr.appendChild(el("span", "wrapup-royalty-item",
+          `<span class="wrapup-royalty-name">${esc(P(pp.player).pubName)}</span>` +
+          `<span class="wrapup-royalty-amt">$${pp.amount}</span>`));
+      }
+      roy.appendChild(rowr);
+      box.appendChild(roy);
+    }
+
+    // the chart cools off: every book sheds a fan. A staggered, delayed reveal
+    // turns a silent stat change into a beat the player actually watches. (No
+    // decay on the final cycle — the game ends before the cooldown applies.)
+    if (!isFinal && ev.decay && ev.decay.length) {
+      const cool = el("div", "wrapup-section wrapup-decay-section");
+      cool.appendChild(el("div", "wrapup-section-title", "THE CHART COOLS &middot; EVERY BOOK SHEDS A FAN"));
+      cool.appendChild(el("div", "wrapup-section-sub", "Interest fades each cycle &mdash; keep printing to stay on top (no book drops below 1)"));
+      const chips = el("div", "wrapup-decay");
+      ev.decay.forEach((d, i) => {
+        const chip = el("div", "wrapup-decay-chip");
+        chip.style.animationDelay = (i * 90) + "ms";
+        if (isHuman(d.owner)) chip.classList.add("is-you");
+        const entry = s.chart.find((c) => c.idx === d.chartIdx);
+        if (entry) chip.appendChild(sprHD(comicSprite(entry), 0.34));
+        chip.appendChild(el("span", "wd-nums",
+          `<span class="wd-from">${d.from}</span>` +
+          `<span class="wd-arrow">&#9660;</span>` +
+          `<span class="wd-to">${d.to}</span>`));
+        chip.title = `${d.title}: ${d.from} → ${d.to} fans`;
+        chips.appendChild(chip);
+      });
+      cool.appendChild(chips);
+      box.appendChild(cool);
+      // one soft "cooldown" sweep as the drop lands (after the stagger begins)
+      setTimeout(() => { if (document.contains(m)) SFX.play("whoosh"); }, 260);
+    }
+
+    // next cycle's turn order (engine already reversed the ranking); on the
+    // final cycle there is no next round — the verdict comes instead
+    if (!isFinal) {
+      const ord = el("div", "wrapup-section");
+      ord.appendChild(el("div", "wrapup-section-title", "NEXT CYCLE TURN ORDER &middot; TRAILING PUBLISHERS FIRST"));
+      const rowo = el("div", "wrapup-turn-order");
+      s.turnOrder.forEach((pid, i) => {
+        const you = isHuman(pid);
+        rowo.appendChild(el("span", "wrapup-turn-item",
+          `<span class="wrapup-turn-num">${i + 1}&rarr;</span>` +
+          `<span class="wrapup-turn-name${you ? " is-you" : ""}">${esc(P(pid).pubName)}${you ? " (YOU)" : ""}</span>`));
+      });
+      ord.appendChild(rowo);
+      if (isHuman(s.turnOrder[s.turnOrder.length - 1]))
+        ord.appendChild(el("div", "wrapup-note", "You're on top of the chart &mdash; you go last."));
+      box.appendChild(ord);
+    } else {
+      box.appendChild(el("div", "wrapup-note", "That was the final cycle &mdash; the presses fall silent."));
+    }
+
+    modalButtons(box, [{ label: "GOT IT &rarr;", cls: "primary", fn: () => dismiss() }]);
+    // the countdown bar only appears when the modal will actually auto-close
+    if (UI.autoplay) box.appendChild(el("div", "wrapup-progress"));
+  }, { width: "560px" }); // no onDismiss: backdrop/Escape do nothing, use the button
+  // Auto-advance ONLY for spectator/AI-only viewing, where no human will press
+  // the button. When a human is present the recap waits for them — timed
+  // content that yanks itself away mid-read is both a UX and accessibility
+  // problem, and the loop is correctly paused (their turn is next anyway).
+  if (UI.autoplay) {
+    autoClose = setTimeout(() => {
+      if (document.contains(m)) dismiss();
+    }, 10000);
+  }
+}
+
 // ======================================================== EVENT ANIMATION
 function flushEvents() {
   const e = UI.engine;
@@ -1338,6 +1545,12 @@ function flushEvents() {
 function animateEvent(ev) {
   const e = UI.engine;
   switch (ev.type) {
+    case "setup":
+      // opening-day turn-order briefing — only for a fresh human game (the
+      // tutorial has its own onboarding; rooms/spectator skip it)
+      if (ev.seating && !(typeof Tutor !== "undefined" && Tutor.active) &&
+          UI.mode !== "remote" && !UI.autoplay) showOpeningDay(ev);
+      return 100;
     case "roundStart": {
       const genres = UI.engine.state.calendar[ev.round - 1];
       showBanner(`ROUND ${["I", "II", "III", "IV", "V"][ev.round - 1]}`,
@@ -1576,10 +1789,13 @@ function animateEvent(ev) {
       return 250;
     case "roundEnd": {
       const lead = ev.rankInfo[0];
-      const lines = ev.rankInfo.map((r) => `${r.place}. ${esc(P(r.player).pubName)} (${r.best >= 0 ? r.best + " fans" : "no comics"}) ${r.vp ? "+" + r.vp + " VP" : ""}`).join(" &middot; ");
+      const lines = ev.rankInfo.map((r) => `${r.place}. ${esc(P(r.player).pubName)} (${r.best >= 0 ? fanTag(r.best) : "no comics"}) ${r.vp ? "+" + r.vp + " VP" : ""}`).join(" &middot; ");
       headline(`CYCLE ${["I", "II", "III", "IV", "V"][ev.round - 1] || ev.round} CLOSES: ${esc(P(lead.player).pubName).toUpperCase()} ON TOP`, lines);
       ev.pay.forEach((pp) => { if (pp.amount) say(null, `${esc(P(pp.player).pubName)} earns <b>$${pp.amount}</b> from the chart.`); });
       SFX.play("fanfare");
+      // the final cycle ends the game — the endgame modal is the finale, so
+      // skip the wrapup there (it would only flash and be replaced)
+      if (ev.round < 5) showRoundWrapup(ev);
       return 1200;
     }
     case "turn":
